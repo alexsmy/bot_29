@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-telegram-bot
+websockets
+pydantic
+python-dotenv
+asyncpg
+psycopg2-binary
+user-agents
+httpx
+twilio
