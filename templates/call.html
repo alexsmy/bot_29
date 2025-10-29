@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Telegram Caller - Звонок</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <div id="app-container">
+        <!-- ЭКРАН 1: ПРОВЕРКА ОБОРУДОВАНИЯ -->
+        <div id="pre-call-check-screen" class="screen">
+            <div class="check-container">
+                <p class="check-subtitle">Пожалуйста, предоставьте доступ к камере и микрофону.</p>
+
+                <div class="media-preview-area">
+                    <video id="previewVideo" autoplay muted playsinline></video>
+                    <div class="mic-level-meter">
+                        <div class="mic-level-bar"></div>
+                        <div class="mic-level-bar"></div>
+                        <div class="mic-level-bar"></div>
+                        <div class="mic-level-bar"></div>
+                        <div class="mic-level-bar"></div>
+                    </div>
+                </div>
+
+                <div class="compact-grid device-selectors">
+                    <div id="camera-select-container" class="device-selector" style="display: none;">
+                        <label for="camera-select">Камера:</label>
+                        <select id="camera-select"></select>
+                    </div>
+                    <div id="mic-select-container" class="device-selector" style="display: none;">
+                        <label for="mic-select">Микрофон:</label>
+                        <select id="mic-select"></select>
+                    </div>
+                    <div id="speaker-select-container" class="device-selector" style="display: none;">
+                        <label for="speaker-select">Динамик:</label>
+                        <select id="speaker-select"></select>
+                    </div>
+                </div>
+
+                <div class="compact-grid status-indicators">
+                    <div class="status-item" id="camera-status">
+                        <span class="status-icon">📷</span>
+                        <span class="status-text" id="camera-status-text">Камера: ...</span>
+                    </div>
+                    <div class="status-item" id="mic-status">
+                        <span class="status-icon">🎤</span>
+                        <span class="status-text" id="mic-status-text">Микрофон: ...</span>
+                    </div>
+                </div>
+
+                <button id="continue-to-call-btn" class="continue-btn" disabled>Продолжить</button>
+                <button id="continue-spectator-btn" class="continue-btn spectator" style="display: none;">Войти как наблюдатель</button>
+            </div>
+        </div>
+
+        <!-- ЭКРАН 2: ОЖИДАНИЕ И ВЫБОР ДЕЙСТВИЯ -->
+        <div id="pre-call-screen" class="screen">
+            <header class="pre-call-header">
+                <h1>Приватная комната для звонка</h1>
+                <p>Это безопасная динамическая ссылка для связи между двумя собеседниками.</p>
+            </header>
+
+            <main class="pre-call-center">
+                <div id="popup-waiting" class="popup">
+                    <h2>Ожидаем подключение второго собеседника...</h2>
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="popup-actions" class="popup">
+                    <h2>Собеседники онлайн</h2>
+                    <p>Выберите тип соединения. Вам доступны аудио- и видеозвонок.</p>
+                    <div class="call-actions-container">
+                        <button class="action-call-btn audio" data-call-type="audio">
+                            <span data-icon-name="audioCall"></span>
+                            <span>Аудиозвонок</span>
+                        </button>
+                        <button class="action-call-btn video" data-call-type="video">
+                            <span data-icon-name="videoCall"></span>
+                            <span>Видеозвонок</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="popup-initiating" class="popup">
+                    <h2>Собеседник начал вызов...</h2>
+                    <p>Пожалуйста, ожидайте.</p>
+                </div>
+            </main>
+
+            <footer class="pre-call-footer">
+                <div class="info-block-lifetime">
+                    <p>Время действия этой ссылки:</p>
+                    <div id="lifetime-timer">--:--</div>
+                    <p>Любой из собеседников может завершить сеанс, закрыв соединение.</p>
+                    <div class="footer-actions">
+                        <button id="close-session-btn">Закрыть</button>
+                        {% if bot_username %}
+                        <a href="https://t.me/{{ bot_username }}" target="_blank">Создать новую ссылку</a>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="info-block-security">
+                    <button id="instructions-btn" class="instructions-btn">Инструкции</button>
+                </div>
+            </footer>
+        </div>
+
+        <!-- ЭКРАН 3: ЗВОНОК -->
+        <div id="call-screen" class="screen">
+            <video id="remoteVideo" autoplay playsinline></video>
+
+            <div id="local-video-container">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <div class="view-controls">
+                    <button id="toggle-local-view-btn" class="view-control-btn" title="Переключить вид (локальный)">
+                        <span class="icon" data-icon-name="localViewContain"></span>
+                    </button>
+                    <button id="toggle-remote-view-btn" class="view-control-btn" title="Переключить вид (удаленный)">
+                        <span class="icon" data-icon-name="remoteViewCover"></span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="audio-call-visualizer">
+                <div class="avatar-container local">
+                    <div class="glow" id="local-glow"></div>
+                    <span data-icon-name="audioAvatarLocal"></span>
+                </div>
+                <div class="data-flow">
+                    <span></span><span></span><span></span><span></span><span></span>
+                </div>
+                <div class="avatar-container remote">
+                    <div class="glow" id="remote-glow"></div>
+                    <span data-icon-name="audioAvatarRemote"></span>
+                </div>
+            </div>
+
+            <div class="call-ui-overlay">
+                <div class="top-info">
+                    <div id="connection-status" title="Качество / Тип соединения">
+                        <span id="connection-quality" class="icon">
+                            <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
+                            <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
+                            <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
+                        </span>
+                        <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
+                        <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
+                        <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
+                        <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
+                    </div>
+                    <div id="connection-info-popup" class="connection-info-popup"></div>
+                    <div id="remote-audio-level" class="remote-audio-level-container">
+                        <div class="remote-audio-level-bar"></div>
+                        <div class="remote-audio-level-bar"></div>
+                        <div class="remote-audio-level-bar"></div>
+                        <div class="remote-audio-level-bar"></div>
+                        <div class="remote-audio-level-bar"></div>
+                    </div>
+                </div>
+
+                <div class="center-info">
+                    <div class="caller-info-top">
+                        <h2 id="remote-user-name">Имя пользователя</h2>
+                        <p id="call-timer">00:00</p>
+                    </div>
+                </div>
+
+                <div class="bottom-controls">
+                    <div class="call-controls-grid">
+                        <div class="control-item">
+                            <button id="mute-btn" class="control-btn">
+                                <span class="icon-on" data-icon-name="micOn"></span>
+                                <span class="icon-off" data-icon-name="micOff"></span>
+                            </button>
+                            <span>Микрофон</span>
+                        </div>
+                        <div class="control-item" id="video-control-item">
+                            <button id="video-btn" class="control-btn">
+                                <span class="icon-on" data-icon-name="videoOn"></span>
+                                <span class="icon-off" data-icon-name="videoOff"></span>
+                            </button>
+                            <span>Камера</span>
+                        </div>
+                        <div class="control-item">
+                            <button id="speaker-btn" class="control-btn">
+                                <span class="icon-on" data-icon-name="speakerOn"></span>
+                                <span class="icon-off" data-icon-name="speakerOff"></span>
+                            </button>
+                            <span>Динамик</span>
+                        </div>
+                        <div class="control-item" id="device-settings-control-item">
+                            <button id="device-settings-btn" class="control-btn">
+                                <span class="icon-on" data-icon-name="settings"></span>
+                            </button>
+                            <span>Устройства</span>
+                        </div>
+                        <div class="control-item" id="screen-share-control-item" style="display: none;">
+                            <button id="screen-share-btn" class="control-btn">
+                                <span class="icon-on" data-icon-name="screenShareOn"></span>
+                                <span class="icon-off" data-icon-name="screenShareOff"></span>
+                            </button>
+                            <span>Экран</span>
+                        </div>
+                    </div>
+
+                    <div class="hangup-wrapper">
+                        <button id="hangup-btn" class="hangup-btn">
+                            <span data-icon-name="hangup"></span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="remote-mute-toast" class="toast-notification"></div>
+    </div>
+
+    <div id="incoming-call-modal" class="modal">
+        <div class="modal-content">
+            <div class="caller-info-modal">
+                <h3 id="caller-name">Вам звонит...</h3>
+                <p id="incoming-call-type">Telegram Call</p>
+            </div>
+            <div class="modal-buttons">
+                <div class="action-button-wrapper">
+                    <button id="decline-btn" class="action-btn decline-btn">
+                        <span data-icon-name="decline"></span>
+                    </button>
+                    <span>Отклонить</span>
+                </div>
+                <div class="action-button-wrapper">
+                    <button id="accept-btn" class="action-btn accept-btn">
+                        <span data-icon-name="accept"></span>
+                    </button>
+                    <span>Принять</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="instructions-modal" class="modal-instructions">
+        <div class="modal-overlay"></div>
+        <div class="modal-instructions-content">
+            <button class="close-instructions-btn top">Закрыть</button>
+            <div class="instructions-content">
+                {% include 'instructions_call.html' %}
+            </div>
+            <button class="close-instructions-btn bottom">Закрыть</button>
+        </div>
+    </div>
+
+    <div id="device-settings-modal" class="modal-instructions">
+        <div class="modal-overlay"></div>
+        <div class="modal-instructions-content">
+            <button class="close-settings-btn top">Закрыть</button>
+            <div class="settings-content">
+                <h2>Настройки устройств</h2>
+                <div class="device-selectors-modal">
+                    <div id="camera-select-container-call" class="device-selector" style="display: none;">
+                        <label for="camera-select-call">Камера:</label>
+                        <select id="camera-select-call"></select>
+                    </div>
+                    <div id="mic-select-container-call" class="device-selector" style="display: none;">
+                        <label for="mic-select-call">Микрофон:</label>
+                        <select id="mic-select-call"></select>
+                    </div>
+                    <div id="speaker-select-container-call" class="device-selector" style="display: none;">
+                        <label for="speaker-select-call">Динамик:</label>
+                        <select id="speaker-select-call"></select>
+                    </div>
+                </div>
+            </div>
+            <button class="close-settings-btn bottom">Закрыть</button>
+        </div>
+    </div>
+
+    <audio id="localAudio" autoplay muted playsinline style="display:none;"></audio>
+    <audio id="remoteAudio" autoplay playsinline></audio>
+
+    <audio id="ringOutAudio" loop src="/static/sounds/ring-out.mp3"></audio>
+    <audio id="connectAudio" src="/static/sounds/connect.mp3"></audio>
+    <audio id="ringInAudio" loop src="/static/sounds/ring-in.mp3"></audio>
+
+    <script src="/static/js/icons.js"></script>
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

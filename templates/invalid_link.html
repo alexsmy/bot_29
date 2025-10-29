@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ссылка недействительна - Telegram Caller</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .landing-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            height: 100vh;
+            padding: 20px;
+            background: linear-gradient(135deg, #232526 0%, #414345 100%);
+            color: var(--text-primary);
+        }
+        .landing-content {
+            max-width: 600px;
+        }
+        .landing-title {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .landing-text {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+        .landing-button {
+            display: inline-block;
+            padding: 15px 30px;
+            font-size: 1.1rem;
+            font-weight: 500;
+            color: #fff;
+            background-color: var(--accent-blue);
+            border: none;
+            border-radius: 12px;
+            text-decoration: none;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        .landing-button:hover {
+            background-color: var(--accent-blue-dark);
+            transform: translateY(-2px);
+        }
+        @media (max-width: 600px) {
+            .landing-title {
+                font-size: 2rem;
+            }
+            .landing-text {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="landing-container">
+        <div class="landing-content">
+            <h1 class="landing-title">Эта ссылка недействительна</h1>
+            <p class="landing-text">
+                К сожалению, ссылка для звонка, по которой вы перешли, некорректна или срок ее действия истек. Для осуществления вызова, пожалуйста, сгенерируйте новую ссылку в нашем Telegram боте.
+            </p>
+            {% if bot_username %}
+            <a href="https://t.me/{{ bot_username }}" target="_blank" class="landing-button">Перейти в бот {{ bot_name }}</a>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --surface-color: #2c2c2c;
+            --primary-text: #e0e0e0;
+            --secondary-text: #a0a0a0;
+            --accent-color: #0A84FF;
+            --border-color: #444;
+            --success-color: #28a745;
+            --pending-color: #ffc107;
+            --error-color: #dc3545;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-text);
+            margin: 0;
+            padding: 1rem;
+            font-size: 14px;
+        }
+        h1, h2 {
+            color: #fff;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            background-color: var(--surface-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .filters {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filters label {
+            font-weight: bold;
+        }
+        .filters button, .filters input, .filters select {
+            padding: 0.5rem 0.75rem;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background-color: #3a3a3a;
+            color: var(--primary-text);
+            font-size: 1em;
+        }
+        .filters button {
+            cursor: pointer;
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+        }
+        .search-hint {
+            color: var(--secondary-text);
+            font-size: 0.8em;
+            width: 100%;
+            margin-top: -0.5rem;
+            margin-bottom: 0.5rem;
+            padding-left: 0.2rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        .stat-card {
+            background-color: #3a3a3a;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--secondary-text);
+            margin-top: 0.25rem;
+        }
+
+        /* Users List Styles */
+        .users-list .user-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .users-list .user-item:last-child {
+            border-bottom: none;
+        }
+        .users-list .user-item:hover {
+            background-color: #333;
+        }
+        .user-item .user-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-summary .user-info span {
+            display: block;
+        }
+        .user-summary .user-info .user-name {
+            font-weight: bold;
+        }
+        .user-summary .user-info .user-id {
+            font-size: 0.8em;
+            color: var(--secondary-text);
+        }
+        .user-summary .user-first-seen {
+            font-size: 0.8em;
+            color: var(--secondary-text);
+            text-align: right;
+        }
+        .user-details {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px dashed var(--border-color);
+        }
+        .user-details h3 {
+            margin-top: 0;
+            font-size: 1em;
+            color: var(--secondary-text);
+        }
+        .user-details ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 0.9em;
+        }
+        .user-details li {
+            padding: 0.25rem 0;
+        }
+
+        /* Connections List Styles */
+        .connections-list .connection-card {
+            background-color: #3a3a3a;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            padding: 1rem;
+        }
+        .connection-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 0.75rem;
+        }
+        .card-header .room-id {
+            font-weight: bold;
+            font-family: monospace;
+        }
+        .card-header .status {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8em;
+            font-weight: bold;
+        }
+        .status.completed { background-color: var(--success-color); color: white; }
+        .status.active { background-color: var(--accent-color); color: white; }
+        .status.pending { background-color: var(--pending-color); color: #333; }
+        .card-body .participant {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        .participant p, .card-body > p {
+            margin: 0.25rem 0;
+            font-size: 0.9em;
+        }
+        .participant strong, .card-body > p > strong {
+            color: var(--secondary-text);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Панель администратора</h1>
+
+        <!-- Сводная информация -->
+        <div class="section">
+            <h2>Сводная информация</h2>
+            <div class="filters">
+                <label for="stats-period">Период:</label>
+                <select id="stats-period">
+                    <option value="day">За день</option>
+                    <option value="week">За неделю</option>
+                    <option value="month">За месяц</option>
+                    <option value="all" selected>За все время</option>
+                </select>
+            </div>
+            <div id="stats-container" class="stats-grid"></div>
+        </div>
+
+        <!-- Пользователи бота -->
+        <div class="section">
+            <h2>Пользователи бота</h2>
+            <div class="filters">
+                <label for="user-search">Поиск по ID:</label>
+                <input type="text" id="user-search" placeholder="Введите ID пользователя...">
+            </div>
+            <div class="search-hint">
+                <i>Список фильтруется автоматически по мере ввода ID.</i>
+            </div>
+            <div id="users-list" class="users-list">
+                <p>Загрузка пользователей...</p>
+            </div>
+        </div>
+
+        <!-- Информация о соединениях -->
+        <div class="section">
+            <h2>Информация о соединениях</h2>
+            <div class="filters">
+                <label for="connections-date">Дата:</label>
+                <input type="date" id="connections-date">
+                <button id="search-connections-btn">Показать</button>
+            </div>
+            <div id="connections-list" class="connections-list">
+                <p>Выберите дату для просмотра соединений.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_TOKEN = "{{ token }}";
+
+        // --- Helper Functions ---
+        async function fetchData(endpoint) {
+            const separator = endpoint.includes('?') ? '&' : '?';
+            const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    console.error(`Ошибка при загрузке данных: ${response.statusText}`);
+                    alert('Ошибка при загрузке данных. Токен мог устареть или API недоступен.');
+                    return null;
+                }
+                return response.json();
+            } catch (error) {
+                console.error('Сетевая ошибка:', error);
+                alert('Сетевая ошибка. Проверьте консоль для деталей.');
+                return null;
+            }
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            return new Date(isoString).toLocaleString('ru-RU', { timeZone: 'UTC', dateStyle: 'short', timeStyle: 'medium' });
+        }
+
+        // --- Stats ---
+        const statsContainer = document.getElementById('stats-container');
+        const statsPeriodSelect = document.getElementById('stats-period');
+
+        async function loadStats() {
+            const period = statsPeriodSelect.value;
+            const data = await fetchData(`stats?period=${period}`);
+            if (!data) {
+                statsContainer.innerHTML = '<p>Не удалось загрузить статистику.</p>';
+                return;
+            }
+            statsContainer.innerHTML = `
+                <div class="stat-card"><div class="value">${data.total_users}</div><div class="label">Пользователей</div></div>
+                <div class="stat-card"><div class="value">${data.total_actions}</div><div class="label">Действий в боте</div></div>
+                <div class="stat-card"><div class="value">${data.total_sessions_created}</div><div class="label">Ссылок создано</div></div>
+                <div class="stat-card"><div class="value">${data.completed_calls}</div><div class="label">Успешных звонков</div></div>
+                <div class="stat-card"><div class="value">${data.avg_call_duration}</div><div class="label">Средняя длит. (сек)</div></div>
+            `;
+        }
+        statsPeriodSelect.addEventListener('change', loadStats);
+
+        // --- Users List ---
+        const usersListContainer = document.getElementById('users-list');
+        const userSearchInput = document.getElementById('user-search');
+
+        async function loadUsers() {
+            const users = await fetchData('users');
+            if (!users || users.length === 0) {
+                usersListContainer.innerHTML = '<p>Пользователи не найдены.</p>';
+                return;
+            }
+            usersListContainer.innerHTML = users.map(user => {
+                const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+                const displayName = fullName || (user.username ? `@${user.username}` : 'Без имени');
+                return `
+                <div class="user-item" data-user-id="${user.user_id}">
+                    <div class="user-summary">
+                        <div class="user-info">
+                            <span class="user-name">${displayName}</span>
+                            <span class="user-id">ID: ${user.user_id}</span>
+                        </div>
+                        <div class="user-first-seen">
+                            <span>Первый заход:</span>
+                            <span>${formatDate(user.first_seen)}</span>
+                        </div>
+                    </div>
+                    <div class="user-details" id="details-${user.user_id}"></div>
+                </div>
+                `;
+            }).join('');
+
+            // Add click listeners
+            document.querySelectorAll('.user-item').forEach(item => {
+                item.addEventListener('click', toggleUserDetails);
+            });
+        }
+
+        async function toggleUserDetails(event) {
+            const userItem = event.currentTarget;
+            const userId = userItem.dataset.userId;
+            const detailsContainer = userItem.querySelector('.user-details');
+
+            const isVisible = detailsContainer.style.display === 'block';
+            if (isVisible) {
+                detailsContainer.style.display = 'none';
+            } else {
+                detailsContainer.style.display = 'block';
+                // Load content only if it's not already loaded
+                if (!detailsContainer.innerHTML.trim()) {
+                    detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Загрузка...</p>';
+                    const actions = await fetchData(`user_actions/${userId}`);
+                    if (actions && actions.length > 0) {
+                        detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><ul>' + actions.map(action => `
+                            <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>
+                        `).join('') + '</ul>';
+                    } else {
+                        detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Действий не найдено.</p>';
+                    }
+                }
+            }
+        }
+
+        userSearchInput.addEventListener('input', () => {
+            const searchTerm = userSearchInput.value.trim().toLowerCase();
+            const userItems = usersListContainer.querySelectorAll('.user-item');
+            userItems.forEach(item => {
+                const userId = item.dataset.userId.toLowerCase();
+                if (userId.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+
+        // --- Connections ---
+        const connectionsDateInput = document.getElementById('connections-date');
+        const searchConnectionsBtn = document.getElementById('search-connections-btn');
+        const connectionsListContainer = document.getElementById('connections-list');
+
+        async function loadConnections() {
+            const date = connectionsDateInput.value;
+            if (!date) {
+                alert('Выберите дату');
+                return;
+            }
+            connectionsListContainer.innerHTML = '<p>Загрузка соединений...</p>';
+            const sessions = await fetchData(`connections?date=${date}`);
+            if (!sessions || sessions.length === 0) {
+                connectionsListContainer.innerHTML = '<p>Соединения за эту дату не найдены.</p>';
+                return;
+            }
+
+            connectionsListContainer.innerHTML = sessions.map(session => {
+                const participantsHtml = session.participants.map((p, index) => `
+                    <div class="participant">
+                        <p><strong>Участник ${index + 1}</strong></p>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>
+                `).join('');
+
+                let lifetimeInfo = '';
+                if (session.closed_at) {
+                    const created = new Date(session.created_at);
+                    const closed = new Date(session.closed_at);
+                    const diffMinutes = Math.round((closed - created) / 60000);
+                    lifetimeInfo = `
+                        <p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>
+                        <p><strong>Время жизни:</strong> ${diffMinutes} мин.</p>
+                        <p><strong>Причина:</strong> ${session.close_reason || 'N/A'}</p>
+                    `;
+                } else {
+                    lifetimeInfo = '<p><strong>Статус:</strong> Комната еще активна</p>';
+                }
+
+                return `
+                <div class="connection-card">
+                    <div class="card-header">
+                        <span class="room-id">Room: ${session.room_id.substring(0, 8)}...</span>
+                        <span>${session.call_type || 'N/A'} / ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}</span>
+                        <span class="status ${session.status}">${session.status}</span>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
+                        ${lifetimeInfo}
+                        <hr style="border-color: var(--border-color); margin: 0.5rem 0;">
+                        ${participantsHtml || '<p>Нет информации об участниках.</p>'}
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+        searchConnectionsBtn.addEventListener('click', loadConnections);
+        connectionsDateInput.value = new Date().toISOString().split('T')[0];
+
+        // --- Initial Load ---
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadUsers();
+        });
+    </script>
+</body>
+</html>
