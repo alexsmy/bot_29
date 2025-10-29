@@ -1,0 +1,33 @@
+{
+    "stun_servers": [
+        {
+            "urls": "stun:stun.l.google.com:19302",
+            "region": "global",
+            "source": "https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt"
+        },
+        {
+            "urls": "stun:stun1.l.google.com:19302",
+            "region": "global",
+            "source": "https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt"
+        },
+        {
+            "urls": "stun:stun2.l.google.com:19302",
+            "region": "global",
+            "source": "https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt"
+        },
+        {
+            "urls": "stun:stun3.l.google.com:19302",
+            "region": "global",
+            "source": "https://raw.githubusercontent.com/pradt2/always-online-stun/master/valid_hosts.txt"
+        }
+    ],
+    "turn_providers": [
+        {
+            "provider": "twilio",
+            "credentials_from_env": [
+                "TWILIO_ACCOUNT_SID",
+                "TWILIO_AUTH_TOKEN"
+            ]
+        }
+    ]
+}

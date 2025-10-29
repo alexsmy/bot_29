@@ -1,0 +1,12 @@
+run = "python bot.py"
+modules = ["python-3.11"]
+
+[agent]
+expertMode = true
+
+[nix]
+packages = ["libxcrypt"]
+
+[[ports]]
+localPort = 8000
+externalPort = 80
