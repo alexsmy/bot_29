@@ -17,7 +17,6 @@ asyncpg = "^0.29.0"
 psycopg2-binary = "^2.9.9"
 user-agents = "^2.2.0"
 httpx = "^0.25.0"
-telegram = "^0.0.1"
 twilio = "^9.8.3"
 
 [tool.poetry.dev-dependencies]
