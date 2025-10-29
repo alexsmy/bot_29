@@ -1,19 +1,19 @@
+# START OF REPLACEMENT FILE database.py (PostgreSQL version)
 
 import os
-import aiosqlite
 import asyncpg
 from datetime import datetime
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 async def get_conn():
-    
+    """Создает и возвращает соединение с базой данных PostgreSQL."""
     if not DATABASE_URL:
         raise ValueError("DATABASE_URL не установлена в переменных окружения")
     return await asyncpg.connect(DATABASE_URL)
 
 async def init_db():
-    
+    """Инициализирует базу данных, создает таблицы, если они не существуют."""
     conn = await get_conn()
     try:
         await conn.execute('''
@@ -153,6 +153,7 @@ async def log_room_closure(room_id, reason):
     finally:
         await conn.close()
 
+# --- Функции для админ-панели ---
 
 async def get_stats(period):
     query_parts = {
@@ -213,3 +214,5 @@ async def get_connections_info(date_str):
         return results
     finally:
         await conn.close()
+
+# END OF REPLACEMENT FILE
