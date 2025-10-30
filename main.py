@@ -1,12 +1,13 @@
-# START OF REPLACEMENT FILE main.py (v2)
+# START OF REPLACEMENT FILE main.py (v2 - FIXED) 30/10/2025
 
 import asyncio
 import os
 import uuid
+import json
+from datetime import datetime, timedelta, date
 from typing import Dict, Any, Optional, List
-from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -14,6 +15,19 @@ from pydantic import BaseModel
 import database
 import utils
 import ice_provider
+
+class CustomJSONResponse(Response):
+    media_type = "application/json"
+
+    def render(self, content: Any) -> bytes:
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+            default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
+        ).encode("utf-8")
 
 app = FastAPI()
 
@@ -46,7 +60,6 @@ class RoomManager:
         self.pending_call_type: Optional[str] = None
 
     async def connect(self, websocket: WebSocket, user_data: dict):
-        # Prevent more than max_users from being in the room's user list at any time
         if len(self.users) >= self.max_users:
             await websocket.close(code=1008, reason="Room is full")
             return None
@@ -61,14 +74,12 @@ class RoomManager:
         await self.broadcast_user_list()
         return server_user_id
 
-    # MODIFIED: Disconnect now completely removes the user and notifies others.
     async def disconnect(self, user_id: Any):
         if user_id in self.active_connections:
             del self.active_connections[user_id]
         
         if user_id in self.users:
             del self.users[user_id]
-            # Notify the remaining user that someone has left.
             await self.broadcast_user_list()
 
     async def broadcast_user_list(self):
@@ -154,7 +165,6 @@ class ConnectionManager:
                 websocket = room.active_connections.get(user_id)
                 if websocket:
                     await websocket.close(code=1000, reason=reason)
-                # Disconnect will handle cleanup from room's perspective
                 await room.disconnect(user_id)
             
             if room_id in self.rooms:
@@ -189,7 +199,7 @@ async def startup_event():
 @app.post("/log")
 async def receive_log(log: ClientLog):
     print(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
-    return JSONResponse(content={"status": "logged"}, status_code=200)
+    return CustomJSONResponse(content={"status": "logged"}, status_code=200)
 
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
@@ -212,7 +222,7 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
             f.write(rendered_html)
 
         print(f"Лог соединения сохранен в файл: {filepath}")
-        return JSONResponse(content={"status": "log saved", "filename": filename})
+        return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
         print(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
@@ -224,7 +234,7 @@ async def get_room_lifetime(room_id: str):
     room = manager.rooms[room_id]
     expiry_time = room.creation_time + timedelta(hours=PRIVATE_ROOM_LIFETIME_HOURS)
     remaining_seconds = (expiry_time - datetime.utcnow()).total_seconds()
-    return JSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
+    return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
 
 @app.get("/", response_class=HTMLResponse)
 async def get_welcome(request: Request):
@@ -235,7 +245,7 @@ async def get_welcome(request: Request):
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
     servers = ice_provider.get_ice_servers()
-    return JSONResponse(content=servers)
+    return CustomJSONResponse(content=servers)
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
 async def get_call_page(request: Request, room_id: str):
@@ -251,7 +261,7 @@ async def close_room_endpoint(room_id: str):
     if room_id not in manager.rooms:
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
-    return JSONResponse(content={"status": "closing"})
+    return CustomJSONResponse(content={"status": "closing"})
 
 async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_id: Any):
     try:
@@ -298,14 +308,10 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
     except WebSocketDisconnect:
         print(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
     finally:
-        # This logic handles cases where a user disconnects mid-call
-        # It ensures the other user is notified and their status is reset.
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
-            # Find the other user in the call
             other_user_id = None
-            # Check active calls by looking through timeouts
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:
                     other_user_id = key[0] if key[1] == user_id else key[1]
@@ -316,7 +322,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
                 await room.set_user_status(other_user_id, "available")
 
-        # MODIFIED: This now fully removes the user and notifies everyone.
         await room.disconnect(user_id)
 
 @app.websocket("/ws/private/{room_id}")
@@ -326,8 +331,6 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
         return
 
-    # MODIFIED: Simplified connection logic. No more reconnect.
-    # A new connection is always a new user in the room.
     x_forwarded_for = websocket.headers.get("x-forwarded-for")
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
@@ -344,7 +347,6 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     if actual_user_id:
         await handle_websocket_logic(websocket, room, actual_user_id)
     else:
-        # If connect returned None (e.g., room is full), the socket is already closed.
         print(f"Connection attempt to full room {room_id} was rejected.")
 
 
@@ -360,21 +362,25 @@ async def get_admin_page(request: Request, token: str = Depends(verify_admin_tok
 @app.get("/api/admin/stats")
 async def get_admin_stats(period: str = "all", token: str = Depends(verify_admin_token)):
     stats = await database.get_stats(period)
-    return JSONResponse(content=stats)
+    return CustomJSONResponse(content=stats)
 
 @app.get("/api/admin/users")
 async def get_admin_users(token: str = Depends(verify_admin_token)):
     users = await database.get_users_info()
-    return JSONResponse(content=users)
+    return CustomJSONResponse(content=users)
 
 @app.get("/api/admin/user_actions/{user_id}")
 async def get_admin_user_actions(user_id: int, token: str = Depends(verify_admin_token)):
     actions = await database.get_user_actions(user_id)
-    return JSONResponse(content=actions)
+    return CustomJSONResponse(content=actions)
 
 @app.get("/api/admin/connections")
 async def get_admin_connections(date: str, token: str = Depends(verify_admin_token)):
-    connections = await database.get_connections_info(date)
-    return JSONResponse(content=connections)
+    try:
+        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+    
+    connections = await database.get_connections_info(date_obj)
+    return CustomJSONResponse(content=connections)
 
-# END OF REPLACEMENT FILE main.py (v2)
