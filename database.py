@@ -244,7 +244,6 @@ async def get_connections_info(date_obj: date):
     finally:
         await conn.close()
 
-# <<< НАЧАЛО НОВОГО КОДА >>>
 async def get_call_session_details(room_id: str):
     """
     Получает детали сессии звонка из базы данных, если она существует и не истекла.
@@ -261,7 +260,27 @@ async def get_call_session_details(room_id: str):
         return dict(row) if row else None
     finally:
         await conn.close()
-# <<< КОНЕЦ НОВОГО КОДА >>>
+
+async def get_room_lifetime_hours(room_id: str) -> int:
+    """
+    Возвращает время жизни комнаты в часах, получая его из базы данных.
+    """
+    conn = await get_conn()
+    try:
+        query = "SELECT created_at, expires_at FROM call_sessions WHERE room_id = $1"
+        row = await conn.fetchrow(query, room_id)
+        if not row:
+            # Если по какой-то причине комнаты нет, возвращаем стандартное время
+            from config import PRIVATE_ROOM_LIFETIME_HOURS
+            return PRIVATE_ROOM_LIFETIME_HOURS
+        
+        created_at = row['created_at']
+        expires_at = row['expires_at']
+        
+        lifetime_seconds = (expires_at - created_at).total_seconds()
+        return round(lifetime_seconds / 3600)
+    finally:
+        await conn.close()
 
 async def clear_all_data():
     """Очищает все данные из всех таблиц базы данных."""

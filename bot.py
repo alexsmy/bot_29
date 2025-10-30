@@ -19,6 +19,15 @@ from config import (
 
 bot_app_instance = None
 
+def format_hours(hours: int) -> str:
+    """Правильно форматирует часы (1 час, 2 часа, 5 часов)."""
+    if hours % 10 == 1 and hours % 100 != 11:
+        return f"{hours} час"
+    elif 2 <= hours % 10 <= 4 and (hours % 100 < 10 or hours % 100 >= 20):
+        return f"{hours} часа"
+    else:
+        return f"{hours} часов"
+
 def read_template_content(filename: str, replacements: dict = None) -> str:
     template_path = os.path.join("templates", filename)
     try:
@@ -61,7 +70,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Этот бот создает приватные, зашифрованные аудио- и видеозвонки прямо в браузере.\n\n"
         "Просто нажмите кнопку ниже, чтобы сгенерировать уникальную ссылку для звонка. "
         "Поделитесь этой ссылкой с вашим собеседником, и вы сможете начать разговор.\n\n"
-        f"Ссылка действительна в течение {PRIVATE_ROOM_LIFETIME_HOURS} часов."
+        f"Ссылка действительна в течение {format_hours(PRIVATE_ROOM_LIFETIME_HOURS)}."
     )
 
     await update.message.reply_text(welcome_text, reply_markup=reply_markup)
@@ -111,10 +120,11 @@ async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id
     await database.log_call_session(room_id, user_id, created_at, expires_at)
 
     link_text = "🔗 <b>Ссылка для соединения</b> 📞"
+    lifetime_text = format_hours(lifetime_hours)
     message_text = (
         f"Ваша приватная ссылка для звонка готова:\n\n"
         f"<a href=\"{full_link}\">{link_text}</a>\n\n"
-        f"Ссылка будет действительна в течение {lifetime_hours} часов.\n\n"
+        f"Ссылка будет действительна в течение {lifetime_text}.\n\n"
         "Вы можете просто **переслать это сообщение** собеседнику, либо использовать кнопку 'Поделиться' для отправки чистого приглашения (без пометки 'Переслано')."
     )
 
@@ -153,6 +163,11 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
 
     room_id = query
+    
+    # Получаем реальное время жизни комнаты из базы данных
+    lifetime_hours = await database.get_room_lifetime_hours(room_id)
+    lifetime_text = format_hours(lifetime_hours)
+
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
@@ -164,7 +179,7 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     message_text_for_recipient = (
         f"Вас приглашают на приватный звонок:\n\n"
         f"<a href=\"{full_link}\">{link_text}</a>\n\n"
-        f"Ссылка действительна в течение {PRIVATE_ROOM_LIFETIME_HOURS}-х часов. "
+        f"Ссылка действительна в течение {lifetime_text}. "
         "Нажмите кнопку 'Открыть комнату', чтобы присоединиться."
     )
     
