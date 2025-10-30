@@ -52,9 +52,9 @@ class ConnectionLog(BaseModel):
     selectedConnection: Optional[Dict[str, Any]] = None
 
 class RoomManager:
-    def __init__(self, room_id: str, lifetime_hours: int): # <<< ИЗМЕНЕНИЕ 1.1
+    def __init__(self, room_id: str, lifetime_hours: int):
         self.room_id = room_id
-        self.lifetime_hours = lifetime_hours # <<< ИЗМЕНЕНИЕ 1.1
+        self.lifetime_hours = lifetime_hours
         self.max_users = 2
         self.active_connections: Dict[Any, WebSocket] = {}
         self.users: Dict[Any, dict] = {}
@@ -138,9 +138,50 @@ class ConnectionManager:
         self.rooms: Dict[str, RoomManager] = {}
         self.private_room_cleanup_tasks: Dict[str, asyncio.Task] = {}
 
+    # <<< НАЧАЛО НОВОГО КОДА >>>
+    async def get_or_restore_room(self, room_id: str) -> Optional[RoomManager]:
+        """
+        Получает комнату из кэша в памяти или восстанавливает ее из базы данных.
+        Возвращает None, если комната не найдена или истекла.
+        """
+        # 1. Сначала проверяем кэш активных комнат
+        if room_id in self.rooms:
+            return self.rooms[room_id]
+
+        # 2. Если в кэше нет, ищем в базе данных
+        session_details = await database.get_call_session_details(room_id)
+
+        # 3. Если и в базе нет (или истекла), то комнаты не существует
+        if not session_details:
+            logger.warning(f"Попытка доступа к несуществующей или истекшей комнате: {room_id}")
+            return None
+
+        # 4. Восстанавливаем ("гидрируем") объект комнаты из данных БД
+        logger.info(f"Восстанавливаем комнату {room_id} из базы данных...")
+        created_at = session_details['created_at']
+        expires_at = session_details['expires_at']
+        
+        # Рассчитываем исходное время жизни в часах
+        lifetime_seconds = (expires_at - created_at).total_seconds()
+        lifetime_hours = round(lifetime_seconds / 3600)
+
+        # Создаем объект комнаты
+        room = RoomManager(room_id, lifetime_hours=lifetime_hours)
+        # ВАЖНО: устанавливаем время создания из базы, а не текущее
+        room.creation_time = created_at
+        
+        # Добавляем восстановленную комнату в кэш
+        self.rooms[room_id] = room
+        
+        # Также планируем ее очистку на случай, если сервер не упадет
+        await self.schedule_private_room_cleanup(room_id, lifetime_hours)
+        
+        return room
+    # <<< КОНЕЦ НОВОГО КОДА >>>
+
     async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS) -> RoomManager:
         if room_id not in self.rooms:
-            self.rooms[room_id] = RoomManager(room_id, lifetime_hours) # <<< ИЗМЕНЕНИЕ 1.2
+            self.rooms[room_id] = RoomManager(room_id, lifetime_hours)
             await self.schedule_private_room_cleanup(room_id, lifetime_hours)
         return self.rooms[room_id]
 
@@ -220,8 +261,7 @@ async def get_room_lifetime(room_id: str):
     if room_id not in manager.rooms:
         raise HTTPException(status_code=404, detail="Room not found")
     room = manager.rooms[room_id]
-    # Используем персональное время жизни комнаты вместо глобальной константы
-    expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours) # <<< ИЗМЕНЕНИЕ 1.3
+    expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
     remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
     return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
 
@@ -238,7 +278,10 @@ async def get_ice_servers_endpoint():
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
 async def get_call_page(request: Request, room_id: str):
-    if room_id not in manager.rooms:
+    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    room = await manager.get_or_restore_room(room_id)
+    if not room:
+    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         bot_name = os.environ.get("BOT_NAME", "Telegram Caller")
         bot_username = os.environ.get("BOT_USERNAME", "")
         return templates.TemplateResponse("invalid_link.html", {"request": request, "bot_name": bot_name, "bot_username": bot_username}, status_code=404)
@@ -315,8 +358,10 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
 
 @app.websocket("/ws/private/{room_id}")
 async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
-    room = await manager.get_or_create_room(room_id)
+    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    room = await manager.get_or_restore_room(room_id)
     if not room:
+    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
         return
 

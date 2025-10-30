@@ -244,6 +244,25 @@ async def get_connections_info(date_obj: date):
     finally:
         await conn.close()
 
+# <<< НАЧАЛО НОВОГО КОДА >>>
+async def get_call_session_details(room_id: str):
+    """
+    Получает детали сессии звонка из базы данных, если она существует и не истекла.
+    """
+    conn = await get_conn()
+    try:
+        # Ищем комнату, которая еще не истекла
+        query = """
+            SELECT room_id, created_at, expires_at
+            FROM call_sessions
+            WHERE room_id = $1 AND expires_at > NOW()
+        """
+        row = await conn.fetchrow(query, room_id)
+        return dict(row) if row else None
+    finally:
+        await conn.close()
+# <<< КОНЕЦ НОВОГО КОДА >>>
+
 async def clear_all_data():
     """Очищает все данные из всех таблиц базы данных."""
     conn = await get_conn()
