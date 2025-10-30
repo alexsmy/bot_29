@@ -191,6 +191,58 @@
         .participant strong, .card-body > p > strong {
             color: var(--secondary-text);
         }
+
+        /* --- НОВЫЕ СТИЛИ ДЛЯ ОТЧЕТОВ --- */
+        .reports-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        #delete-all-reports-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: 5px;
+            border: 1px solid var(--error-color);
+            background-color: var(--error-color);
+            color: white;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        .report-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-family: monospace;
+        }
+        .report-item:last-child {
+            border-bottom: none;
+        }
+        .report-item a {
+            color: var(--accent-color);
+            text-decoration: none;
+        }
+        .report-item a:hover {
+            text-decoration: underline;
+        }
+        .report-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .report-btn {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.8em;
+            border-radius: 4px;
+            border: 1px solid var(--border-color);
+            background-color: #3a3a3a;
+            color: var(--primary-text);
+            cursor: pointer;
+        }
+        .report-btn.delete-btn {
+            border-color: var(--error-color);
+            color: var(--error-color);
+        }
     </style>
 </head>
 <body>
@@ -239,21 +291,37 @@
                 <p>Выберите дату для просмотра соединений.</p>
             </div>
         </div>
+
+        <!-- НОВЫЙ РАЗДЕЛ: Отчёты о соединениях -->
+        <div class="section">
+            <div class="reports-header">
+                <h2>Отчёты о соединениях</h2>
+                <button id="delete-all-reports-btn">Удалить все</button>
+            </div>
+            <div id="reports-list">
+                <p>Загрузка списка отчётов...</p>
+            </div>
+        </div>
+
     </div>
 
     <script>
         const API_TOKEN = "{{ token }}";
 
         // --- Helper Functions ---
-        async function fetchData(endpoint) {
+        async function fetchData(endpoint, options = {}) {
             const separator = endpoint.includes('?') ? '&' : '?';
             const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
             try {
-                const response = await fetch(url);
+                const response = await fetch(url, options);
                 if (!response.ok) {
-                    console.error(`Ошибка при загрузке данных: ${response.statusText}`);
-                    alert('Ошибка при загрузке данных. Токен мог устареть или API недоступен.');
+                    console.error(`Ошибка при выполнении запроса: ${response.statusText}`);
+                    alert('Ошибка при выполнении запроса. Токен мог устареть или API недоступен.');
                     return null;
+                }
+                // Для DELETE запросов тело ответа может быть пустым
+                if (options.method === 'DELETE') {
+                    return response.json().catch(() => ({ ok: true }));
                 }
                 return response.json();
             } catch (error) {
@@ -319,7 +387,6 @@
                 `;
             }).join('');
 
-            // Add click listeners
             document.querySelectorAll('.user-item').forEach(item => {
                 item.addEventListener('click', toggleUserDetails);
             });
@@ -335,7 +402,6 @@
                 detailsContainer.style.display = 'none';
             } else {
                 detailsContainer.style.display = 'block';
-                // Load content only if it's not already loaded
                 if (!detailsContainer.innerHTML.trim()) {
                     detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Загрузка...</p>';
                     const actions = await fetchData(`user_actions/${userId}`);
@@ -424,10 +490,64 @@
         searchConnectionsBtn.addEventListener('click', loadConnections);
         connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
+        // --- НОВЫЙ КОД: Отчёты ---
+        const reportsListContainer = document.getElementById('reports-list');
+        const deleteAllReportsBtn = document.getElementById('delete-all-reports-btn');
+
+        async function loadReports() {
+            reportsListContainer.innerHTML = '<p>Загрузка списка отчётов...</p>';
+            const reportFiles = await fetchData('reports');
+            if (!reportFiles || reportFiles.length === 0) {
+                reportsListContainer.innerHTML = '<p>Отчёты не найдены.</p>';
+                return;
+            }
+
+            reportsListContainer.innerHTML = reportFiles.map(filename => `
+                <div class="report-item">
+                    <a href="/admin/reports/${filename}?token=${API_TOKEN}" target="_blank">${filename}</a>
+                    <div class="report-actions">
+                        <button class="report-btn download-btn" data-filename="${filename}">Скачать</button>
+                        <button class="report-btn delete-btn" data-filename="${filename}">Удалить</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        reportsListContainer.addEventListener('click', async (event) => {
+            const target = event.target;
+            const filename = target.dataset.filename;
+            if (!filename) return;
+
+            if (target.classList.contains('download-btn')) {
+                const downloadUrl = `/admin/reports/${filename}?download=true&token=${API_TOKEN}`;
+                window.location.href = downloadUrl;
+            }
+
+            if (target.classList.contains('delete-btn')) {
+                if (confirm(`Вы уверены, что хотите удалить отчёт "${filename}"?`)) {
+                    const result = await fetchData(`reports/${filename}`, { method: 'DELETE' });
+                    if (result) {
+                        loadReports(); // Обновить список после удаления
+                    }
+                }
+            }
+        });
+
+        deleteAllReportsBtn.addEventListener('click', async () => {
+            if (confirm('Вы уверены, что хотите удалить ВСЕ отчёты? Это действие необратимо.')) {
+                const result = await fetchData('reports', { method: 'DELETE' });
+                if (result) {
+                    alert(`Удалено отчётов: ${result.count || 0}`);
+                    loadReports(); // Обновить список
+                }
+            }
+        });
+
         // --- Initial Load ---
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
             loadUsers();
+            loadReports(); // Загружаем отчеты при старте
         });
     </script>
 </body>
