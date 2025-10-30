@@ -52,8 +52,9 @@ class ConnectionLog(BaseModel):
     selectedConnection: Optional[Dict[str, Any]] = None
 
 class RoomManager:
-    def __init__(self, room_id: str):
+    def __init__(self, room_id: str, lifetime_hours: int): # <<< ИЗМЕНЕНИЕ 1.1
         self.room_id = room_id
+        self.lifetime_hours = lifetime_hours # <<< ИЗМЕНЕНИЕ 1.1
         self.max_users = 2
         self.active_connections: Dict[Any, WebSocket] = {}
         self.users: Dict[Any, dict] = {}
@@ -139,7 +140,7 @@ class ConnectionManager:
 
     async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS) -> RoomManager:
         if room_id not in self.rooms:
-            self.rooms[room_id] = RoomManager(room_id)
+            self.rooms[room_id] = RoomManager(room_id, lifetime_hours) # <<< ИЗМЕНЕНИЕ 1.2
             await self.schedule_private_room_cleanup(room_id, lifetime_hours)
         return self.rooms[room_id]
 
@@ -219,7 +220,8 @@ async def get_room_lifetime(room_id: str):
     if room_id not in manager.rooms:
         raise HTTPException(status_code=404, detail="Room not found")
     room = manager.rooms[room_id]
-    expiry_time = room.creation_time + timedelta(hours=PRIVATE_ROOM_LIFETIME_HOURS)
+    # Используем персональное время жизни комнаты вместо глобальной константы
+    expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours) # <<< ИЗМЕНЕНИЕ 1.3
     remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
     return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
 
