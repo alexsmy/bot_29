@@ -1,8 +1,8 @@
-# START OF REPLACEMENT FILE database.py (PostgreSQL version)
+# START OF REPLACEMENT FILE database.py (PostgreSQL version - FIXED) 30/10/2025
 
 import os
 import asyncpg
-from datetime import datetime
+from datetime import datetime, date
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
@@ -195,12 +195,12 @@ async def get_user_actions(user_id):
     finally:
         await conn.close()
 
-async def get_connections_info(date_str):
+async def get_connections_info(date_obj: date):
     conn = await get_conn()
     try:
         sessions = await conn.fetch(
             "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
-            date_str
+            date_obj
         )
         results = []
         for session in sessions:
@@ -215,4 +215,3 @@ async def get_connections_info(date_str):
     finally:
         await conn.close()
 
-# END OF REPLACEMENT FILE
