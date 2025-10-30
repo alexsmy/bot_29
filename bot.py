@@ -1,8 +1,10 @@
+# START OF REPLACEMENT FILE bot.py (FIXED)
+
 import os
 import sys
 import threading
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants, BotCommand, InputTextMessageContent, InlineQueryResultArticle
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
@@ -109,7 +111,7 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
 
     await manager.get_or_create_room(room_id)
 
-    created_at = datetime.utcnow()
+    created_at = datetime.now(timezone.utc)
     expires_at = created_at + timedelta(hours=PRIVATE_ROOM_LIFETIME_HOURS)
     await database.log_call_session(room_id, user.id, created_at, expires_at)
 
@@ -196,7 +198,8 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     print(f"Администратор (ID: {user.id}) запросил доступ к панели.")
     token = str(uuid.uuid4())
-    manager.add_admin_token(token)
+    # ИСПОЛЬЗУЕМ ФУНКЦИЮ ИЗ DB ВМЕСТО MANAGER
+    await database.add_admin_token(token)
 
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
@@ -246,3 +249,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# END OF REPLACEMENT FILE
