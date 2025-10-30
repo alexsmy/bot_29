@@ -31,6 +31,12 @@ COTURN_SECRET = os.environ.get("COTURN_SECRET")
 PRIVATE_ROOM_LIFETIME_HOURS = 3
 ADMIN_TOKEN_LIFETIME_MINUTES = 60
 
+# New constants for admin-generated room lifetimes (in hours)
+ADMIN_ROOM_LIFETIME_1_HOUR = 1
+ADMIN_ROOM_LIFETIME_1_DAY = 24
+ADMIN_ROOM_LIFETIME_1_MONTH = 24 * 30  # 720 hours
+ADMIN_ROOM_LIFETIME_1_YEAR = 24 * 365 # 8760 hours
+
 
 # --- Critical Checks ---
 # Проверяем наличие критически важного токена при запуске

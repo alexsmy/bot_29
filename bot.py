@@ -9,9 +9,15 @@ from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQuer
 import database
 from main import app as fastapi_app, manager
 from logger_config import logger
+from config import (
+    PRIVATE_ROOM_LIFETIME_HOURS,
+    ADMIN_ROOM_LIFETIME_1_HOUR,
+    ADMIN_ROOM_LIFETIME_1_DAY,
+    ADMIN_ROOM_LIFETIME_1_MONTH,
+    ADMIN_ROOM_LIFETIME_1_YEAR
+)
 
 bot_app_instance = None
-PRIVATE_ROOM_LIFETIME_HOURS = 3
 
 def read_template_content(filename: str, replacements: dict = None) -> str:
     template_path = os.path.join("templates", filename)
@@ -91,34 +97,24 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     )
     await update.message.reply_text(reminder_text)
 
-async def handle_create_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await log_user_and_action(update, "create_private_link")
-    query = update.callback_query
-    await query.answer("Создаю ссылку...")
-
-    user = update.effective_user
-    logger.info(f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
-
-    chat_id = query.message.chat_id
+async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int, lifetime_hours: int):
     room_id = str(uuid.uuid4())
-
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
-
     full_link = f"{web_app_url}call/{room_id}"
 
-    await manager.get_or_create_room(room_id)
+    await manager.get_or_create_room(room_id, lifetime_hours=lifetime_hours)
 
     created_at = datetime.now(timezone.utc)
-    expires_at = created_at + timedelta(hours=PRIVATE_ROOM_LIFETIME_HOURS)
-    await database.log_call_session(room_id, user.id, created_at, expires_at)
+    expires_at = created_at + timedelta(hours=lifetime_hours)
+    await database.log_call_session(room_id, user_id, created_at, expires_at)
 
     link_text = "🔗 <b>Ссылка для соединения</b> 📞"
     message_text = (
         f"Ваша приватная ссылка для звонка готова:\n\n"
         f"<a href=\"{full_link}\">{link_text}</a>\n\n"
-        f"Ссылка будет действительна в течение {PRIVATE_ROOM_LIFETIME_HOURS}-х часов.\n\n"
+        f"Ссылка будет действительна в течение {lifetime_hours} часов.\n\n"
         "Вы можете просто **переслать это сообщение** собеседнику, либо использовать кнопку 'Поделиться' для отправки чистого приглашения (без пометки 'Переслано')."
     )
 
@@ -135,6 +131,16 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
         disable_web_page_preview=True,
         reply_markup=reply_markup
     )
+
+async def handle_create_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await log_user_and_action(update, "create_private_link")
+    query = update.callback_query
+    await query.answer("Создаю ссылку...")
+
+    user = update.effective_user
+    logger.info(f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
+    
+    await _create_and_send_room_link(context, query.message.chat_id, user.id, PRIVATE_ROOM_LIFETIME_HOURS)
 
 async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.inline_query.query
@@ -186,7 +192,6 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "/admin")
-
     user = update.effective_user
     admin_id_str = os.environ.get("ADMIN_USER_ID")
 
@@ -196,19 +201,64 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     logger.info(f"Администратор (ID: {user.id}) запросил доступ к панели.")
+    
+    keyboard = [
+        [InlineKeyboardButton("🔗 Ссылка на админ-панель", callback_data="admin_panel_link")],
+        [InlineKeyboardButton("📞 Создать комнату для звонков", callback_data="admin_create_room_menu")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text("Панель администратора. Выберите действие:", reply_markup=reply_markup)
+
+async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await log_user_and_action(update, "admin_panel_link")
+
     token = str(uuid.uuid4())
     await database.add_admin_token(token)
 
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
-
     admin_link = f"{web_app_url}admin/{token}"
 
-    await update.message.reply_text(
+    await query.edit_message_text(
         f"Ваша ссылка для доступа к панели администратора:\n\n{admin_link}\n\n"
         "Ссылка действительна в течение 1 часа."
     )
+
+async def admin_create_room_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+    await log_user_and_action(update, "admin_create_room_menu")
+
+    keyboard = [
+        [
+            InlineKeyboardButton("1 час", callback_data=f"admin_create_room_{ADMIN_ROOM_LIFETIME_1_HOUR}"),
+            InlineKeyboardButton("1 сутки", callback_data=f"admin_create_room_{ADMIN_ROOM_LIFETIME_1_DAY}")
+        ],
+        [
+            InlineKeyboardButton("1 месяц", callback_data=f"admin_create_room_{ADMIN_ROOM_LIFETIME_1_MONTH}"),
+            InlineKeyboardButton("1 год", callback_data=f"admin_create_room_{ADMIN_ROOM_LIFETIME_1_YEAR}")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text("Выберите время действия комнаты:", reply_markup=reply_markup)
+
+async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer("Создаю долгоживущую ссылку...")
+    
+    lifetime_hours = int(query.data.split('_')[-1])
+    await log_user_and_action(update, f"admin_create_room_{lifetime_hours}h")
+    
+    user = update.effective_user
+    logger.info(f"Администратор {user.first_name} (ID: {user.id}) создает ссылку на {lifetime_hours} часов.")
+    
+    await query.message.delete()
+    await _create_and_send_room_link(context, query.message.chat_id, user.id, lifetime_hours)
 
 def run_fastapi():
     import uvicorn
@@ -235,6 +285,9 @@ def main() -> None:
     application.add_handler(CommandHandler("admin", admin_command))
 
     application.add_handler(CallbackQueryHandler(handle_create_link_callback, pattern="^create_private_link$"))
+    application.add_handler(CallbackQueryHandler(admin_panel_link_callback, pattern="^admin_panel_link$"))
+    application.add_handler(CallbackQueryHandler(admin_create_room_menu_callback, pattern="^admin_create_room_menu$"))
+    application.add_handler(CallbackQueryHandler(admin_create_room_callback, pattern=r"^admin_create_room_\d+$"))
     
     application.add_handler(InlineQueryHandler(handle_inline_query))
 

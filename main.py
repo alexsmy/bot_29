@@ -15,6 +15,7 @@ import database
 import utils
 import ice_provider
 from logger_config import logger, LOG_FILE_PATH
+from config import PRIVATE_ROOM_LIFETIME_HOURS
 
 LOGS_DIR = "connection_logs"
 
@@ -36,7 +37,6 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-PRIVATE_ROOM_LIFETIME_HOURS = 3
 ADMIN_TOKEN_LIFETIME_MINUTES = 60
 
 class ClientLog(BaseModel):
@@ -137,10 +137,10 @@ class ConnectionManager:
         self.rooms: Dict[str, RoomManager] = {}
         self.private_room_cleanup_tasks: Dict[str, asyncio.Task] = {}
 
-    async def get_or_create_room(self, room_id: str) -> RoomManager:
+    async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS) -> RoomManager:
         if room_id not in self.rooms:
             self.rooms[room_id] = RoomManager(room_id)
-            await self.schedule_private_room_cleanup(room_id, PRIVATE_ROOM_LIFETIME_HOURS)
+            await self.schedule_private_room_cleanup(room_id, lifetime_hours)
         return self.rooms[room_id]
 
     async def schedule_private_room_cleanup(self, room_id: str, delay_hours: int):
