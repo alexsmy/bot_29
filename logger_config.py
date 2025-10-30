@@ -30,6 +30,10 @@ def setup_logger():
         logging.basicConfig()
         logging.error(f"Не удалось настроить файловый логгер: {e}")
 
+    # --- НОВАЯ СТРОКА ---
+    # Понижаем уровень логирования для "шумных" библиотек
+    logging.getLogger("httpx").setLevel(logging.WARNING)
+
     return logger
 
 # Создаем и настраиваем логгер при импорте модуля
