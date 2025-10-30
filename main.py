@@ -1,10 +1,10 @@
-# START OF REPLACEMENT FILE main.py (v2 - FIXED) 30/10/2025
+# START OF REPLACEMENT FILE main.py (v2 - FINAL)
 
 import asyncio
 import os
 import uuid
 import json
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends
 from fastapi.responses import HTMLResponse, Response
@@ -56,7 +56,7 @@ class RoomManager:
         self.active_connections: Dict[Any, WebSocket] = {}
         self.users: Dict[Any, dict] = {}
         self.call_timeouts: Dict[tuple, asyncio.Task] = {}
-        self.creation_time = datetime.utcnow()
+        self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
 
     async def connect(self, websocket: WebSocket, user_data: dict):
@@ -134,7 +134,8 @@ class ConnectionManager:
     def __init__(self):
         self.rooms: Dict[str, RoomManager] = {}
         self.private_room_cleanup_tasks: Dict[str, asyncio.Task] = {}
-        self.admin_tokens: Dict[str, datetime] = {}
+        # УДАЛЯЕМ ХРАНЕНИЕ ТОКЕНОВ В ПАМЯТИ
+        # self.admin_tokens: Dict[str, datetime] = {}
 
     async def get_or_create_room(self, room_id: str) -> RoomManager:
         if room_id not in self.rooms:
@@ -174,17 +175,9 @@ class ConnectionManager:
             self.private_room_cleanup_tasks[room_id].cancel()
             del self.private_room_cleanup_tasks[room_id]
 
-    def add_admin_token(self, token: str):
-        expiry_time = datetime.utcnow() + timedelta(minutes=ADMIN_TOKEN_LIFETIME_MINUTES)
-        self.admin_tokens[token] = expiry_time
-
-    def is_admin_token_valid(self, token: str) -> bool:
-        if token in self.admin_tokens:
-            if datetime.utcnow() < self.admin_tokens[token]:
-                return True
-            else:
-                del self.admin_tokens[token]
-        return False
+    # УДАЛЯЕМ СТАРЫЕ ФУНКЦИИ РАБОТЫ С ТОКЕНАМИ
+    # def add_admin_token(self, token: str):
+    # def is_admin_token_valid(self, token: str) -> bool:
 
 manager = ConnectionManager()
 
@@ -205,7 +198,7 @@ async def receive_log(log: ClientLog):
 async def save_connection_log(log_data: ConnectionLog, request: Request):
     try:
         log_dir = "connection_logs"
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"conn_log_{timestamp}_room_{log_data.roomId[:8]}.html"
         filepath = os.path.join(log_dir, filename)
 
@@ -214,7 +207,7 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
             {
                 "request": request,
                 "log": log_data.dict(),
-                "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
             }
         ).body.decode("utf-8")
 
@@ -233,7 +226,7 @@ async def get_room_lifetime(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     room = manager.rooms[room_id]
     expiry_time = room.creation_time + timedelta(hours=PRIVATE_ROOM_LIFETIME_HOURS)
-    remaining_seconds = (expiry_time - datetime.utcnow()).total_seconds()
+    remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
     return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
 
 @app.get("/", response_class=HTMLResponse)
@@ -349,9 +342,11 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     else:
         print(f"Connection attempt to full room {room_id} was rejected.")
 
+# --- ИЗМЕНЕННАЯ ЛОГИКА АДМИН-ПАНЕЛИ ---
 
 async def verify_admin_token(token: str):
-    if not manager.is_admin_token_valid(token):
+    # ИСПОЛЬЗУЕМ ФУНКЦИЮ ИЗ DB ВМЕСТО MANAGER
+    if not await database.is_admin_token_valid(token):
         raise HTTPException(status_code=403, detail="Invalid or expired token")
     return token
 
@@ -384,3 +379,4 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
+# END OF REPLACEMENT FILE main.py (v2 - FINAL)
