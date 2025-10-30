@@ -1,5 +1,3 @@
-# START OF REPLACEMENT FILE main.py (v2 - FINAL + REPORTS)
-
 import asyncio
 import os
 import uuid
@@ -8,7 +6,7 @@ import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends
-from fastapi.responses import HTMLResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -16,8 +14,8 @@ from pydantic import BaseModel
 import database
 import utils
 import ice_provider
+from logger_config import logger, LOG_FILE_PATH
 
-# --- Константа для директории логов ---
 LOGS_DIR = "connection_logs"
 
 class CustomJSONResponse(Response):
@@ -184,11 +182,11 @@ async def startup_event():
     await database.init_db()
     if not os.path.exists(LOGS_DIR):
         os.makedirs(LOGS_DIR)
-        print(f"Создана директория для логов: {LOGS_DIR}")
+        logger.info(f"Создана директория для логов: {LOGS_DIR}")
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
-    print(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
+    logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
     return CustomJSONResponse(content={"status": "logged"}, status_code=200)
 
 @app.post("/api/log/connection-details")
@@ -210,10 +208,10 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(rendered_html)
 
-        print(f"Лог соединения сохранен в файл: {filepath}")
+        logger.info(f"Лог соединения сохранен в файл: {filepath}")
         return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
-        print(f"Ошибка при сохранении лога соединения: {e}")
+        logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
 @app.get("/room/lifetime/{room_id}")
@@ -295,7 +293,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 await room.set_user_status(target_id, "available")
 
     except WebSocketDisconnect:
-        print(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
+        logger.info(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
     finally:
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
@@ -336,7 +334,7 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     if actual_user_id:
         await handle_websocket_logic(websocket, room, actual_user_id)
     else:
-        print(f"Connection attempt to full room {room_id} was rejected.")
+        logger.warning(f"Connection attempt to full room {room_id} was rejected.")
 
 # --- ЛОГИКА АДМИН-ПАНЕЛИ ---
 
@@ -374,20 +372,15 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
-# --- НОВЫЕ ЭНДПОИНТЫ ДЛЯ УПРАВЛЕНИЯ ОТЧЕТАМИ ---
-
 def sanitize_filename(filename: str):
-    """Простая проверка безопасности для имени файла."""
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename.")
     return filename
 
 @app.get("/api/admin/reports")
 async def list_reports(token: str = Depends(verify_admin_token)):
-    """Возвращает список файлов отчетов."""
     try:
         files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
-        # Сортируем файлы по имени в обратном порядке (новые вверху)
         filenames = sorted([os.path.basename(f) for f in files], reverse=True)
         return CustomJSONResponse(content=filenames)
     except Exception as e:
@@ -395,7 +388,6 @@ async def list_reports(token: str = Depends(verify_admin_token)):
 
 @app.get("/admin/reports/{filename}")
 async def get_report(filename: str, download: bool = False, token: str = Depends(verify_admin_token)):
-    """Отдает файл отчета для просмотра или скачивания."""
     safe_filename = sanitize_filename(filename)
     filepath = os.path.join(LOGS_DIR, safe_filename)
     if not os.path.exists(filepath):
@@ -409,7 +401,6 @@ async def get_report(filename: str, download: bool = False, token: str = Depends
 
 @app.delete("/api/admin/reports/{filename}")
 async def delete_report(filename: str, token: str = Depends(verify_admin_token)):
-    """Удаляет конкретный файл отчета."""
     safe_filename = sanitize_filename(filename)
     filepath = os.path.join(LOGS_DIR, safe_filename)
     if not os.path.exists(filepath):
@@ -422,7 +413,6 @@ async def delete_report(filename: str, token: str = Depends(verify_admin_token))
 
 @app.delete("/api/admin/reports")
 async def delete_all_reports(token: str = Depends(verify_admin_token)):
-    """Удаляет все файлы отчетов."""
     try:
         files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
         for f in files:
@@ -431,4 +421,43 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
 
-# END OF REPLACEMENT FILE main.py (v2 - FINAL + REPORTS)
+# --- НОВЫЕ ЭНДПОИНТЫ УПРАВЛЕНИЯ ---
+
+@app.get("/api/admin/logs", response_class=PlainTextResponse)
+async def get_app_logs(token: str = Depends(verify_admin_token)):
+    try:
+        if not os.path.exists(LOG_FILE_PATH):
+            return "Файл логов еще не создан."
+        with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
+            return f.read()
+    except Exception as e:
+        logger.error(f"Ошибка чтения файла логов: {e}")
+        raise HTTPException(status_code=500, detail="Could not read log file.")
+
+@app.get("/api/admin/logs/download")
+async def download_app_logs(token: str = Depends(verify_admin_token)):
+    if not os.path.exists(LOG_FILE_PATH):
+        raise HTTPException(status_code=404, detail="Log file not found.")
+    return FileResponse(path=LOG_FILE_PATH, filename="app.log", media_type='text/plain')
+
+@app.delete("/api/admin/logs")
+async def clear_app_logs(token: str = Depends(verify_admin_token)):
+    try:
+        if os.path.exists(LOG_FILE_PATH):
+            with open(LOG_FILE_PATH, 'w') as f:
+                f.truncate(0)
+            logger.info("Файл логов был очищен администратором.")
+            return CustomJSONResponse(content={"status": "log file cleared"})
+        return CustomJSONResponse(content={"status": "log file not found"})
+    except Exception as e:
+        logger.error(f"Ошибка при очистке файла логов: {e}")
+        raise HTTPException(status_code=500, detail="Could not clear log file.")
+
+@app.delete("/api/admin/database")
+async def clear_database(token: str = Depends(verify_admin_token)):
+    try:
+        await database.clear_all_data()
+        return CustomJSONResponse(content={"status": "database cleared successfully"})
+    except Exception as e:
+        logger.error(f"Ошибка при очистке базы данных: {e}")
+        raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")

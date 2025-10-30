@@ -1,5 +1,3 @@
-# START OF REPLACEMENT FILE bot.py (FIXED)
-
 import os
 import sys
 import threading
@@ -10,6 +8,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQuer
 
 import database
 from main import app as fastapi_app, manager
+from logger_config import logger
 
 bot_app_instance = None
 PRIVATE_ROOM_LIFETIME_HOURS = 3
@@ -24,7 +23,7 @@ def read_template_content(filename: str, replacements: dict = None) -> str:
                     content = content.replace(f"{{{key}}}", str(value))
             return content
     except FileNotFoundError:
-        print(f"КРИТИЧЕСКАЯ ОШИБКА: Файл шаблона не найден: {template_path}", file=sys.stderr)
+        logger.critical(f"Файл шаблона не найден: {template_path}")
         return "Ошибка: Не удалось загрузить содержимое."
 
 async def post_init(application: Application) -> None:
@@ -34,7 +33,7 @@ async def post_init(application: Application) -> None:
         BotCommand("faq", "❓ Ответы на частые вопросы"),
     ]
     await application.bot.set_my_commands(public_commands)
-    print("Меню публичных команд успешно установлено.")
+    logger.info("Меню публичных команд успешно установлено.")
 
 async def log_user_and_action(update: Update, action: str):
     user = update.effective_user
@@ -44,7 +43,7 @@ async def log_user_and_action(update: Update, action: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "/start")
     user_name = update.effective_user.first_name
-    print(f"Пользователь {user_name} (ID: {update.effective_user.id}) запустил команду /start.")
+    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запустил команду /start.")
 
     keyboard = [
         [InlineKeyboardButton("🔗 Создать приватную ссылку", callback_data="create_private_link")]
@@ -64,7 +63,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "/instructions")
     user_name = update.effective_user.first_name
-    print(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил инструкцию.")
+    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил инструкцию.")
 
     instructions_text = read_template_content("instructions_bot.html")
     
@@ -73,7 +72,7 @@ async def instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "/faq")
     user_name = update.effective_user.first_name
-    print(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил FAQ.")
+    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил FAQ.")
 
     faq_text = read_template_content("faq_bot.html", {"LIFETIME_HOURS": PRIVATE_ROOM_LIFETIME_HOURS})
 
@@ -82,7 +81,7 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "Sent unhandled message")
     user_name = update.effective_user.first_name
-    print(f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное сообщение.")
+    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное сообщение.")
 
     reminder_text = (
         "Я умею только генерировать ссылки для звонков. Пожалуйста, используйте для этого команду /start.\n\n"
@@ -98,7 +97,7 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
     await query.answer("Создаю ссылку...")
 
     user = update.effective_user
-    print(f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
+    logger.info(f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
 
     chat_id = query.message.chat_id
     room_id = str(uuid.uuid4())
@@ -192,13 +191,12 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     admin_id_str = os.environ.get("ADMIN_USER_ID")
 
     if not admin_id_str or int(user.id) != int(admin_id_str):
-        print(f"Несанкционированная попытка доступа к /admin от пользователя ID {user.id}.")
+        logger.warning(f"Несанкционированная попытка доступа к /admin от пользователя ID {user.id}.")
         await update.message.reply_text("Эта команда вам недоступна.")
         return
 
-    print(f"Администратор (ID: {user.id}) запросил доступ к панели.")
+    logger.info(f"Администратор (ID: {user.id}) запросил доступ к панели.")
     token = str(uuid.uuid4())
-    # ИСПОЛЬЗУЕМ ФУНКЦИЮ ИЗ DB ВМЕСТО MANAGER
     await database.add_admin_token(token)
 
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
@@ -215,19 +213,19 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 def run_fastapi():
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=port)
+    uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_config=None)
 
 def main() -> None:
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
-        print("КРИТИЧЕСКАЯ ОШИБКА: Токен бота (BOT_TOKEN) не найден.", file=sys.stderr)
+        logger.critical("Токен бота (BOT_TOKEN) не найден.")
         sys.exit(1)
 
     fastapi_thread = threading.Thread(target=run_fastapi)
     fastapi_thread.daemon = True
     fastapi_thread.start()
-    print("FastAPI сервер запущен в фоновом режиме.")
+    logger.info("FastAPI сервер запущен в фоновом режиме.")
 
     application = Application.builder().token(bot_token).post_init(post_init).build()
 
@@ -244,10 +242,8 @@ def main() -> None:
 
     bot_app_instance = application
 
-    print("Telegram бот запускается...")
+    logger.info("Telegram бот запускается...")
     application.run_polling()
 
 if __name__ == "__main__":
     main()
-
-# END OF REPLACEMENT FILE

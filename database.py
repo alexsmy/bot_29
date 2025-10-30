@@ -1,8 +1,7 @@
-
-
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
+from logger_config import logger
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 ADMIN_TOKEN_LIFETIME_MINUTES = 60
@@ -30,7 +29,7 @@ async def init_db():
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS bot_actions (
                 action_id SERIAL PRIMARY KEY,
-                user_id BIGINT NOT NULL REFERENCES users(user_id),
+                user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
                 action TEXT NOT NULL,
                 timestamp TIMESTAMPTZ NOT NULL
             )
@@ -55,7 +54,7 @@ async def init_db():
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS connections (
                 connection_id SERIAL PRIMARY KEY,
-                room_id TEXT NOT NULL REFERENCES call_sessions(room_id),
+                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
                 connected_at TIMESTAMPTZ NOT NULL,
                 ip_address TEXT,
                 user_agent TEXT,
@@ -66,7 +65,7 @@ async def init_db():
                 city TEXT
             )
         ''')
-        # --- НОВАЯ ТАБЛИЦА для токенов администратора ---
+        # --- Таблица для токенов администратора ---
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_tokens (
                 token TEXT PRIMARY KEY,
@@ -75,7 +74,7 @@ async def init_db():
         ''')
     finally:
         await conn.close()
-    print("База данных PostgreSQL успешно инициализирована.")
+    logger.info("База данных PostgreSQL успешно инициализирована.")
 
 async def log_user(user_id, first_name, last_name, username):
     conn = await get_conn()
@@ -163,8 +162,6 @@ async def log_room_closure(room_id, reason):
     finally:
         await conn.close()
 
-# --- НОВЫЕ ФУНКЦИИ для работы с токенами администратора ---
-
 async def add_admin_token(token: str):
     """Сохраняет токен администратора в базу данных."""
     conn = await get_conn()
@@ -181,16 +178,11 @@ async def is_admin_token_valid(token: str) -> bool:
     """Проверяет валидность токена администратора в базе данных."""
     conn = await get_conn()
     try:
-        # Удаляем все истекшие токены для очистки
         await conn.execute("DELETE FROM admin_tokens WHERE expires_at < $1", datetime.now(timezone.utc))
-        
-        # Проверяем, существует ли наш токен
         row = await conn.fetchrow("SELECT 1 FROM admin_tokens WHERE token = $1", token)
         return row is not None
     finally:
         await conn.close()
-
-# --- Функции для админ-панели ---
 
 async def get_stats(period):
     query_parts = {
@@ -252,4 +244,14 @@ async def get_connections_info(date_obj: date):
     finally:
         await conn.close()
 
-# END OF REPLACEMENT FILE
+async def clear_all_data():
+    """Очищает все данные из всех таблиц базы данных."""
+    conn = await get_conn()
+    try:
+        # ON DELETE CASCADE в определениях таблиц позаботится о зависимостях,
+        # но TRUNCATE с CASCADE надежнее и быстрее для полного сброса.
+        # Порядок важен из-за внешних ключей.
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users RESTART IDENTITY CASCADE")
+        logger.warning("Все таблицы базы данных были полностью очищены.")
+    finally:
+        await conn.close()
