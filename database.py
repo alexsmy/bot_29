@@ -1,10 +1,11 @@
-# START OF REPLACEMENT FILE database.py (PostgreSQL version - FIXED) 30/10/2025
+# START OF REPLACEMENT FILE database.py (PostgreSQL version - FINAL)
 
 import os
 import asyncpg
-from datetime import datetime, date
+from datetime import datetime, date, timezone, timedelta
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
+ADMIN_TOKEN_LIFETIME_MINUTES = 60
 
 async def get_conn():
     """Создает и возвращает соединение с базой данных PostgreSQL."""
@@ -16,6 +17,7 @@ async def init_db():
     """Инициализирует базу данных, создает таблицы, если они не существуют."""
     conn = await get_conn()
     try:
+        # --- Таблицы пользователей и действий ---
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
@@ -33,6 +35,7 @@ async def init_db():
                 timestamp TIMESTAMPTZ NOT NULL
             )
         ''')
+        # --- Таблицы звонков и соединений ---
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS call_sessions (
                 session_id SERIAL PRIMARY KEY,
@@ -63,6 +66,13 @@ async def init_db():
                 city TEXT
             )
         ''')
+        # --- НОВАЯ ТАБЛИЦА для токенов администратора ---
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS admin_tokens (
+                token TEXT PRIMARY KEY,
+                expires_at TIMESTAMPTZ NOT NULL
+            )
+        ''')
     finally:
         await conn.close()
     print("База данных PostgreSQL успешно инициализирована.")
@@ -76,7 +86,7 @@ async def log_user(user_id, first_name, last_name, username):
             VALUES ($1, $2, $3, $4, $5)
             ON CONFLICT (user_id) DO NOTHING
             """,
-            user_id, first_name, last_name, username, datetime.utcnow()
+            user_id, first_name, last_name, username, datetime.now(timezone.utc)
         )
     finally:
         await conn.close()
@@ -86,7 +96,7 @@ async def log_bot_action(user_id, action):
     try:
         await conn.execute(
             "INSERT INTO bot_actions (user_id, action, timestamp) VALUES ($1, $2, $3)",
-            user_id, action, datetime.utcnow()
+            user_id, action, datetime.now(timezone.utc)
         )
     finally:
         await conn.close()
@@ -111,7 +121,7 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
                 device_type, os_info, browser_info, country, city
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             """,
-            room_id, datetime.utcnow(), ip_address, user_agent,
+            room_id, datetime.now(timezone.utc), ip_address, user_agent,
             parsed_data['device'], parsed_data['os'], parsed_data['browser'],
             parsed_data['country'], parsed_data['city']
         )
@@ -123,7 +133,7 @@ async def log_call_start(room_id, call_type):
     try:
         await conn.execute(
             "UPDATE call_sessions SET call_type = $1, call_started_at = $2, status = 'active' WHERE room_id = $3",
-            call_type, datetime.utcnow(), room_id
+            call_type, datetime.now(timezone.utc), room_id
         )
     finally:
         await conn.close()
@@ -134,7 +144,7 @@ async def log_call_end(room_id):
         row = await conn.fetchrow("SELECT call_started_at FROM call_sessions WHERE room_id = $1 AND status = 'active'", room_id)
         if row and row['call_started_at']:
             start_time = row['call_started_at']
-            end_time = datetime.utcnow()
+            end_time = datetime.now(timezone.utc)
             duration = int((end_time - start_time).total_seconds())
             await conn.execute(
                 "UPDATE call_sessions SET call_ended_at = $1, duration_seconds = $2, status = 'completed' WHERE room_id = $3",
@@ -148,8 +158,35 @@ async def log_room_closure(room_id, reason):
     try:
         await conn.execute(
             "UPDATE call_sessions SET closed_at = $1, close_reason = $2 WHERE room_id = $3",
-            datetime.utcnow(), reason, room_id
+            datetime.now(timezone.utc), reason, room_id
         )
+    finally:
+        await conn.close()
+
+# --- НОВЫЕ ФУНКЦИИ для работы с токенами администратора ---
+
+async def add_admin_token(token: str):
+    """Сохраняет токен администратора в базу данных."""
+    conn = await get_conn()
+    try:
+        expiry_time = datetime.now(timezone.utc) + timedelta(minutes=ADMIN_TOKEN_LIFETIME_MINUTES)
+        await conn.execute(
+            "INSERT INTO admin_tokens (token, expires_at) VALUES ($1, $2)",
+            token, expiry_time
+        )
+    finally:
+        await conn.close()
+
+async def is_admin_token_valid(token: str) -> bool:
+    """Проверяет валидность токена администратора в базе данных."""
+    conn = await get_conn()
+    try:
+        # Удаляем все истекшие токены для очистки
+        await conn.execute("DELETE FROM admin_tokens WHERE expires_at < $1", datetime.now(timezone.utc))
+        
+        # Проверяем, существует ли наш токен
+        row = await conn.fetchrow("SELECT 1 FROM admin_tokens WHERE token = $1", token)
+        return row is not None
     finally:
         await conn.close()
 
@@ -215,3 +252,4 @@ async def get_connections_info(date_obj: date):
     finally:
         await conn.close()
 
+# END OF REPLACEMENT FILE
