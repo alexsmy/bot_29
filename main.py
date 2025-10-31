@@ -1,3 +1,5 @@
+# START OF FILE main.py
+
 import asyncio
 import os
 import uuid
@@ -16,6 +18,11 @@ import utils
 import ice_provider
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
+
+# --- НОВЫЙ ИМПОРТ ---
+# Импортируем уже созданный и настроенный экземпляр приложения бота
+from bot import bot_app_instance
+# --- КОНЕЦ НОВОГО ИМПОРТА ---
 
 LOGS_DIR = "connection_logs"
 
@@ -52,6 +59,7 @@ class ConnectionLog(BaseModel):
     selectedConnection: Optional[Dict[str, Any]] = None
 
 class RoomManager:
+    # ... (содержимое класса RoomManager остается без изменений)
     def __init__(self, room_id: str, lifetime_hours: int):
         self.room_id = room_id
         self.lifetime_hours = lifetime_hours
@@ -134,15 +142,12 @@ class RoomManager:
             del self.call_timeouts[call_key]
 
 class ConnectionManager:
+    # ... (содержимое класса ConnectionManager остается без изменений)
     def __init__(self):
         self.rooms: Dict[str, RoomManager] = {}
         self.private_room_cleanup_tasks: Dict[str, asyncio.Task] = {}
 
     async def get_or_restore_room(self, room_id: str) -> Optional[RoomManager]:
-        """
-        Получает комнату из кэша в памяти или восстанавливает ее из базы данных.
-        Возвращает None, если комната не найдена или истекла.
-        """
         if room_id in self.rooms:
             return self.rooms[room_id]
 
@@ -164,14 +169,11 @@ class ConnectionManager:
         
         self.rooms[room_id] = room
         
-        # Рассчитываем оставшееся время для корректной очистки
         remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
         if remaining_seconds > 0:
-            # Пересоздаем задачу очистки с актуальным оставшимся временем
             cleanup_task = asyncio.create_task(self._cleanup_room_after_delay_seconds(room_id, remaining_seconds))
             self.private_room_cleanup_tasks[room_id] = cleanup_task
         else:
-            # Если по какой-то причине восстановили истекшую комнату, сразу ее закроем
             await self.close_room(room_id, "Room lifetime expired on restore")
 
         return room
@@ -194,10 +196,8 @@ class ConnectionManager:
         await self.close_room(room_id, "Room lifetime expired")
 
     async def close_room(self, room_id: str, reason: str):
-        # Сначала обновляем запись в БД
         await database.log_room_closure(room_id, reason)
 
-        # Затем работаем с комнатой в памяти, если она существует
         if room_id in self.rooms:
             room = self.rooms[room_id]
             
@@ -213,29 +213,46 @@ class ConnectionManager:
                     try:
                         await websocket.close(code=1000, reason=reason)
                     except Exception:
-                        pass # Игнорируем ошибки, если сокет уже закрыт
+                        pass
                 await room.disconnect(user_id)
             
-            # Удаляем комнату из памяти
             del self.rooms[room_id]
         
-        # Отменяем и удаляем задачу очистки
         if room_id in self.private_room_cleanup_tasks:
             self.private_room_cleanup_tasks[room_id].cancel()
             del self.private_room_cleanup_tasks[room_id]
         
         logger.info(f"Комната {room_id} была закрыта по причине: {reason}")
 
-
 manager = ConnectionManager()
 
+# --- НОВЫЙ БЛОК: УПРАВЛЕНИЕ ЖИЗНЕННЫМ ЦИКЛОМ БОТА ---
 @app.on_event("startup")
 async def startup_event():
+    """Выполняется при запуске FastAPI сервера."""
     await database.init_db()
     if not os.path.exists(LOGS_DIR):
         os.makedirs(LOGS_DIR)
         logger.info(f"Создана директория для логов: {LOGS_DIR}")
+    
+    # Инициализируем и запускаем бота в фоновом режиме
+    await bot_app_instance.initialize()
+    await bot_app_instance.post_init(bot_app_instance)
+    if not bot_app_instance.updater.running:
+        # Запускаем polling в фоновой задаче
+        asyncio.create_task(bot_app_instance.updater.start_polling())
+    logger.info("Telegram Bot запущен через событие startup FastAPI.")
 
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Выполняется при остановке FastAPI сервера."""
+    # Корректно останавливаем бота
+    if bot_app_instance.updater.running:
+        await bot_app_instance.updater.stop()
+    logger.info("Telegram Bot остановлен через событие shutdown FastAPI.")
+# --- КОНЕЦ НОВОГО БЛОКА ---
+
+# ... (весь остальной код main.py остается без изменений)
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
@@ -299,7 +316,6 @@ async def get_call_page(request: Request, room_id: str):
 
 @app.post("/room/close/{room_id}")
 async def close_room_endpoint(room_id: str):
-    # Эта функция вызывается пользователем из комнаты
     room = await manager.get_or_restore_room(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -392,8 +408,7 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     else:
         logger.warning(f"Connection attempt to full room {room_id} was rejected.")
 
-# --- ЛОГИКА АДМИН-ПАНЕЛИ ---
-
+# ... (весь код админ-панели остается без изменений)
 async def verify_admin_token(token: str):
     if not await database.is_admin_token_valid(token):
         raise HTTPException(status_code=403, detail="Invalid or expired token")
@@ -428,10 +443,8 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):
-    """Возвращает список всех активных комнат из БАЗЫ ДАННЫХ."""
     active_sessions_from_db = await database.get_all_active_sessions()
     
     active_rooms_info = []
@@ -447,7 +460,6 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
         
         is_admin_room = lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
         
-        # Получаем количество пользователей, если комната активна в памяти
         user_count = 0
         if room_id in manager.rooms:
             user_count = len(manager.rooms[room_id].users)
@@ -464,18 +476,14 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
 
 @app.delete("/api/admin/room/{room_id}")
 async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_token)):
-    """Принудительно закрывает активную комнату по запросу администратора."""
-    # Проверяем, есть ли комната в памяти, чтобы закрыть сокеты
     if room_id in manager.rooms:
         logger.info(f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
         await manager.close_room(room_id, "Closed by admin")
     else:
-        # Если комнаты нет в памяти, просто помечаем ее как закрытую в БД
         logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
         await database.log_room_closure(room_id, "Closed by admin")
         
     return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
-# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
@@ -526,8 +534,6 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
 
-# --- НОВЫЕ ЭНДПОИНТЫ УПРАВЛЕНИЯ ---
-
 @app.get("/api/admin/logs", response_class=PlainTextResponse)
 async def get_app_logs(token: str = Depends(verify_admin_token)):
     try:
@@ -566,3 +572,5 @@ async def clear_database(token: str = Depends(verify_admin_token)):
     except Exception as e:
         logger.error(f"Ошибка при очистке базы данных: {e}")
         raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
+
+# END OF FILE main.py
