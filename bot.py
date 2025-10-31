@@ -8,7 +8,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constan
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
-from main import manager  # Убедимся, что импортируем менеджер из main
+# --- ИЗМЕНЕНИЕ: Убираем глобальный импорт 'manager' отсюда, чтобы избежать циклической зависимости ---
 from logger_config import logger
 from config import (
     PRIVATE_ROOM_LIFETIME_HOURS,
@@ -18,13 +18,11 @@ from config import (
     ADMIN_ROOM_LIFETIME_1_YEAR
 )
 
-# --- КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Создаем экземпляр приложения бота здесь, но не запускаем его ---
 bot_token = os.environ.get("BOT_TOKEN")
 if not bot_token:
     logger.critical("Токен бота (BOT_TOKEN) не найден. Приложение не может запуститься.")
     sys.exit(1)
 
-# Эта функция будет вызвана из main.py при старте сервера
 async def post_init(application: Application) -> None:
     public_commands = [
         BotCommand("start", "🚀 Создать новую ссылку для звонка"),
@@ -34,14 +32,11 @@ async def post_init(application: Application) -> None:
     await application.bot.set_my_commands(public_commands)
     logger.info("Меню публичных команд успешно установлено.")
 
-# Создаем, но не запускаем приложение. Оно будет запущено в main.py
 builder = Application.builder().token(bot_token).post_init(post_init)
 bot_app_instance = builder.build()
-# --- КОНЕЦ КЛЮЧЕВОГО ИЗМЕНЕНИЯ ---
 
 
 def format_hours(hours: int) -> str:
-    """Правильно форматирует часы (1 час, 2 часа, 5 часов)."""
     if hours % 10 == 1 and hours % 100 != 11:
         return f"{hours} час"
     elif 2 <= hours % 10 <= 4 and (hours % 100 < 10 or hours % 100 >= 20):
@@ -119,6 +114,9 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(reminder_text)
 
 async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int, lifetime_hours: int):
+    # --- ИЗМЕНЕНИЕ: Импортируем manager локально, внутри функции, когда он нужен ---
+    from main import manager
+    
     room_id = str(uuid.uuid4())
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
@@ -286,7 +284,6 @@ async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAU
     await query.message.delete()
     await _create_and_send_room_link(context, query.message.chat_id, user.id, lifetime_hours)
 
-# Добавляем все обработчики в приложение бота
 bot_app_instance.add_handler(CommandHandler("start", start))
 bot_app_instance.add_handler(CommandHandler("instructions", instructions))
 bot_app_instance.add_handler(CommandHandler("faq", faq))
@@ -297,8 +294,5 @@ bot_app_instance.add_handler(CallbackQueryHandler(admin_create_room_menu_callbac
 bot_app_instance.add_handler(CallbackQueryHandler(admin_create_room_callback, pattern=r"^admin_create_room_\d+$"))
 bot_app_instance.add_handler(InlineQueryHandler(handle_inline_query))
 bot_app_instance.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.ATTACHMENT, echo))
-
-# --- УДАЛЕНА ВСЯ ЛОГИКА ЗАПУСКА (run_fastapi, main, if __name__ == "__main__") ---
-# --- Теперь этот файл только определяет и настраивает bot_app_instance ---
 
 # END OF FILE bot.py
