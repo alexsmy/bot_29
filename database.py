@@ -156,7 +156,7 @@ async def log_room_closure(room_id, reason):
     conn = await get_conn()
     try:
         await conn.execute(
-            "UPDATE call_sessions SET closed_at = $1, close_reason = $2 WHERE room_id = $3",
+            "UPDATE call_sessions SET closed_at = $1, close_reason = $2, status = 'closed' WHERE room_id = $3 AND closed_at IS NULL",
             datetime.now(timezone.utc), reason, room_id
         )
     finally:
@@ -250,11 +250,11 @@ async def get_call_session_details(room_id: str):
     """
     conn = await get_conn()
     try:
-        # Ищем комнату, которая еще не истекла
+        # Ищем комнату, которая еще не истекла и не закрыта
         query = """
             SELECT room_id, created_at, expires_at
             FROM call_sessions
-            WHERE room_id = $1 AND expires_at > NOW()
+            WHERE room_id = $1 AND expires_at > NOW() AND closed_at IS NULL
         """
         row = await conn.fetchrow(query, room_id)
         return dict(row) if row else None
@@ -293,3 +293,22 @@ async def clear_all_data():
         logger.warning("Все таблицы базы данных были полностью очищены.")
     finally:
         await conn.close()
+
+# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+async def get_all_active_sessions():
+    """
+    Получает все активные (не истекшие и не закрытые) сессии из базы данных.
+    """
+    conn = await get_conn()
+    try:
+        query = """
+            SELECT room_id, created_at, expires_at
+            FROM call_sessions
+            WHERE expires_at > NOW() AND closed_at IS NULL
+            ORDER BY created_at DESC
+        """
+        rows = await conn.fetch(query)
+        return [dict(row) for row in rows]
+    finally:
+        await conn.close()
+# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>

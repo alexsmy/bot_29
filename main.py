@@ -164,29 +164,43 @@ class ConnectionManager:
         
         self.rooms[room_id] = room
         
-        await self.schedule_private_room_cleanup(room_id, lifetime_hours)
-        
+        # Рассчитываем оставшееся время для корректной очистки
+        remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
+        if remaining_seconds > 0:
+            # Пересоздаем задачу очистки с актуальным оставшимся временем
+            cleanup_task = asyncio.create_task(self._cleanup_room_after_delay_seconds(room_id, remaining_seconds))
+            self.private_room_cleanup_tasks[room_id] = cleanup_task
+        else:
+            # Если по какой-то причине восстановили истекшую комнату, сразу ее закроем
+            await self.close_room(room_id, "Room lifetime expired on restore")
+
         return room
 
     async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS) -> RoomManager:
         if room_id not in self.rooms:
             self.rooms[room_id] = RoomManager(room_id, lifetime_hours)
-            await self.schedule_private_room_cleanup(room_id, lifetime_hours)
+            await self.schedule_private_room_cleanup(room_id, lifetime_hours * 3600)
         return self.rooms[room_id]
 
-    async def schedule_private_room_cleanup(self, room_id: str, delay_hours: int):
-        cleanup_task = asyncio.create_task(self._cleanup_room_after_delay(room_id, delay_hours))
+    async def schedule_private_room_cleanup(self, room_id: str, delay_seconds: int):
+        if room_id in self.private_room_cleanup_tasks:
+            self.private_room_cleanup_tasks[room_id].cancel()
+        
+        cleanup_task = asyncio.create_task(self._cleanup_room_after_delay_seconds(room_id, delay_seconds))
         self.private_room_cleanup_tasks[room_id] = cleanup_task
 
-    async def _cleanup_room_after_delay(self, room_id: str, delay_hours: int):
-        await asyncio.sleep(delay_hours * 3600)
+    async def _cleanup_room_after_delay_seconds(self, room_id: str, delay_seconds: int):
+        await asyncio.sleep(delay_seconds)
         await self.close_room(room_id, "Room lifetime expired")
 
     async def close_room(self, room_id: str, reason: str):
+        # Сначала обновляем запись в БД
+        await database.log_room_closure(room_id, reason)
+
+        # Затем работаем с комнатой в памяти, если она существует
         if room_id in self.rooms:
             room = self.rooms[room_id]
-            await database.log_room_closure(room_id, reason)
-
+            
             if reason == "Room lifetime expired":
                 await room.broadcast_message({"type": "room_expired"})
             else:
@@ -196,15 +210,22 @@ class ConnectionManager:
             for user_id in user_ids:
                 websocket = room.active_connections.get(user_id)
                 if websocket:
-                    await websocket.close(code=1000, reason=reason)
+                    try:
+                        await websocket.close(code=1000, reason=reason)
+                    except Exception:
+                        pass # Игнорируем ошибки, если сокет уже закрыт
                 await room.disconnect(user_id)
             
-            if room_id in self.rooms:
-                del self.rooms[room_id]
+            # Удаляем комнату из памяти
+            del self.rooms[room_id]
         
+        # Отменяем и удаляем задачу очистки
         if room_id in self.private_room_cleanup_tasks:
             self.private_room_cleanup_tasks[room_id].cancel()
             del self.private_room_cleanup_tasks[room_id]
+        
+        logger.info(f"Комната {room_id} была закрыта по причине: {reason}")
+
 
 manager = ConnectionManager()
 
@@ -247,9 +268,10 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):
-    if room_id not in manager.rooms:
+    room = await manager.get_or_restore_room(room_id)
+    if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    room = manager.rooms[room_id]
+    
     expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
     remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
     return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
@@ -277,7 +299,9 @@ async def get_call_page(request: Request, room_id: str):
 
 @app.post("/room/close/{room_id}")
 async def close_room_endpoint(room_id: str):
-    if room_id not in manager.rooms:
+    # Эта функция вызывается пользователем из комнаты
+    room = await manager.get_or_restore_room(room_id)
+    if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
@@ -404,37 +428,54 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
-# <<< НАЧАЛО НОВЫХ ЭНДПОИНТОВ УПРАВЛЕНИЯ КОМНАТАМИ >>>
+# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):
-    """Возвращает список всех активных комнат из ConnectionManager."""
+    """Возвращает список всех активных комнат из БАЗЫ ДАННЫХ."""
+    active_sessions_from_db = await database.get_all_active_sessions()
+    
     active_rooms_info = []
-    for room_id, room in manager.rooms.items():
-        expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
-        remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
+    for session in active_sessions_from_db:
+        created_at = session['created_at']
+        expires_at = session['expires_at']
+        room_id = session['room_id']
+
+        lifetime_seconds = (expires_at - created_at).total_seconds()
+        lifetime_hours = round(lifetime_seconds / 3600)
         
-        # Определяем, является ли комната админской, по времени жизни
-        is_admin_room = room.lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
+        remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
         
+        is_admin_room = lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
+        
+        # Получаем количество пользователей, если комната активна в памяти
+        user_count = 0
+        if room_id in manager.rooms:
+            user_count = len(manager.rooms[room_id].users)
+
         active_rooms_info.append({
             "room_id": room_id,
-            "lifetime_hours": room.lifetime_hours,
+            "lifetime_hours": lifetime_hours,
             "remaining_seconds": max(0, remaining_seconds),
             "is_admin_room": is_admin_room,
-            "user_count": len(room.users)
+            "user_count": user_count
         })
+        
     return CustomJSONResponse(content=active_rooms_info)
 
 @app.delete("/api/admin/room/{room_id}")
 async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_token)):
     """Принудительно закрывает активную комнату по запросу администратора."""
-    if room_id not in manager.rooms:
-        raise HTTPException(status_code=404, detail="Active room not found")
-    
-    logger.info(f"Администратор принудительно закрывает комнату: {room_id}")
-    await manager.close_room(room_id, "Closed by admin")
+    # Проверяем, есть ли комната в памяти, чтобы закрыть сокеты
+    if room_id in manager.rooms:
+        logger.info(f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
+        await manager.close_room(room_id, "Closed by admin")
+    else:
+        # Если комнаты нет в памяти, просто помечаем ее как закрытую в БД
+        logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
+        await database.log_room_closure(room_id, "Closed by admin")
+        
     return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
-# <<< КОНЕЦ НОВЫХ ЭНДПОИНТОВ УПРАВЛЕНИЯ КОМНАТАМИ >>>
+# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
