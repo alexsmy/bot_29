@@ -3,6 +3,7 @@
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
+from typing import Dict
 from logger_config import logger
 from config import ADMIN_TOKEN_LIFETIME_MINUTES
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -74,10 +75,31 @@ async def init_db():
                 expires_at TIMESTAMPTZ NOT NULL
             )
         ''')
+        
+        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+        # --- Таблица для настроек администратора ---
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS admin_settings (
+                key TEXT PRIMARY KEY,
+                value BOOLEAN NOT NULL
+            )
+        ''')
+        # Заполняем значения по умолчанию, если они еще не существуют
+        await conn.execute('''
+            INSERT INTO admin_settings (key, value) VALUES
+            ('notify_on_room_creation', TRUE),
+            ('notify_on_call_start', TRUE),
+            ('notify_on_call_end', TRUE),
+            ('send_connection_report', TRUE)
+            ON CONFLICT(key) DO NOTHING
+        ''')
+        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
+
     finally:
         await conn.close()
     logger.info("База данных PostgreSQL успешно инициализирована.")
 
+# ... (остальные функции log_user, log_bot_action и т.д. остаются без изменений) ...
 async def log_user(user_id, first_name, last_name, username):
     conn = await get_conn()
     try:
@@ -252,7 +274,6 @@ async def get_call_session_details(room_id: str):
     """
     conn = await get_conn()
     try:
-        # Ищем комнату, которая еще не истекла и не закрыта
         query = """
             SELECT room_id, created_at, expires_at
             FROM call_sessions
@@ -272,7 +293,6 @@ async def get_room_lifetime_hours(room_id: str) -> int:
         query = "SELECT created_at, expires_at FROM call_sessions WHERE room_id = $1"
         row = await conn.fetchrow(query, room_id)
         if not row:
-            # Если по какой-то причине комнаты нет, возвращаем стандартное время
             from config import PRIVATE_ROOM_LIFETIME_HOURS
             return PRIVATE_ROOM_LIFETIME_HOURS
         
@@ -288,15 +308,11 @@ async def clear_all_data():
     """Очищает все данные из всех таблиц базы данных."""
     conn = await get_conn()
     try:
-        # ON DELETE CASCADE в определениях таблиц позаботится о зависимостях,
-        # но TRUNCATE с CASCADE надежнее и быстрее для полного сброса.
-        # Порядок важен из-за внешних ключей.
-        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
     finally:
         await conn.close()
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 async def get_all_active_sessions():
     """
     Получает все активные (не истекшие и не закрытые) сессии из базы данных.
@@ -311,6 +327,33 @@ async def get_all_active_sessions():
         """
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
+    finally:
+        await conn.close()
+
+# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+async def get_notification_settings() -> Dict[str, bool]:
+    """Получает все настройки уведомлений из базы данных."""
+    conn = await get_conn()
+    try:
+        rows = await conn.fetch("SELECT key, value FROM admin_settings")
+        return {row['key']: row['value'] for row in rows}
+    finally:
+        await conn.close()
+
+async def update_notification_settings(settings: Dict[str, bool]):
+    """Обновляет настройки уведомлений в базе данных."""
+    conn = await get_conn()
+    try:
+        async with conn.transaction():
+            for key, value in settings.items():
+                await conn.execute(
+                    """
+                    INSERT INTO admin_settings (key, value) VALUES ($1, $2)
+                    ON CONFLICT (key) DO UPDATE SET value = $2
+                    """,
+                    key, value
+                )
+        logger.info("Настройки уведомлений администратора обновлены.")
     finally:
         await conn.close()
 # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>

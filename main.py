@@ -16,8 +16,10 @@ from pydantic import BaseModel
 import database
 import utils
 import ice_provider
+import notifier  # <<< ИЗМЕНЕНИЕ
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
+from config import ADMIN_TOKEN_LIFETIME_MINUTES
 
 LOGS_DIR = "connection_logs"
 
@@ -39,8 +41,6 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-ADMIN_TOKEN_LIFETIME_MINUTES = 60
-
 class ClientLog(BaseModel):
     user_id: str
     room_id: str
@@ -52,6 +52,14 @@ class ConnectionLog(BaseModel):
     isCallInitiator: bool
     probeResults: List[Dict[str, Any]]
     selectedConnection: Optional[Dict[str, Any]] = None
+
+# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+class NotificationSettings(BaseModel):
+    notify_on_room_creation: bool
+    notify_on_call_start: bool
+    notify_on_call_end: bool
+    send_connection_report: bool
+# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -141,10 +149,6 @@ class ConnectionManager:
         self.private_room_cleanup_tasks: Dict[str, asyncio.Task] = {}
 
     async def get_or_restore_room(self, room_id: str) -> Optional[RoomManager]:
-        """
-        Получает комнату из кэша в памяти или восстанавливает ее из базы данных.
-        Возвращает None, если комната не найдена или истекла.
-        """
         if room_id in self.rooms:
             return self.rooms[room_id]
 
@@ -166,14 +170,11 @@ class ConnectionManager:
         
         self.rooms[room_id] = room
         
-        # Рассчитываем оставшееся время для корректной очистки
         remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
         if remaining_seconds > 0:
-            # Пересоздаем задачу очистки с актуальным оставшимся временем
             cleanup_task = asyncio.create_task(self._cleanup_room_after_delay_seconds(room_id, remaining_seconds))
             self.private_room_cleanup_tasks[room_id] = cleanup_task
         else:
-            # Если по какой-то причине восстановили истекшую комнату, сразу ее закроем
             await self.close_room(room_id, "Room lifetime expired on restore")
 
         return room
@@ -196,10 +197,8 @@ class ConnectionManager:
         await self.close_room(room_id, "Room lifetime expired")
 
     async def close_room(self, room_id: str, reason: str):
-        # Сначала обновляем запись в БД
         await database.log_room_closure(room_id, reason)
 
-        # Затем работаем с комнатой в памяти, если она существует
         if room_id in self.rooms:
             room = self.rooms[room_id]
             
@@ -215,13 +214,11 @@ class ConnectionManager:
                     try:
                         await websocket.close(code=1000, reason=reason)
                     except Exception:
-                        pass # Игнорируем ошибки, если сокет уже закрыт
+                        pass
                 await room.disconnect(user_id)
             
-            # Удаляем комнату из памяти
             del self.rooms[room_id]
         
-        # Отменяем и удаляем задачу очистки
         if room_id in self.private_room_cleanup_tasks:
             self.private_room_cleanup_tasks[room_id].cancel()
             del self.private_room_cleanup_tasks[room_id]
@@ -263,11 +260,23 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
             f.write(rendered_html)
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
+        
+        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+        message_to_admin = (
+            f"📄 <b>Сформирован отчет о соединении</b>\n\n"
+            f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
+        )
+        asyncio.create_task(
+            notifier.send_admin_notification(message_to_admin, 'send_connection_report', file_path=filepath)
+        )
+        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
+
         return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
+# ... (остальные эндпоинты до handle_websocket_logic без изменений) ...
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -301,7 +310,6 @@ async def get_call_page(request: Request, room_id: str):
 
 @app.post("/room/close/{room_id}")
 async def close_room_endpoint(room_id: str):
-    # Эта функция вызывается пользователем из комнаты
     room = await manager.get_or_restore_room(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -331,6 +339,17 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
                     await database.log_call_start(room.room_id, room.pending_call_type)
+                    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+                    message_to_admin = (
+                        f"📞 <b>Звонок начался</b>\n\n"
+                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
+                        f"<b>Тип:</b> {room.pending_call_type}\n"
+                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
+                    asyncio.create_task(
+                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
+                    )
+                    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
                     room.pending_call_type = None
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
@@ -345,6 +364,16 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 
                 if message_type == "hangup":
                     await database.log_call_end(room.room_id)
+                    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+                    message_to_admin = (
+                        f"🔚 <b>Звонок завершен</b>\n\n"
+                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
+                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
+                    asyncio.create_task(
+                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
+                    )
+                    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
                     
                 await room.send_personal_message({"type": "call_ended"}, target_id)
                 await room.set_user_status(user_id, "available")
@@ -369,6 +398,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
 
         await room.disconnect(user_id)
 
+# ... (websocket_endpoint_private без изменений) ...
 @app.websocket("/ws/private/{room_id}")
 async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -430,10 +460,8 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):
-    """Возвращает список всех активных комнат из БАЗЫ ДАННЫХ."""
     active_sessions_from_db = await database.get_all_active_sessions()
     
     active_rooms_info = []
@@ -449,7 +477,6 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
         
         is_admin_room = lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
         
-        # Получаем количество пользователей, если комната активна в памяти
         user_count = 0
         if room_id in manager.rooms:
             user_count = len(manager.rooms[room_id].users)
@@ -466,19 +493,28 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
 
 @app.delete("/api/admin/room/{room_id}")
 async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_token)):
-    """Принудительно закрывает активную комнату по запросу администратора."""
-    # Проверяем, есть ли комната в памяти, чтобы закрыть сокеты
     if room_id in manager.rooms:
         logger.info(f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
         await manager.close_room(room_id, "Closed by admin")
     else:
-        # Если комнаты нет в памяти, просто помечаем ее как закрытую в БД
         logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
         await database.log_room_closure(room_id, "Closed by admin")
         
     return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
+
+# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+@app.get("/api/admin/notification_settings")
+async def get_notification_settings_endpoint(token: str = Depends(verify_admin_token)):
+    settings = await database.get_notification_settings()
+    return CustomJSONResponse(content=settings)
+
+@app.post("/api/admin/notification_settings")
+async def update_notification_settings_endpoint(settings: NotificationSettings, token: str = Depends(verify_admin_token)):
+    await database.update_notification_settings(settings.dict())
+    return CustomJSONResponse(content={"status": "ok"})
 # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
+# ... (остальной код main.py без изменений) ...
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename.")

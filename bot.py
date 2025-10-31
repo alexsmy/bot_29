@@ -1,3 +1,5 @@
+# bot.py
+
 import os
 import sys
 import threading
@@ -7,6 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constan
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
+import notifier  # <<< ИЗМЕНЕНИЕ
 from main import app as fastapi_app, manager
 from logger_config import logger
 from config import (
@@ -119,6 +122,22 @@ async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id
     expires_at = created_at + timedelta(hours=lifetime_hours)
     await database.log_call_session(room_id, user_id, created_at, expires_at)
 
+    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    # Отправка уведомления администратору
+    is_admin_room = str(user_id) == os.environ.get("ADMIN_USER_ID")
+    if not is_admin_room:
+        message_to_admin = (
+            f"🚪 <b>Создана новая комната</b>\n\n"
+            f"<b>User ID:</b> <code>{user_id}</code>\n"
+            f"<b>Room ID:</b> <code>{room_id}</code>\n"
+            f"<b>Время:</b> {created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        )
+        # Запускаем в фоне, чтобы не блокировать основной поток
+        context.application.create_task(
+            notifier.send_admin_notification(message_to_admin, 'notify_on_room_creation')
+        )
+    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
+
     link_text = "🔗 <b>Ссылка для соединения</b> 📞"
     lifetime_text = format_hours(lifetime_hours)
     message_text = (
@@ -164,7 +183,6 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     room_id = query
     
-    # Получаем реальное время жизни комнаты из базы данных
     lifetime_hours = await database.get_room_lifetime_hours(room_id)
     lifetime_text = format_hours(lifetime_hours)
 
@@ -293,6 +311,11 @@ def main() -> None:
     logger.info("FastAPI сервер запущен в фоновом режиме.")
 
     application = Application.builder().token(bot_token).post_init(post_init).build()
+    
+    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    # Устанавливаем экземпляр бота в модуль уведомлений
+    notifier.set_bot_instance(application)
+    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("instructions", instructions))

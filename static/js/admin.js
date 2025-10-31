@@ -324,7 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
             connectionsListContainer.innerHTML = '<p class="empty-list">Соединения за эту дату не найдены.</p>';
             return;
         }
-        // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         connectionsListContainer.innerHTML = sessions.map(session => {
             const participantsHtml = session.participants.length > 0 
                 ? session.participants.map((p, index) => `
@@ -357,10 +356,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
             </div>`;
         }).join('');
-        // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
     });
     
-    // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
     connectionsListContainer.addEventListener('click', (e) => {
         const summary = e.target.closest('.connection-summary');
         if (!summary) return;
@@ -376,7 +373,40 @@ document.addEventListener('DOMContentLoaded', () => {
             item.classList.add('open');
         }
     });
-    // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
+
+    // --- NOTIFICATIONS ---
+    const saveNotificationsBtn = document.getElementById('save-notification-settings');
+    const savedIndicator = document.getElementById('settings-saved-indicator');
+    const notificationCheckboxes = document.querySelectorAll('.notification-settings-form input[type="checkbox"]');
+
+    const loadNotificationSettings = async () => {
+        const settings = await fetchData('notification_settings');
+        if (settings) {
+            notificationCheckboxes.forEach(checkbox => {
+                checkbox.checked = settings[checkbox.name] || false;
+            });
+        }
+    };
+
+    saveNotificationsBtn.addEventListener('click', async () => {
+        const payload = {};
+        notificationCheckboxes.forEach(checkbox => {
+            payload[checkbox.name] = checkbox.checked;
+        });
+
+        const result = await fetchData('notification_settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (result && result.status === 'ok') {
+            savedIndicator.classList.add('visible');
+            setTimeout(() => savedIndicator.classList.remove('visible'), 2000);
+        } else {
+            alert('Не удалось сохранить настройки.');
+        }
+    });
 
     // --- REPORTS ---
     const reportsListContainer = document.getElementById('reports-list');
@@ -449,6 +479,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadUsers();
         loadReports();
         loadLogs();
+        loadNotificationSettings();
         
         if (autoUpdateInterval) clearInterval(autoUpdateInterval);
         autoUpdateInterval = setInterval(() => {
