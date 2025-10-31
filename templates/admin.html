@@ -49,9 +49,6 @@
             align-items: center;
             flex-wrap: wrap;
         }
-        .filters label {
-            font-weight: bold;
-        }
         .filters button, .filters input, .filters select, .action-btn {
             padding: 0.5rem 0.75rem;
             border-radius: 5px;
@@ -208,6 +205,35 @@
             color: white;
             font-weight: bold;
         }
+        /* --- Стили для нового блока --- */
+        details > summary {
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+            padding: 0.5rem;
+            background-color: #3a3a3a;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+        }
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .room-item:last-child { border-bottom: none; }
+        .room-info { font-family: monospace; }
+        .room-info .user-count {
+            font-size: 0.8em;
+            color: var(--secondary-text);
+            margin-left: 10px;
+        }
+        .room-actions .close-room-btn {
+            border-color: var(--error-color);
+            color: var(--error-color);
+            font-size: 0.9em;
+        }
     </style>
 </head>
 <body>
@@ -227,6 +253,20 @@
             </div>
             <div id="stats-container" class="stats-grid"></div>
         </div>
+
+        <!-- <<< НАЧАЛО НОВОГО БЛОКА >>> -->
+        <div class="section" id="active-rooms-section">
+            <h2>Активные комнаты</h2>
+            <details open>
+                <summary>Админ-комнаты</summary>
+                <div id="admin-rooms-list"><p>Загрузка...</p></div>
+            </details>
+            <details open>
+                <summary>Пользовательские комнаты</summary>
+                <div id="user-rooms-list"><p>Загрузка...</p></div>
+            </details>
+        </div>
+        <!-- <<< КОНЕЦ НОВОГО БЛОКА >>> -->
 
         <div class="section">
             <h2>Пользователи бота</h2>
@@ -304,6 +344,66 @@
             if (!isoString) return 'N/A';
             return new Date(isoString).toLocaleString('ru-RU', { timeZone: 'UTC', dateStyle: 'short', timeStyle: 'medium' });
         }
+
+        // <<< НАЧАЛО НОВЫХ ФУНКЦИЙ >>>
+        function formatRemainingTime(seconds) {
+            if (seconds <= 0) return '00:00';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        const adminRoomsListContainer = document.getElementById('admin-rooms-list');
+        const userRoomsListContainer = document.getElementById('user-rooms-list');
+        const activeRoomsSection = document.getElementById('active-rooms-section');
+
+        async function loadActiveRooms() {
+            const rooms = await fetchData('active_rooms');
+            if (!rooms) {
+                adminRoomsListContainer.innerHTML = '<p>Не удалось загрузить список комнат.</p>';
+                userRoomsListContainer.innerHTML = '<p>Не удалось загрузить список комнат.</p>';
+                return;
+            }
+
+            const adminRooms = rooms.filter(r => r.is_admin_room);
+            const userRooms = rooms.filter(r => !r.is_admin_room);
+
+            const renderRoomList = (container, roomList) => {
+                if (roomList.length === 0) {
+                    container.innerHTML = '<p>Активных комнат этого типа нет.</p>';
+                    return;
+                }
+                container.innerHTML = roomList.map(room => `
+                    <div class="room-item">
+                        <div class="room-info">
+                            <span>ID: ${room.room_id.substring(0, 8)}...</span>
+                            <span>| Осталось: ${formatRemainingTime(room.remaining_seconds)}</span>
+                            <span class="user-count">| Участников: ${room.user_count}</span>
+                        </div>
+                        <div class="room-actions">
+                            <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
+                        </div>
+                    </div>
+                `).join('');
+            };
+
+            renderRoomList(adminRoomsListContainer, adminRooms);
+            renderRoomList(userRoomsListContainer, userRooms);
+        }
+
+        activeRoomsSection.addEventListener('click', async (event) => {
+            if (event.target.classList.contains('close-room-btn')) {
+                const roomId = event.target.dataset.roomId;
+                if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId.substring(0, 8)}...?`)) {
+                    const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });
+                    if (result) {
+                        alert(`Комната ${result.room_id.substring(0, 8)} успешно закрыта.`);
+                        loadActiveRooms(); // Обновляем список
+                    }
+                }
+            }
+        });
+        // <<< КОНЕЦ НОВЫХ ФУНКЦИЙ >>>
 
         const statsContainer = document.getElementById('stats-container');
         const statsPeriodSelect = document.getElementById('stats-period');
@@ -501,6 +601,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
+            loadActiveRooms(); // <<< ДОБАВЛЕН ВЫЗОВ НОВОЙ ФУНКЦИИ
             loadUsers();
             loadReports();
             loadLogs();
