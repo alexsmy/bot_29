@@ -20,6 +20,7 @@ from config import (
 bot_app_instance = None
 
 def format_hours(hours: int) -> str:
+    """Правильно форматирует часы (1 час, 2 часа, 5 часов)."""
     if hours % 10 == 1 and hours % 100 != 11:
         return f"{hours} час"
     elif 2 <= hours % 10 <= 4 and (hours % 100 < 10 or hours % 100 >= 20):
@@ -163,6 +164,7 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     room_id = query
     
+    # Получаем реальное время жизни комнаты из базы данных
     lifetime_hours = await database.get_room_lifetime_hours(room_id)
     lifetime_text = format_hours(lifetime_hours)
 
