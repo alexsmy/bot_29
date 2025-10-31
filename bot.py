@@ -2,6 +2,7 @@ import os
 import sys
 import threading
 import uuid
+import asyncio
 from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants, BotCommand, InputTextMessageContent, InlineQueryResultArticle
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
@@ -20,7 +21,6 @@ from config import (
 bot_app_instance = None
 
 def format_hours(hours: int) -> str:
-    """Правильно форматирует часы (1 час, 2 часа, 5 часов)."""
     if hours % 10 == 1 and hours % 100 != 11:
         return f"{hours} час"
     elif 2 <= hours % 10 <= 4 and (hours % 100 < 10 or hours % 100 >= 20):
@@ -164,7 +164,6 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     room_id = query
     
-    # Получаем реальное время жизни комнаты из базы данных
     lifetime_hours = await database.get_room_lifetime_hours(room_id)
     lifetime_text = format_hours(lifetime_hours)
 
@@ -280,12 +279,15 @@ def run_fastapi():
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_config=None)
 
-def main() -> None:
+async def main() -> None:
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
         logger.critical("Токен бота (BOT_TOKEN) не найден.")
         sys.exit(1)
+
+    await database.init_pool()
+    await database.init_db()
 
     fastapi_thread = threading.Thread(target=run_fastapi)
     fastapi_thread.daemon = True
@@ -311,7 +313,23 @@ def main() -> None:
     bot_app_instance = application
 
     logger.info("Telegram бот запускается...")
-    application.run_polling()
+    try:
+        await application.initialize()
+        await application.start()
+        await application.updater.start_polling()
+        # Keep the main function running
+        while True:
+            await asyncio.sleep(3600)
+    finally:
+        await database.close_pool()
+        if application.updater.running:
+            await application.updater.stop()
+        await application.stop()
+        await application.shutdown()
+
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Приложение остановлено вручную.")
