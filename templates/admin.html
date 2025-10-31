@@ -1,395 +1,146 @@
-<!-- templates/admin.html -->
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Панель администратора</title>
+    <title>Dashboard</title>
     <link rel="stylesheet" href="/static/css/admin.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Панель администратора</h1>
-
-        <div class="section">
-            <h2>Сводная информация</h2>
-            <div class="filters">
-                <label for="stats-period">Период:</label>
-                <select id="stats-period">
-                    <option value="day">За день</option>
-                    <option value="week">За неделю</option>
-                    <option value="month">За месяц</option>
-                    <option value="all" selected>За все время</option>
-                </select>
+    <div class="dashboard-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h3>Admin Panel</h3>
             </div>
-            <div id="stats-container" class="stats-grid"><p>Загрузка...</p></div>
-        </div>
-
-        <div class="section" id="active-rooms-section">
-            <h2>Активные комнаты</h2>
-            <details open>
-                <summary>Админ-комнаты</summary>
-                <div id="admin-rooms-list"><p>Загрузка...</p></div>
-            </details>
-            <details>
-                <summary>Пользовательские комнаты</summary>
-                <div id="user-rooms-list"><p>Загрузка...</p></div>
-            </details>
-        </div>
-
-        <div class="section">
-            <h2>Пользователи бота</h2>
-            <div class="filters">
-                <label for="user-search">Поиск по ID:</label>
-                <input type="text" id="user-search" placeholder="Введите ID пользователя...">
+            <nav class="sidebar-nav">
+                <a href="#stats" class="nav-link active">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M16,11.78L20.24,4.45L21.66,5.87L17.41,13.2L16,11.78M15.55,13.58L11.71,9.74L7.47,14L2.22,8.75L3.64,7.33L7.47,11.16L11.71,6.92L17,12.17L15.55,13.58Z" /></svg>
+                    <span>Статистика</span>
+                </a>
+                <a href="#rooms" class="nav-link">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,18H6A2,2 0 0,1 4,16V5A2,2 0 0,1 6,3H18A2,2 0 0,1 20,5V12.08C18.4,12.55 17,13.82 17,15.5A2.5,2.5 0 0,0 19.5,18H12M6,5V16H11.5A2.5,2.5 0 0,1 11,15.5C11,13.83 12.5,12.42 14.2,12.09V5H6M18,5H14.2C14.61,5.58 15,6.26 15,7A2,2 0 0,1 13,9H9.5V11H13A4,4 0 0,0 17,7C17,6.66 16.95,6.33 16.86,6H18V5M23,15.5A2.5,2.5 0 0,1 20.5,18H17A2.5,2.5 0 0,1 14.5,15.5A2.5,2.5 0 0,1 17,13A2.5,2.5 0 0,1 19.5,15.5H23Z" /></svg>
+                    <span>Активные комнаты</span>
+                </a>
+                <a href="#users" class="nav-link">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A4,4 0 0,1 16,7A4,4 0 0,1 12,11A4,4 0 0,1 8,7A4,4 0 0,1 12,3M12,13C14.67,13 20,14.33 20,17V20H4V17C4,14.33 9.33,13 12,13Z" /></svg>
+                    <span>Пользователи</span>
+                </a>
+                 <a href="#connections" class="nav-link">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5,9A2.5,2.5 0 0,0 14,11.5A2.5,2.5 0 0,0 16.5,14A2.5,2.5 0 0,0 19,11.5A2.5,2.5 0 0,0 16.5,9M9,11.5A2.5,2.5 0 0,1 6.5,9A2.5,2.5 0 0,1 9,6.5A2.5,2.5 0 0,1 11.5,9A2.5,2.5 0 0,1 9,11.5M16.5,15C14.09,15 9.5,16.25 9.5,18.5V21H23.5V18.5C23.5,16.25 18.91,15 16.5,15M9,13C6.5,13 2,14.25 2,16.5V19H9V16.5C9,15.42 9.24,14.44 9.68,13.56C9.45,13.5 9.22,13.5 9,13.5Z" /></svg>
+                    <span>Соединения</span>
+                </a>
+                <a href="#reports" class="nav-link">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H11V12H13V15H16L12,19Z" /></svg>
+                    <span>Отчёты</span>
+                </a>
+                <a href="#logs" class="nav-link">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M9.5,17.5L6.5,14.5L7.91,13.09L9.5,14.67L16.09,8.09L17.5,9.5L9.5,17.5Z" /></svg>
+                    <span>Логи</span>
+                </a>
+                <a href="#danger" class="nav-link">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" /></svg>
+                    <span>Опасная зона</span>
+                </a>
+            </nav>
+            <div class="sidebar-footer">
+                <button id="theme-toggle">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,18C11.11,18 10.26,17.8 9.5,17.45C11.56,16.84 13,14.84 13,12.5C13,10.16 11.56,8.16 9.5,7.55C10.26,7.2 11.11,7 12,7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" /></svg>
+                    <span>Сменить тему</span>
+                </button>
             </div>
-            <div class="search-hint"><i>Список фильтруется автоматически по мере ввода ID.</i></div>
-            <div id="users-list" class="users-list"><p>Загрузка пользователей...</p></div>
-        </div>
+        </aside>
 
-        <div class="section">
-            <h2>Информация о соединениях</h2>
-            <div class="filters">
-                <label for="connections-date">Дата:</label>
-                <input type="date" id="connections-date">
-                <button id="search-connections-btn" class="primary">Показать</button>
-                <button id="collapse-connections-btn" style="display: none;">Свернуть</button>
-            </div>
-            <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
-        </div>
-
-        <div class="section">
-            <div class="reports-header">
-                <h2>Отчёты о соединениях</h2>
-                <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
-            </div>
-            <div id="reports-list"><p>Загрузка списка отчётов...</p></div>
-        </div>
-
-        <div class="section">
-            <div class="logs-header">
-                <h2>Логи приложения</h2>
-                <div class="logs-actions">
-                    <button id="refresh-logs-btn" class="action-btn">Обновить</button>
-                    <button id="download-logs-btn" class="action-btn">Скачать</button>
-                    <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
+        <main class="main-content">
+            <header class="main-header">
+                <h1>Панель администратора</h1>
+                <div id="token-info">
+                    Токен действителен: <span id="token-timer">--:--</span>
                 </div>
-            </div>
-            <pre id="logs-content"><code>Загрузка логов...</code></pre>
-        </div>
+            </header>
 
-        <div class="section danger-zone">
-            <h2>Опасная зона</h2>
-            <p>Это действие необратимо и приведет к полной потере всех данных о пользователях, звонках и действиях.</p>
-            <button id="wipe-db-btn" class="danger">Очистить базу данных</button>
-        </div>
+            <section id="stats" class="content-section active">
+                <h2>Сводная информация</h2>
+                <div class="filters">
+                    <label for="stats-period">Период:</label>
+                    <select id="stats-period">
+                        <option value="day">За день</option>
+                        <option value="week">За неделю</option>
+                        <option value="month">За месяц</option>
+                        <option value="all" selected>За все время</option>
+                    </select>
+                </div>
+                <div id="stats-container" class="stats-grid">
+                    <!-- Skeleton Loader -->
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="statsChart"></canvas>
+                </div>
+            </section>
 
+            <section id="rooms" class="content-section">
+                <h2>Активные комнаты</h2>
+                <details open>
+                    <summary>Админ-комнаты</summary>
+                    <div id="admin-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
+                </details>
+                <details>
+                    <summary>Пользовательские комнаты</summary>
+                    <div id="user-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
+                </details>
+            </section>
+
+            <section id="users" class="content-section">
+                <h2>Пользователи бота</h2>
+                <div class="filters">
+                    <input type="text" id="user-search" placeholder="Поиск по ID, имени или @username...">
+                </div>
+                <div id="users-list" class="users-list"><div class="skeleton-list"></div></div>
+            </section>
+            
+            <section id="connections" class="content-section">
+                <h2>Информация о соединениях</h2>
+                <div class="filters">
+                    <input type="date" id="connections-date">
+                    <button id="search-connections-btn" class="primary">Показать</button>
+                </div>
+                <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
+            </section>
+
+            <section id="reports" class="content-section">
+                <div class="section-header">
+                    <h2>Отчёты о соединениях</h2>
+                    <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
+                </div>
+                <div id="reports-list"><div class="skeleton-list"></div></div>
+            </section>
+
+            <section id="logs" class="content-section">
+                <div class="section-header">
+                    <h2>Логи приложения</h2>
+                    <div class="actions">
+                        <button id="refresh-logs-btn" class="action-btn">Обновить</button>
+                        <button id="download-logs-btn" class="action-btn">Скачать</button>
+                        <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
+                    </div>
+                </div>
+                <pre id="logs-content"><code>Загрузка логов...</code></pre>
+            </section>
+
+            <section id="danger" class="content-section">
+                <div class="danger-zone">
+                    <h2>Опасная зона</h2>
+                    <p>Это действие необратимо и приведет к полной потере всех данных о пользователях, звонках и действиях.</p>
+                    <button id="wipe-db-btn" class="danger">Очистить базу данных</button>
+                </div>
+            </section>
+        </main>
     </div>
-
-    <script>
-        const API_TOKEN = "{{ token }}";
-
-        async function fetchData(endpoint, options = {}) {
-            const separator = endpoint.includes('?') ? '&' : '?';
-            const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
-            try {
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    console.error(`Ошибка при выполнении запроса: ${response.statusText}`);
-                    alert('Ошибка при выполнении запроса. Токен мог устареть или API недоступен.');
-                    return null;
-                }
-                if (response.headers.get("content-type")?.includes("application/json")) {
-                    return response.json();
-                }
-                return response.text();
-            } catch (error) {
-                console.error('Сетевая ошибка:', error);
-                alert('Сетевая ошибка. Проверьте консоль для деталей.');
-                return null;
-            }
-        }
-
-        function formatDate(isoString) {
-            if (!isoString) return 'N/A';
-            return new Date(isoString).toLocaleString('ru-RU', { timeZone: 'UTC', dateStyle: 'short', timeStyle: 'medium' });
-        }
-
-        function formatRemainingTime(seconds) {
-            if (seconds <= 0) return '00:00';
-            const hours = Math.floor(seconds / 3600);
-            const minutes = Math.floor((seconds % 3600) / 60);
-            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-        }
-
-        const adminRoomsListContainer = document.getElementById('admin-rooms-list');
-        const userRoomsListContainer = document.getElementById('user-rooms-list');
-        const activeRoomsSection = document.getElementById('active-rooms-section');
-
-        async function loadActiveRooms() {
-            const rooms = await fetchData('active_rooms');
-            if (!rooms) {
-                adminRoomsListContainer.innerHTML = '<p>Не удалось загрузить список комнат.</p>';
-                userRoomsListContainer.innerHTML = '<p>Не удалось загрузить список комнат.</p>';
-                return;
-            }
-
-            const adminRooms = rooms.filter(r => r.is_admin_room);
-            const userRooms = rooms.filter(r => !r.is_admin_room);
-
-            const renderRoomList = (container, roomList) => {
-                if (roomList.length === 0) {
-                    container.innerHTML = '<p>Активных комнат этого типа нет.</p>';
-                    return;
-                }
-                container.innerHTML = roomList.map(room => `
-                    <div class="room-item">
-                        <div class="room-info">
-                            <span>ID: <code>${room.room_id.substring(0, 18)}...</code></span>
-                            <span>| Осталось: ${formatRemainingTime(room.remaining_seconds)}</span>
-                            <span class="user-count">| Участников: ${room.user_count}</span>
-                        </div>
-                        <div class="room-actions">
-                            <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
-                        </div>
-                    </div>
-                `).join('');
-            };
-
-            renderRoomList(adminRoomsListContainer, adminRooms);
-            renderRoomList(userRoomsListContainer, userRooms);
-        }
-
-        activeRoomsSection.addEventListener('click', async (event) => {
-            if (event.target.classList.contains('close-room-btn')) {
-                const roomId = event.target.dataset.roomId;
-                if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId}?`)) {
-                    const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });
-                    if (result) {
-                        alert(`Комната ${result.room_id} успешно закрыта.`);
-                        loadActiveRooms();
-                    }
-                }
-            }
-        });
-
-        const statsContainer = document.getElementById('stats-container');
-        const statsPeriodSelect = document.getElementById('stats-period');
-        async function loadStats() {
-            const period = statsPeriodSelect.value;
-            const data = await fetchData(`stats?period=${period}`);
-            if (!data) {
-                statsContainer.innerHTML = '<p>Не удалось загрузить статистику.</p>';
-                return;
-            }
-            statsContainer.innerHTML = `
-                <div class="stat-card"><div class="value">${data.total_users}</div><div class="label">Пользователей</div></div>
-                <div class="stat-card"><div class="value">${data.total_actions}</div><div class="label">Действий в боте</div></div>
-                <div class="stat-card"><div class="value">${data.total_sessions_created}</div><div class="label">Ссылок создано</div></div>
-                <div class="stat-card"><div class="value">${data.completed_calls}</div><div class="label">Успешных звонков</div></div>
-                <div class="stat-card"><div class="value">${data.avg_call_duration}</div><div class="label">Средняя длит. (сек)</div></div>
-            `;
-        }
-        statsPeriodSelect.addEventListener('change', loadStats);
-
-        const usersListContainer = document.getElementById('users-list');
-        const userSearchInput = document.getElementById('user-search');
-        let allUsersData = [];
-        async function loadUsers() {
-            const users = await fetchData('users');
-            if (!users) {
-                usersListContainer.innerHTML = '<p>Не удалось загрузить пользователей.</p>';
-                return;
-            }
-            allUsersData = users;
-            renderUsers(allUsersData);
-            document.querySelectorAll('.user-item').forEach(item => item.addEventListener('click', toggleUserDetails));
-        }
-        function renderUsers(users) {
-             if (users.length === 0) {
-                usersListContainer.innerHTML = '<p>Пользователи не найдены.</p>';
-                return;
-            }
-            usersListContainer.innerHTML = users.map(user => {
-                const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
-                const displayName = fullName || (user.username ? `@${user.username}` : 'Без имени');
-                return `
-                <div class="user-item" data-user-id="${user.user_id}">
-                    <div class="user-summary">
-                        <div class="user-info">
-                            <span class="user-name">${displayName}</span>
-                            <span class="user-id">ID: ${user.user_id}</span>
-                        </div>
-                        <div class="user-first-seen">
-                            <span>Первый заход:</span>
-                            <span>${formatDate(user.first_seen)}</span>
-                        </div>
-                    </div>
-                    <div class="user-details" id="details-${user.user_id}"></div>
-                </div>`;
-            }).join('');
-        }
-        async function toggleUserDetails(event) {
-            const userItem = event.currentTarget;
-            const userId = userItem.dataset.userId;
-            const detailsContainer = userItem.querySelector('.user-details');
-            const isVisible = detailsContainer.style.display === 'block';
-            if (isVisible) {
-                detailsContainer.style.display = 'none';
-            } else {
-                detailsContainer.style.display = 'block';
-                if (!detailsContainer.innerHTML.trim()) {
-                    detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Загрузка...</p>';
-                    const actions = await fetchData(`user_actions/${userId}`);
-                    if (actions && actions.length > 0) {
-                        detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><ul>' + actions.map(action => `
-                            <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>`).join('') + '</ul>';
-                    } else {
-                        detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Действий не найдено.</p>';
-                    }
-                }
-            }
-        }
-        userSearchInput.addEventListener('input', () => {
-            const searchTerm = userSearchInput.value.trim().toLowerCase();
-            const filteredUsers = allUsersData.filter(user => String(user.user_id).includes(searchTerm));
-            renderUsers(filteredUsers);
-            document.querySelectorAll('.user-item').forEach(item => item.addEventListener('click', toggleUserDetails));
-        });
-
-        const connectionsDateInput = document.getElementById('connections-date');
-        const searchConnectionsBtn = document.getElementById('search-connections-btn');
-        const collapseConnectionsBtn = document.getElementById('collapse-connections-btn');
-        const connectionsListContainer = document.getElementById('connections-list');
-        
-        async function loadConnections() {
-            const date = connectionsDateInput.value;
-            if (!date) { alert('Выберите дату'); return; }
-            connectionsListContainer.innerHTML = '<p>Загрузка соединений...</p>';
-            collapseConnectionsBtn.style.display = 'none';
-            const sessions = await fetchData(`connections?date=${date}`);
-            if (!sessions || sessions.length === 0) {
-                connectionsListContainer.innerHTML = '<p>Соединения за эту дату не найдены.</p>';
-                return;
-            }
-            connectionsListContainer.innerHTML = sessions.map(session => {
-                const participantsHtml = session.participants.map((p, index) => `
-                    <div class="participant">
-                        <p><strong>Участник ${index + 1}</strong></p>
-                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-                    </div>`).join('');
-                let lifetimeInfo = session.closed_at ? `
-                    <p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>
-                    <p><strong>Причина:</strong> ${session.close_reason || 'N/A'}</p>` : '';
-                return `
-                <div class="connection-card">
-                    <div class="card-header">
-                        <span class="room-id">Room: <code>${session.room_id.substring(0, 18)}...</code></span>
-                        <span>${session.call_type || 'N/A'} / ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}</span>
-                        <span class="status ${session.status}">${session.status}</span>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
-                        ${lifetimeInfo}
-                        <hr style="border-color: var(--border-color); margin: 0.5rem 0;">
-                        ${participantsHtml || '<p>Нет информации об участниках.</p>'}
-                    </div>
-                </div>`;
-            }).join('');
-            collapseConnectionsBtn.style.display = 'inline-block';
-        }
-        searchConnectionsBtn.addEventListener('click', loadConnections);
-        collapseConnectionsBtn.addEventListener('click', () => {
-            connectionsListContainer.innerHTML = '<p>Выберите дату для просмотра соединений.</p>';
-            collapseConnectionsBtn.style.display = 'none';
-        });
-        connectionsDateInput.value = new Date().toISOString().split('T')[0];
-
-        const reportsListContainer = document.getElementById('reports-list');
-        const deleteAllReportsBtn = document.getElementById('delete-all-reports-btn');
-        async function loadReports() {
-            reportsListContainer.innerHTML = '<p>Загрузка списка отчётов...</p>';
-            const reportFiles = await fetchData('reports');
-            if (!reportFiles || reportFiles.length === 0) {
-                reportsListContainer.innerHTML = '<p>Отчёты не найдены.</p>';
-                return;
-            }
-            reportsListContainer.innerHTML = reportFiles.map(filename => `
-                <div class="report-item">
-                    <a href="/admin/reports/${filename}?token=${API_TOKEN}" target="_blank">${filename}</a>
-                    <div class="report-actions">
-                        <button class="action-btn download-btn" data-filename="${filename}">Скачать</button>
-                        <button class="action-btn delete-btn report-btn" data-filename="${filename}">Удалить</button>
-                    </div>
-                </div>`).join('');
-        }
-        reportsListContainer.addEventListener('click', async (event) => {
-            const target = event.target;
-            const filename = target.dataset.filename;
-            if (!filename) return;
-            if (target.classList.contains('download-btn')) {
-                window.location.href = `/admin/reports/${filename}?download=true&token=${API_TOKEN}`;
-            }
-            if (target.classList.contains('delete-btn')) {
-                if (confirm(`Вы уверены, что хотите удалить отчёт "${filename}"?`)) {
-                    const result = await fetchData(`reports/${filename}`, { method: 'DELETE' });
-                    if (result) loadReports();
-                }
-            }
-        });
-        deleteAllReportsBtn.addEventListener('click', async () => {
-            if (confirm('Вы уверены, что хотите удалить ВСЕ отчёты? Это действие необратимо.')) {
-                const result = await fetchData('reports', { method: 'DELETE' });
-                if (result) {
-                    alert(`Удалено отчётов: ${result.count || 0}`);
-                    loadReports();
-                }
-            }
-        });
-
-        const logsContent = document.getElementById('logs-content').querySelector('code');
-        const refreshLogsBtn = document.getElementById('refresh-logs-btn');
-        const downloadLogsBtn = document.getElementById('download-logs-btn');
-        const clearLogsBtn = document.getElementById('clear-logs-btn');
-        async function loadLogs() {
-            logsContent.textContent = 'Загрузка логов...';
-            const logs = await fetchData('logs');
-            logsContent.textContent = logs || 'Не удалось загрузить логи или файл пуст.';
-        }
-        refreshLogsBtn.addEventListener('click', loadLogs);
-        downloadLogsBtn.addEventListener('click', () => {
-            window.location.href = `/api/admin/logs/download?token=${API_TOKEN}`;
-        });
-        clearLogsBtn.addEventListener('click', async () => {
-            if (confirm('Вы уверены, что хотите очистить файл логов?')) {
-                const result = await fetchData('logs', { method: 'DELETE' });
-                if (result) {
-                    alert('Файл логов очищен.');
-                    loadLogs();
-                }
-            }
-        });
-
-        const wipeDbBtn = document.getElementById('wipe-db-btn');
-        wipeDbBtn.addEventListener('click', async () => {
-            if (confirm('ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ ОЧИСТИТЬ БАЗУ ДАННЫХ? ВСЕ ДАННЫЕ БУДУТ ПОТЕРЯНЫ НАВСЕГДА!')) {
-                const result = await fetchData('database', { method: 'DELETE' });
-                if (result) {
-                    alert('База данных успешно очищена. Обновляю страницу...');
-                    window.location.reload();
-                }
-            }
-        });
-
-        document.addEventListener('DOMContentLoaded', () => {
-            loadStats();
-            loadActiveRooms();
-            loadUsers();
-            loadReports();
-            loadLogs();
-        });
-    </script>
+    <script src="/static/js/admin.js"></script>
 </body>
 </html>
