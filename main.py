@@ -220,6 +220,8 @@ manager = ConnectionManager()
 
 @app.on_event("startup")
 async def startup_event():
+    await database.init_pool()
+    await database.init_db()
     if not os.path.exists(LOGS_DIR):
         os.makedirs(LOGS_DIR)
         logger.info(f"Создана директория для логов: {LOGS_DIR}")

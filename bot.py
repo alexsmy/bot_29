@@ -2,7 +2,6 @@ import os
 import sys
 import threading
 import uuid
-import asyncio
 from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants, BotCommand, InputTextMessageContent, InlineQueryResultArticle
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
@@ -279,15 +278,12 @@ def run_fastapi():
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_config=None)
 
-async def main() -> None:
+def main() -> None:
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
         logger.critical("Токен бота (BOT_TOKEN) не найден.")
         sys.exit(1)
-
-    await database.init_pool()
-    await database.init_db()
 
     fastapi_thread = threading.Thread(target=run_fastapi)
     fastapi_thread.daemon = True
@@ -313,23 +309,7 @@ async def main() -> None:
     bot_app_instance = application
 
     logger.info("Telegram бот запускается...")
-    try:
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling()
-        # Keep the main function running
-        while True:
-            await asyncio.sleep(3600)
-    finally:
-        await database.close_pool()
-        if application.updater.running:
-            await application.updater.stop()
-        await application.stop()
-        await application.shutdown()
-
+    application.run_polling()
 
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        logger.info("Приложение остановлено вручную.")
+    main()
