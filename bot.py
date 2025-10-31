@@ -9,7 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constan
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
-import notifier  # <<< ИЗМЕНЕНИЕ
+import notifier
 from main import app as fastapi_app, manager
 from logger_config import logger
 from config import (
@@ -122,8 +122,6 @@ async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id
     expires_at = created_at + timedelta(hours=lifetime_hours)
     await database.log_call_session(room_id, user_id, created_at, expires_at)
 
-    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
-    # Отправка уведомления администратору
     is_admin_room = str(user_id) == os.environ.get("ADMIN_USER_ID")
     if not is_admin_room:
         message_to_admin = (
@@ -132,11 +130,9 @@ async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id
             f"<b>Room ID:</b> <code>{room_id}</code>\n"
             f"<b>Время:</b> {created_at.strftime('%Y-%m-%d %H:%M:%S UTC')}"
         )
-        # Запускаем в фоне, чтобы не блокировать основной поток
         context.application.create_task(
             notifier.send_admin_notification(message_to_admin, 'notify_on_room_creation')
         )
-    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     link_text = "🔗 <b>Ссылка для соединения</b> 📞"
     lifetime_text = format_hours(lifetime_hours)
@@ -256,10 +252,19 @@ async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAUL
         web_app_url += '/'
     admin_link = f"{web_app_url}admin/{token}"
 
-    await query.edit_message_text(
-        f"Ваша ссылка для доступа к панели администратора:\n\n{admin_link}\n\n"
+    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    message_text = (
+        f"Ваша ссылка для доступа к панели администратора:\n\n"
+        f"<a href=\"{admin_link}\">👨‍💻 Открыть админ-панель</a>\n\n"
         "Ссылка действительна в течение 1 часа."
     )
+
+    await query.edit_message_text(
+        text=message_text,
+        parse_mode=constants.ParseMode.HTML,
+        disable_web_page_preview=True
+    )
+    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 async def admin_create_room_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -312,10 +317,7 @@ def main() -> None:
 
     application = Application.builder().token(bot_token).post_init(post_init).build()
     
-    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
-    # Устанавливаем экземпляр бота в модуль уведомлений
     notifier.set_bot_instance(application)
-    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("instructions", instructions))

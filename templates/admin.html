@@ -8,6 +8,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body data-token="{{ token }}">
+    <!-- <<< НАЧАЛО ИЗМЕНЕНИЙ: Оверлей для мобильного меню >>> -->
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+    <!-- <<< КОНЕЦ ИЗМЕНЕНИЙ >>> -->
+
     <div class="dashboard-container">
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -57,6 +61,11 @@
 
         <main class="main-content">
             <header class="main-header">
+                <!-- <<< НАЧАЛО ИЗМЕНЕНИЙ: Кнопка мобильного меню >>> -->
+                <button id="mobile-menu-btn" class="mobile-menu-toggle">
+                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
+                </button>
+                <!-- <<< КОНЕЦ ИЗМЕНЕНИЙ >>> -->
                 <h1>Панель администратора</h1>
                 <div id="token-info">
                     Токен действителен: <span id="token-timer">--:--</span>

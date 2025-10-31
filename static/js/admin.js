@@ -68,8 +68,35 @@ document.addEventListener('DOMContentLoaded', () => {
             contentSections.forEach(section => {
                 section.classList.toggle('active', section.id === targetId);
             });
+            
+            // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+            // Закрываем мобильное меню при клике на ссылку
+            if (window.innerWidth <= 768) {
+                closeMobileMenu();
+            }
+            // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         });
     });
+    
+    // <<< НАЧАЛО ИЗМЕНЕНИЙ: Логика мобильного меню >>>
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    const openMobileMenu = () => {
+        sidebar.classList.add('is-open');
+        sidebarOverlay.classList.add('is-visible');
+    };
+
+    const closeMobileMenu = () => {
+        sidebar.classList.remove('is-open');
+        sidebarOverlay.classList.remove('is-visible');
+    };
+
+    mobileMenuBtn.addEventListener('click', openMobileMenu);
+    sidebarOverlay.addEventListener('click', closeMobileMenu);
+    // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
+
 
     // --- TOKEN TIMER ---
     const tokenTimerEl = document.getElementById('token-timer');
@@ -194,7 +221,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminRoomsContainer = document.getElementById('admin-rooms-list');
     const userRoomsContainer = document.getElementById('user-rooms-list');
 
-    // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
     const getCallStatusIcon = (userCount, callStatus, callType) => {
         if (userCount === 2 && callStatus === 'active') {
             if (callType === 'video') {
@@ -235,7 +261,6 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(adminRoomsContainer, adminRooms);
         renderList(userRoomsContainer, userRooms);
     };
-    // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     const loadActiveRooms = async () => {
         const rooms = await fetchData('active_rooms');

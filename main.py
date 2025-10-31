@@ -271,13 +271,16 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
         
+        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
             f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
         )
+        # Запускаем отправку файла в фоне
         asyncio.create_task(
             notifier.send_admin_notification(message_to_admin, 'send_connection_report', file_path=filepath)
         )
+        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
         return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
