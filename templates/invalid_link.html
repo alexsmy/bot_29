@@ -1,11 +1,9 @@
-<!-- templates/invalid_link.html -->
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ссылка недействительна - Telegram Caller</title>
+    <title>Ссылка недействительна</title>
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/landing.css">
 </head>
@@ -14,10 +12,10 @@
         <div class="landing-content">
             <h1 class="landing-title">Эта ссылка недействительна</h1>
             <p class="landing-text">
-                К сожалению, ссылка для звонка, по которой вы перешли, некорректна или срок ее действия истек. Для осуществления вызова, пожалуйста, сгенерируйте новую ссылку в нашем Telegram боте.
+                К сожалению, ссылка, по которой вы перешли, некорректна или срок ее действия истек. Для создания нового звонка, пожалуйста, сгенерируйте новую ссылку в нашем Telegram боте.
             </p>
             {% if bot_username %}
-            <a href="https://t.me/{{ bot_username }}" target="_blank" class="landing-button">Перейти в бот {{ bot_name }}</a>
+            <a href="https://t.me/{{ bot_username }}" target="_blank" class="landing-button">Перейти в бот</a>
             {% endif %}
         </div>
     </div>

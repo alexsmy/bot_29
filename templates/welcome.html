@@ -1,11 +1,9 @@
-<!-- templates/welcome.html -->
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Caller</title>
+    <title>Сервис для приватных звонков</title>
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/landing.css">
 </head>
@@ -17,7 +15,7 @@
                 Чтобы сгенерировать уникальную и безопасную ссылку для звонка, пожалуйста, воспользуйтесь нашим ботом в Telegram.
             </p>
             {% if bot_username %}
-            <a href="https://t.me/{{ bot_username }}" target="_blank" class="landing-button">Перейти в бот {{ bot_name }}</a>
+            <a href="https://t.me/{{ bot_username }}" target="_blank" class="landing-button">Перейти в бот</a>
             {% endif %}
         </div>
     </div>
