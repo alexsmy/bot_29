@@ -7,12 +7,15 @@ import json
 import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends, status
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
+from fastapi.exception_handlers import http_exception_handler
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
-
+from config import ADMIN_TOKEN_LIFETIME_MINUTES
 import database
 import utils
 import ice_provider
@@ -40,7 +43,22 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-ADMIN_TOKEN_LIFETIME_MINUTES = 60
+
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    
+    if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
+        logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
+        bot_username = os.environ.get("BOT_USERNAME", "")
+        return templates.TemplateResponse(
+            "invalid_link.html",
+            {"request": request, "bot_username": bot_username},
+            status_code=exc.status_code  
+        )
+    
+    return await http_exception_handler(request, exc)
+
 
 class ClientLog(BaseModel):
     user_id: str
@@ -285,9 +303,8 @@ async def get_room_lifetime(room_id: str):
 
 @app.get("/", response_class=HTMLResponse)
 async def get_welcome(request: Request):
-    bot_name = os.environ.get("BOT_NAME", "Telegram Caller")
     bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse("welcome.html", {"request": request, "bot_name": bot_name, "bot_username": bot_username})
+    return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
 
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
@@ -298,9 +315,8 @@ async def get_ice_servers_endpoint():
 async def get_call_page(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
-        bot_name = os.environ.get("BOT_NAME", "Telegram Caller")
-        bot_username = os.environ.get("BOT_USERNAME", "")
-        return templates.TemplateResponse("invalid_link.html", {"request": request, "bot_name": bot_name, "bot_username": bot_username}, status_code=404)
+        
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
     bot_username = os.environ.get("BOT_USERNAME", "")
     return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username})
 
@@ -415,11 +431,12 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     else:
         logger.warning(f"Connection attempt to full room {room_id} was rejected.")
 
-# --- ЛОГИКА АДМИН-ПАНЕЛИ ---
+
 
 async def verify_admin_token(token: str):
     if not await database.is_admin_token_valid(token):
-        raise HTTPException(status_code=403, detail="Invalid or expired token")
+       
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token")
     return token
 
 @app.get("/admin/{token}", response_class=HTMLResponse)
@@ -472,7 +489,6 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
         if room_id in manager.rooms:
             user_count = len(manager.rooms[room_id].users)
 
-        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         active_rooms_info.append({
             "room_id": room_id,
             "lifetime_hours": lifetime_hours,
@@ -482,7 +498,6 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
             "call_status": session.get('status'),
             "call_type": session.get('call_type')
         })
-        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         
     return CustomJSONResponse(content=active_rooms_info)
 
