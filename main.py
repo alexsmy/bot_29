@@ -16,10 +16,9 @@ from pydantic import BaseModel
 import database
 import utils
 import ice_provider
-import notifier  # <<< ИЗМЕНЕНИЕ
+import notifier
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from config import ADMIN_TOKEN_LIFETIME_MINUTES
 
 LOGS_DIR = "connection_logs"
 
@@ -41,6 +40,8 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+ADMIN_TOKEN_LIFETIME_MINUTES = 60
+
 class ClientLog(BaseModel):
     user_id: str
     room_id: str
@@ -53,13 +54,11 @@ class ConnectionLog(BaseModel):
     probeResults: List[Dict[str, Any]]
     selectedConnection: Optional[Dict[str, Any]] = None
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
-# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -261,7 +260,6 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
         
-        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
             f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
@@ -269,14 +267,12 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
         asyncio.create_task(
             notifier.send_admin_notification(message_to_admin, 'send_connection_report', file_path=filepath)
         )
-        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
         return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
-# ... (остальные эндпоинты до handle_websocket_logic без изменений) ...
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -339,7 +335,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
                     await database.log_call_start(room.room_id, room.pending_call_type)
-                    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -349,7 +344,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                     asyncio.create_task(
                         notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
                     )
-                    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
                     room.pending_call_type = None
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
@@ -364,7 +358,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 
                 if message_type == "hangup":
                     await database.log_call_end(room.room_id)
-                    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -373,7 +366,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                     asyncio.create_task(
                         notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
                     )
-                    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
                     
                 await room.send_personal_message({"type": "call_ended"}, target_id)
                 await room.set_user_status(user_id, "available")
@@ -398,7 +390,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
 
         await room.disconnect(user_id)
 
-# ... (websocket_endpoint_private без изменений) ...
 @app.websocket("/ws/private/{room_id}")
 async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -481,13 +472,17 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
         if room_id in manager.rooms:
             user_count = len(manager.rooms[room_id].users)
 
+        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         active_rooms_info.append({
             "room_id": room_id,
             "lifetime_hours": lifetime_hours,
             "remaining_seconds": max(0, remaining_seconds),
             "is_admin_room": is_admin_room,
-            "user_count": user_count
+            "user_count": user_count,
+            "call_status": session.get('status'),
+            "call_type": session.get('call_type')
         })
+        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         
     return CustomJSONResponse(content=active_rooms_info)
 
@@ -502,7 +497,6 @@ async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_to
         
     return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 @app.get("/api/admin/notification_settings")
 async def get_notification_settings_endpoint(token: str = Depends(verify_admin_token)):
     settings = await database.get_notification_settings()
@@ -512,9 +506,7 @@ async def get_notification_settings_endpoint(token: str = Depends(verify_admin_t
 async def update_notification_settings_endpoint(settings: NotificationSettings, token: str = Depends(verify_admin_token)):
     await database.update_notification_settings(settings.dict())
     return CustomJSONResponse(content={"status": "ok"})
-# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
-# ... (остальной код main.py без изменений) ...
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
         raise HTTPException(status_code=400, detail="Invalid filename.")

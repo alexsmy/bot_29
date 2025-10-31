@@ -194,6 +194,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const adminRoomsContainer = document.getElementById('admin-rooms-list');
     const userRoomsContainer = document.getElementById('user-rooms-list');
 
+    // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    const getCallStatusIcon = (userCount, callStatus, callType) => {
+        if (userCount === 2 && callStatus === 'active') {
+            if (callType === 'video') {
+                return `<span class="call-status-icon" title="Активный видеозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" /></svg></span>`;
+            }
+            if (callType === 'audio') {
+                return `<span class="call-status-icon" title="Активный аудиозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A3,3 0 0,0 9,6V12A3,3 0 0,0 12,15A3,3 0 0,0 15,12V6A3,3 0 0,0 12,3M19,12V13A7,7 0 0,1 5,13V12H3V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V12H19Z" /></svg></span>`;
+            }
+        }
+        return '';
+    };
+
     const renderRooms = (rooms) => {
         const adminRooms = rooms.filter(r => r.is_admin_room);
         const userRooms = rooms.filter(r => !r.is_admin_room);
@@ -206,7 +219,10 @@ document.addEventListener('DOMContentLoaded', () => {
             container.innerHTML = list.map(room => `
                 <div class="room-item">
                     <div class="room-info">
-                        <code>${room.room_id}</code>
+                        <div class="room-id-line">
+                            <code>${room.room_id}</code>
+                            ${getCallStatusIcon(room.user_count, room.call_status, room.call_type)}
+                        </div>
                         <div class="meta">
                             <span>Осталось: ${formatRemainingTime(room.remaining_seconds)}</span> | 
                             <span>Участников: ${room.user_count}</span>
@@ -219,6 +235,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderList(adminRoomsContainer, adminRooms);
         renderList(userRoomsContainer, userRooms);
     };
+    // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     const loadActiveRooms = async () => {
         const rooms = await fetchData('active_rooms');

@@ -76,7 +76,6 @@ async def init_db():
             )
         ''')
         
-        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         # --- Таблица для настроек администратора ---
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_settings (
@@ -93,13 +92,11 @@ async def init_db():
             ('send_connection_report', TRUE)
             ON CONFLICT(key) DO NOTHING
         ''')
-        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     finally:
         await conn.close()
     logger.info("База данных PostgreSQL успешно инициализирована.")
 
-# ... (остальные функции log_user, log_bot_action и т.д. остаются без изменений) ...
 async def log_user(user_id, first_name, last_name, username):
     conn = await get_conn()
     try:
@@ -319,18 +316,19 @@ async def get_all_active_sessions():
     """
     conn = await get_conn()
     try:
+        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         query = """
-            SELECT room_id, created_at, expires_at
+            SELECT room_id, created_at, expires_at, status, call_type
             FROM call_sessions
             WHERE expires_at > NOW() AND closed_at IS NULL
             ORDER BY created_at DESC
         """
+        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
     finally:
         await conn.close()
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 async def get_notification_settings() -> Dict[str, bool]:
     """Получает все настройки уведомлений из базы данных."""
     conn = await get_conn()
@@ -356,4 +354,3 @@ async def update_notification_settings(settings: Dict[str, bool]):
         logger.info("Настройки уведомлений администратора обновлены.")
     finally:
         await conn.close()
-# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
