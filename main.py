@@ -7,11 +7,9 @@ import json
 import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends, status
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
-
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -43,22 +41,17 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-
-
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    
     if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
         logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
         bot_username = os.environ.get("BOT_USERNAME", "")
         return templates.TemplateResponse(
             "invalid_link.html",
             {"request": request, "bot_username": bot_username},
-            status_code=exc.status_code  
+            status_code=exc.status_code
         )
-    
     return await http_exception_handler(request, exc)
-
 
 class ClientLog(BaseModel):
     user_id: str
@@ -315,7 +308,6 @@ async def get_ice_servers_endpoint():
 async def get_call_page(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
-        
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
     bot_username = os.environ.get("BOT_USERNAME", "")
     return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username})
@@ -432,10 +424,8 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         logger.warning(f"Connection attempt to full room {room_id} was rejected.")
 
 
-
 async def verify_admin_token(token: str):
     if not await database.is_admin_token_valid(token):
-       
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token")
     return token
 
@@ -619,3 +609,13 @@ async def clear_database(token: str = Depends(verify_admin_token)):
     except Exception as e:
         logger.error(f"Ошибка при очистке базы данных: {e}")
         raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
+
+@app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
+async def catch_all_invalid_paths(request: Request, full_path: str):
+    logger.warning(f"Обработан невалидный путь (catch-all): /{full_path}")
+    bot_username = os.environ.get("BOT_USERNAME", "")
+    return templates.TemplateResponse(
+        "invalid_link.html",
+        {"request": request, "bot_username": bot_username},
+        status_code=status.HTTP_404_NOT_FOUND
+    )
