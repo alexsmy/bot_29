@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // ИЗМЕНЕНИЕ: Получаем токен напрямую из атрибута body
     const API_TOKEN = document.body.dataset.token;
     let statsChart = null;
     let allUsersData = [];
@@ -7,7 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UTILS ---
     const fetchData = async (endpoint, options = {}) => {
-        // ИЗМЕНЕНИЕ: Исправлена логика добавления токена в URL
         const separator = endpoint.includes('?') ? '&' : '?';
         const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
         try {
@@ -22,7 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return response.text();
         } catch (error) {
             console.error(`Fetch error for ${endpoint}:`, error);
-            // Optionally show a toast notification here
             return null;
         }
     };
@@ -236,7 +233,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId}?`)) {
                 const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });
                 if (result) {
-                    // Optionally show a success toast
                     loadActiveRooms();
                 }
             }
@@ -328,16 +324,59 @@ document.addEventListener('DOMContentLoaded', () => {
             connectionsListContainer.innerHTML = '<p class="empty-list">Соединения за эту дату не найдены.</p>';
             return;
         }
-        connectionsListContainer.innerHTML = sessions.map(session => `
-            <div class="connection-card">
-                <div class="card-header">
-                    <code>${session.room_id}</code>
+        // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+        connectionsListContainer.innerHTML = sessions.map(session => {
+            const participantsHtml = session.participants.length > 0 
+                ? session.participants.map((p, index) => `
+                    <div class="participant-card">
+                        <strong>Участник ${index + 1}</strong>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>`).join('')
+                : '<p>Нет информации об участниках.</p>';
+
+            return `
+            <div class="connection-item">
+                <div class="connection-summary">
+                    <div class="summary-info">
+                        <code>${session.room_id}</code>
+                        <div class="meta">
+                           Тип: ${session.call_type || 'N/A'} | Длительность: ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}
+                        </div>
+                    </div>
                     <span class="status ${session.status}">${session.status}</span>
                 </div>
-                <!-- ... more details ... -->
-            </div>
-        `).join('');
+                <div class="connection-details">
+                    <h4>Детали сессии</h4>
+                    <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
+                    ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
+                    ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
+                    <hr>
+                    <h4>Участники</h4>
+                    ${participantsHtml}
+                </div>
+            </div>`;
+        }).join('');
+        // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
     });
+    
+    // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
+    connectionsListContainer.addEventListener('click', (e) => {
+        const summary = e.target.closest('.connection-summary');
+        if (!summary) return;
+        
+        const details = summary.nextElementSibling;
+        const item = summary.parentElement;
+
+        if (details.style.maxHeight) {
+            details.style.maxHeight = null;
+            item.classList.remove('open');
+        } else {
+            details.style.maxHeight = details.scrollHeight + "px";
+            item.classList.add('open');
+        }
+    });
+    // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
     // --- REPORTS ---
     const reportsListContainer = document.getElementById('reports-list');
@@ -396,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- DANGER ZONE ---
     document.getElementById('wipe-db-btn').addEventListener('click', async () => {
-        if (confirm('ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ ОЧИСТИТЬ БАЗУ ДАННЫХ?')) {
+        if (confirm('ВЫ УВЕРЕНЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ ОЧИСТИТЬ БАЗУ ДАННЫХ?')) {
             await fetchData('database', { method: 'DELETE' });
             alert('База данных очищена. Страница будет перезагружена.');
             window.location.reload();
@@ -415,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
         autoUpdateInterval = setInterval(() => {
             loadStats();
             loadActiveRooms();
-        }, 30000); // Update every 30 seconds
+        }, 30000);
     };
 
     initialLoad();
