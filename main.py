@@ -1,3 +1,5 @@
+# main.py
+
 import asyncio
 import os
 import uuid
@@ -428,6 +430,7 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
+# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):
     """Возвращает список всех активных комнат из БАЗЫ ДАННЫХ."""
@@ -474,6 +477,7 @@ async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_to
         await database.log_room_closure(room_id, "Closed by admin")
         
     return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
+# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
