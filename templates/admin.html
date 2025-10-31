@@ -205,7 +205,6 @@
             color: white;
             font-weight: bold;
         }
-        /* --- Стили для нового блока --- */
         details > summary {
             cursor: pointer;
             font-weight: bold;
@@ -254,7 +253,6 @@
             <div id="stats-container" class="stats-grid"></div>
         </div>
 
-        <!-- <<< НАЧАЛО НОВОГО БЛОКА >>> -->
         <div class="section" id="active-rooms-section">
             <h2>Активные комнаты</h2>
             <details open>
@@ -266,7 +264,6 @@
                 <div id="user-rooms-list"><p>Загрузка...</p></div>
             </details>
         </div>
-        <!-- <<< КОНЕЦ НОВОГО БЛОКА >>> -->
 
         <div class="section">
             <h2>Пользователи бота</h2>
@@ -284,6 +281,7 @@
                 <label for="connections-date">Дата:</label>
                 <input type="date" id="connections-date">
                 <button id="search-connections-btn">Показать</button>
+                <button id="collapse-connections-btn" style="display: none;">Свернуть</button>
             </div>
             <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
         </div>
@@ -345,7 +343,6 @@
             return new Date(isoString).toLocaleString('ru-RU', { timeZone: 'UTC', dateStyle: 'short', timeStyle: 'medium' });
         }
 
-        // <<< НАЧАЛО НОВЫХ ФУНКЦИЙ >>>
         function formatRemainingTime(seconds) {
             if (seconds <= 0) return '00:00';
             const hours = Math.floor(seconds / 3600);
@@ -376,7 +373,7 @@
                 container.innerHTML = roomList.map(room => `
                     <div class="room-item">
                         <div class="room-info">
-                            <span>ID: ${room.room_id.substring(0, 8)}...</span>
+                            <span>ID: <code>${room.room_id}</code></span>
                             <span>| Осталось: ${formatRemainingTime(room.remaining_seconds)}</span>
                             <span class="user-count">| Участников: ${room.user_count}</span>
                         </div>
@@ -394,16 +391,15 @@
         activeRoomsSection.addEventListener('click', async (event) => {
             if (event.target.classList.contains('close-room-btn')) {
                 const roomId = event.target.dataset.roomId;
-                if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId.substring(0, 8)}...?`)) {
+                if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId}?`)) {
                     const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });
                     if (result) {
-                        alert(`Комната ${result.room_id.substring(0, 8)} успешно закрыта.`);
+                        alert(`Комната ${result.room_id} успешно закрыта.`);
                         loadActiveRooms(); // Обновляем список
                     }
                 }
             }
         });
-        // <<< КОНЕЦ НОВЫХ ФУНКЦИЙ >>>
 
         const statsContainer = document.getElementById('stats-container');
         const statsPeriodSelect = document.getElementById('stats-period');
@@ -482,11 +478,14 @@
 
         const connectionsDateInput = document.getElementById('connections-date');
         const searchConnectionsBtn = document.getElementById('search-connections-btn');
+        const collapseConnectionsBtn = document.getElementById('collapse-connections-btn');
         const connectionsListContainer = document.getElementById('connections-list');
+        
         async function loadConnections() {
             const date = connectionsDateInput.value;
             if (!date) { alert('Выберите дату'); return; }
             connectionsListContainer.innerHTML = '<p>Загрузка соединений...</p>';
+            collapseConnectionsBtn.style.display = 'none';
             const sessions = await fetchData(`connections?date=${date}`);
             if (!sessions || sessions.length === 0) {
                 connectionsListContainer.innerHTML = '<p>Соединения за эту дату не найдены.</p>';
@@ -506,7 +505,7 @@
                 return `
                 <div class="connection-card">
                     <div class="card-header">
-                        <span class="room-id">Room: ${session.room_id.substring(0, 8)}...</span>
+                        <span class="room-id">Room: <code>${session.room_id}</code></span>
                         <span>${session.call_type || 'N/A'} / ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}</span>
                         <span class="status ${session.status}">${session.status}</span>
                     </div>
@@ -518,8 +517,13 @@
                     </div>
                 </div>`;
             }).join('');
+            collapseConnectionsBtn.style.display = 'inline-block';
         }
         searchConnectionsBtn.addEventListener('click', loadConnections);
+        collapseConnectionsBtn.addEventListener('click', () => {
+            connectionsListContainer.innerHTML = '<p>Выберите дату для просмотра соединений.</p>';
+            collapseConnectionsBtn.style.display = 'none';
+        });
         connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
         const reportsListContainer = document.getElementById('reports-list');
@@ -601,7 +605,7 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             loadStats();
-            loadActiveRooms(); // <<< ДОБАВЛЕН ВЫЗОВ НОВОЙ ФУНКЦИИ
+            loadActiveRooms();
             loadUsers();
             loadReports();
             loadLogs();
