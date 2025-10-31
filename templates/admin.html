@@ -13,7 +13,7 @@
             <div class="sidebar-header">
                 <h3>Admin Panel</h3>
             </div>
-            <nav class.sidebar-nav">
+            <nav class="sidebar-nav">
                 <a href="#stats" class="nav-link active">
                     <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M16,11.78L20.24,4.45L21.66,5.87L17.41,13.2L16,11.78M15.55,13.58L11.71,9.74L7.47,14L2.22,8.75L3.64,7.33L7.47,11.16L11.71,6.92L17,12.17L15.55,13.58Z" /></svg>
                     <span>Статистика</span>
@@ -30,12 +30,10 @@
                     <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5,9A2.5,2.5 0 0,0 14,11.5A2.5,2.5 0 0,0 16.5,14A2.5,2.5 0 0,0 19,11.5A2.5,2.5 0 0,0 16.5,9M9,11.5A2.5,2.5 0 0,1 6.5,9A2.5,2.5 0 0,1 9,6.5A2.5,2.5 0 0,1 11.5,9A2.5,2.5 0 0,1 9,11.5M16.5,15C14.09,15 9.5,16.25 9.5,18.5V21H23.5V18.5C23.5,16.25 18.91,15 16.5,15M9,13C6.5,13 2,14.25 2,16.5V19H9V16.5C9,15.42 9.24,14.44 9.68,13.56C9.45,13.5 9.22,13.5 9,13.5Z" /></svg>
                     <span>Соединения</span>
                 </a>
-                <!-- <<< НАЧАЛО ИЗМЕНЕНИЙ >>> -->
                 <a href="#notifications" class="nav-link">
                     <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29V4A2,2 0 0,1 12,2A2,2 0 0,1 14,4V4.29C16.97,5.17 19,7.9 19,11V17L21,19M12,22A2,2 0 0,1 10,20H14A2,2 0 0,1 12,22Z" /></svg>
                     <span>Уведомления</span>
                 </a>
-                <!-- <<< КОНЕЦ ИЗМЕНЕНИЙ >>> -->
                 <a href="#reports" class="nav-link">
                     <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H11V12H13V15H16L12,19Z" /></svg>
                     <span>Отчёты</span>
@@ -66,22 +64,57 @@
             </header>
 
             <section id="stats" class="content-section active">
-                <!-- ... -->
+                <h2>Сводная информация</h2>
+                <div class="filters">
+                    <label for="stats-period">Период:</label>
+                    <select id="stats-period">
+                        <option value="day">За день</option>
+                        <option value="week">За неделю</option>
+                        <option value="month">За месяц</option>
+                        <option value="all" selected>За все время</option>
+                    </select>
+                </div>
+                <div id="stats-container" class="stats-grid">
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="statsChart"></canvas>
+                </div>
             </section>
 
             <section id="rooms" class="content-section">
-                <!-- ... -->
+                <h2>Активные комнаты</h2>
+                <details open>
+                    <summary>Админ-комнаты</summary>
+                    <div id="admin-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
+                </details>
+                <details>
+                    <summary>Пользовательские комнаты</summary>
+                    <div id="user-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
+                </details>
             </section>
 
             <section id="users" class="content-section">
-                <!-- ... -->
+                <h2>Пользователи бота</h2>
+                <div class="filters">
+                    <input type="text" id="user-search" placeholder="Поиск по ID, имени или @username...">
+                </div>
+                <div id="users-list" class="users-list"><div class="skeleton-list"></div></div>
             </section>
             
             <section id="connections" class="content-section">
-                <!-- ... -->
+                <h2>Информация о соединениях</h2>
+                <div class="filters">
+                    <input type="date" id="connections-date">
+                    <button id="search-connections-btn" class="primary">Показать</button>
+                </div>
+                <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
             </section>
 
-            <!-- <<< НАЧАЛО ИЗМЕНЕНИЙ >>> -->
             <section id="notifications" class="content-section">
                 <h2>Настройки уведомлений</h2>
                 <p class="section-description">Выберите, какие уведомления вы хотите получать в Telegram.</p>
@@ -116,18 +149,33 @@
                     </div>
                 </div>
             </section>
-            <!-- <<< КОНЕЦ ИЗМЕНЕНИЙ >>> -->
 
             <section id="reports" class="content-section">
-                <!-- ... -->
+                <div class="section-header">
+                    <h2>Отчёты о соединениях</h2>
+                    <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
+                </div>
+                <div id="reports-list"><div class="skeleton-list"></div></div>
             </section>
 
             <section id="logs" class="content-section">
-                <!-- ... -->
+                <div class="section-header">
+                    <h2>Логи приложения</h2>
+                    <div class="actions">
+                        <button id="refresh-logs-btn" class="action-btn">Обновить</button>
+                        <button id="download-logs-btn" class="action-btn">Скачать</button>
+                        <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
+                    </div>
+                </div>
+                <pre id="logs-content"><code>Загрузка логов...</code></pre>
             </section>
 
             <section id="danger" class="content-section">
-                <!-- ... -->
+                <div class="danger-zone">
+                    <h2>Опасная зона</h2>
+                    <p>Это действие необратимо и приведет к полной потере всех данных о пользователях, звонках и действиях.</p>
+                    <button id="wipe-db-btn" class="danger">Очистить базу данных</button>
+                </div>
             </section>
         </main>
     </div>
