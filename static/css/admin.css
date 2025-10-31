@@ -1,0 +1,301 @@
+/* static/css/admin.css */
+
+:root {
+    --bg-color: #18181b;
+    --surface-color: #27272a;
+    --primary-text: #e4e4e7;
+    --secondary-text: #a1a1aa;
+    --accent-color: #3b82f6;
+    --accent-color-hover: #2563eb;
+    --border-color: #3f3f46;
+    --success-color: #22c55e;
+    --pending-color: #f59e0b;
+    --error-color: #ef4444;
+    --danger-zone-bg: rgba(239, 68, 68, 0.05);
+    --danger-zone-border: #450a0a;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--primary-text);
+    margin: 0;
+    padding: 1rem;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+h1, h2 {
+    color: #fafafa;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 1.8rem;
+    border-bottom: 2px solid var(--accent-color);
+}
+
+h2 {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.section {
+    background-color: var(--surface-color);
+    padding: 1.5rem;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-color);
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.filters {
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.filters button, .filters input, .filters select, .action-btn {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background-color: #3f3f46;
+    color: var(--primary-text);
+    font-size: 1em;
+    cursor: pointer;
+    transition: background-color 0.2s, border-color 0.2s;
+}
+
+.filters button:hover, .action-btn:hover {
+    border-color: #52525b;
+    background-color: #52525b;
+}
+
+.filters button.primary, .action-btn.primary {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+    font-weight: 500;
+}
+
+.filters button.primary:hover, .action-btn.primary:hover {
+    background-color: var(--accent-color-hover);
+    border-color: var(--accent-color-hover);
+}
+
+.search-hint {
+    color: var(--secondary-text);
+    font-size: 0.8em;
+    width: 100%;
+    margin-top: -0.5rem;
+    margin-bottom: 0.5rem;
+    padding-left: 0.2rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.stat-card {
+    background-color: #3f3f46;
+    padding: 1rem;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-card .value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent-color);
+}
+
+.stat-card .label {
+    font-size: 0.85rem;
+    color: var(--secondary-text);
+    margin-top: 0.25rem;
+}
+
+.users-list .user-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.users-list .user-item:last-child { border-bottom: none; }
+.users-list .user-item:hover { background-color: #3f3f46; }
+
+.user-item .user-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.user-summary .user-info span { display: block; }
+.user-summary .user-info .user-name { font-weight: 600; }
+.user-summary .user-info .user-id { font-size: 0.8em; color: var(--secondary-text); }
+.user-summary .user-first-seen { font-size: 0.8em; color: var(--secondary-text); text-align: right; }
+
+.user-details {
+    display: none;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-top: 1px dashed var(--border-color);
+    background-color: #18181b;
+    border-radius: 6px;
+}
+
+.user-details h3 { margin-top: 0; font-size: 1em; color: var(--secondary-text); }
+.user-details ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
+.user-details li { padding: 0.25rem 0; }
+
+.connections-list .connection-card {
+    background-color: #3f3f46;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+}
+
+.connection-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.75rem;
+}
+
+.card-header .room-id { font-weight: bold; font-family: monospace; }
+.card-header .status { padding: 0.25rem 0.5rem; border-radius: 99px; font-size: 0.8em; font-weight: 500; }
+.status.completed { background-color: var(--success-color); color: white; }
+.status.active { background-color: var(--accent-color); color: white; }
+.status.pending { background-color: var(--pending-color); color: #18181b; }
+.status.closed { background-color: var(--secondary-text); color: #18181b; }
+
+.card-body .participant {
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    background-color: var(--surface-color);
+}
+
+.participant p, .card-body > p { margin: 0.25rem 0; font-size: 0.9em; }
+.participant strong, .card-body > p > strong { color: var(--secondary-text); }
+
+.reports-header, .logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.action-btn.danger {
+    border-color: var(--error-color);
+    background-color: var(--error-color);
+    color: white;
+}
+.action-btn.danger:hover {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
+}
+
+.report-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    font-family: monospace;
+}
+.report-item:last-child { border-bottom: none; }
+.report-item a { color: var(--accent-color); text-decoration: none; }
+.report-item a:hover { text-decoration: underline; }
+.report-actions { display: flex; gap: 0.5rem; }
+.report-btn { padding: 0.3rem 0.6rem; font-size: 0.8em; }
+.report-btn.delete-btn { border-color: var(--error-color); color: var(--error-color); }
+.report-btn.delete-btn:hover { background-color: var(--error-color); color: white; }
+
+#logs-content {
+    background-color: #1e1e1e;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+.danger-zone {
+    background-color: var(--danger-zone-bg);
+    border: 1px solid var(--danger-zone-border);
+    padding: 1.5rem;
+    border-radius: 12px;
+}
+.danger-zone h2 { border-color: var(--error-color); }
+.danger-zone p { color: var(--secondary-text); }
+
+details > summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.1em;
+    padding: 0.75rem 1rem;
+    background-color: #3f3f46;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    transition: background-color 0.2s;
+}
+details > summary:hover {
+    background-color: #52525b;
+}
+details[open] > summary {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.room-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    background-color: #3f3f46;
+}
+.room-item:last-child {
+    border-bottom: none;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+}
+.room-info { font-family: monospace; }
+.room-info .user-count {
+    font-size: 0.8em;
+    color: var(--secondary-text);
+    margin-left: 10px;
+}
+.room-actions .close-room-btn {
+    border-color: var(--error-color);
+    color: var(--error-color);
+    font-size: 0.9em;
+}
+.room-actions .close-room-btn:hover {
+    background-color: var(--error-color);
+    color: white;
+}
