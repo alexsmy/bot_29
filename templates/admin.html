@@ -1,4 +1,4 @@
-<!-- admin.html -->
+<!-- templates/admin.html -->
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -6,236 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель администратора</title>
-    <style>
-        :root {
-            --bg-color: #1a1a1a;
-            --surface-color: #2c2c2c;
-            --primary-text: #e0e0e0;
-            --secondary-text: #a0a0a0;
-            --accent-color: #0A84FF;
-            --border-color: #444;
-            --success-color: #28a745;
-            --pending-color: #ffc107;
-            --error-color: #dc3545;
-            --danger-zone-bg: rgba(220, 53, 69, 0.1);
-            --danger-zone-border: #58151c;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--primary-text);
-            margin: 0;
-            padding: 1rem;
-            font-size: 14px;
-        }
-        h1, h2 {
-            color: #fff;
-            border-bottom: 2px solid var(--accent-color);
-            padding-bottom: 0.5rem;
-            margin-top: 0;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-        .section {
-            background-color: var(--surface-color);
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
-        }
-        .filters {
-            margin-bottom: 1rem;
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .filters button, .filters input, .filters select, .action-btn {
-            padding: 0.5rem 0.75rem;
-            border-radius: 5px;
-            border: 1px solid var(--border-color);
-            background-color: #3a3a3a;
-            color: var(--primary-text);
-            font-size: 1em;
-            cursor: pointer;
-        }
-        .filters button, .action-btn.primary {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-            color: #fff;
-        }
-        .search-hint {
-            color: var(--secondary-text);
-            font-size: 0.8em;
-            width: 100%;
-            margin-top: -0.5rem;
-            margin-bottom: 0.5rem;
-            padding-left: 0.2rem;
-        }
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 1rem;
-        }
-        .stat-card {
-            background-color: #3a3a3a;
-            padding: 1rem;
-            border-radius: 6px;
-            text-align: center;
-        }
-        .stat-card .value {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: var(--accent-color);
-        }
-        .stat-card .label {
-            font-size: 0.8rem;
-            color: var(--secondary-text);
-            margin-top: 0.25rem;
-        }
-        .users-list .user-item {
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-        .users-list .user-item:last-child { border-bottom: none; }
-        .users-list .user-item:hover { background-color: #333; }
-        .user-item .user-summary {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .user-summary .user-info span { display: block; }
-        .user-summary .user-info .user-name { font-weight: bold; }
-        .user-summary .user-info .user-id { font-size: 0.8em; color: var(--secondary-text); }
-        .user-summary .user-first-seen { font-size: 0.8em; color: var(--secondary-text); text-align: right; }
-        .user-details {
-            display: none;
-            margin-top: 1rem;
-            padding-top: 1rem;
-            border-top: 1px dashed var(--border-color);
-        }
-        .user-details h3 { margin-top: 0; font-size: 1em; color: var(--secondary-text); }
-        .user-details ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
-        .user-details li { padding: 0.25rem 0; }
-        .connections-list .connection-card {
-            background-color: #3a3a3a;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-            padding: 1rem;
-        }
-        .connection-card .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            padding-bottom: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 0.75rem;
-        }
-        .card-header .room-id { font-weight: bold; font-family: monospace; }
-        .card-header .status { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
-        .status.completed { background-color: var(--success-color); color: white; }
-        .status.active { background-color: var(--accent-color); color: white; }
-        .status.pending { background-color: var(--pending-color); color: #333; }
-        .card-body .participant {
-            padding: 0.75rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            margin-bottom: 0.5rem;
-        }
-        .participant p, .card-body > p { margin: 0.25rem 0; font-size: 0.9em; }
-        .participant strong, .card-body > p > strong { color: var(--secondary-text); }
-        .reports-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        #delete-all-reports-btn {
-            border: 1px solid var(--error-color);
-            background-color: var(--error-color);
-            color: white;
-            font-size: 0.9em;
-        }
-        .report-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-            font-family: monospace;
-        }
-        .report-item:last-child { border-bottom: none; }
-        .report-item a { color: var(--accent-color); text-decoration: none; }
-        .report-item a:hover { text-decoration: underline; }
-        .report-actions { display: flex; gap: 0.5rem; }
-        .report-btn { padding: 0.3rem 0.6rem; font-size: 0.8em; }
-        .report-btn.delete-btn { border-color: var(--error-color); color: var(--error-color); }
-        .logs-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-        .logs-actions { display: flex; gap: 0.5rem; }
-        #logs-content {
-            background-color: #1e1e1e;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 0.5rem;
-            max-height: 400px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            font-family: monospace;
-            font-size: 0.85em;
-        }
-        .danger-zone {
-            background-color: var(--danger-zone-bg);
-            border: 1px solid var(--danger-zone-border);
-            padding: 1rem;
-            border-radius: 8px;
-        }
-        .danger-zone h2 { border-color: var(--error-color); }
-        .danger-zone p { color: var(--secondary-text); }
-        .danger-zone button {
-            background-color: var(--error-color);
-            border-color: var(--error-color);
-            color: white;
-            font-weight: bold;
-        }
-        details > summary {
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 1.1em;
-            padding: 0.5rem;
-            background-color: #3a3a3a;
-            border-radius: 5px;
-            margin-bottom: 0.5rem;
-        }
-        .room-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem;
-            border-bottom: 1px solid var(--border-color);
-        }
-        .room-item:last-child { border-bottom: none; }
-        .room-info { font-family: monospace; }
-        .room-info .user-count {
-            font-size: 0.8em;
-            color: var(--secondary-text);
-            margin-left: 10px;
-        }
-        .room-actions .close-room-btn {
-            border-color: var(--error-color);
-            color: var(--error-color);
-            font-size: 0.9em;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/css/admin.css">
 </head>
 <body>
     <div class="container">
@@ -252,7 +23,7 @@
                     <option value="all" selected>За все время</option>
                 </select>
             </div>
-            <div id="stats-container" class="stats-grid"></div>
+            <div id="stats-container" class="stats-grid"><p>Загрузка...</p></div>
         </div>
 
         <div class="section" id="active-rooms-section">
@@ -261,7 +32,7 @@
                 <summary>Админ-комнаты</summary>
                 <div id="admin-rooms-list"><p>Загрузка...</p></div>
             </details>
-            <details open>
+            <details>
                 <summary>Пользовательские комнаты</summary>
                 <div id="user-rooms-list"><p>Загрузка...</p></div>
             </details>
@@ -282,7 +53,7 @@
             <div class="filters">
                 <label for="connections-date">Дата:</label>
                 <input type="date" id="connections-date">
-                <button id="search-connections-btn">Показать</button>
+                <button id="search-connections-btn" class="primary">Показать</button>
                 <button id="collapse-connections-btn" style="display: none;">Свернуть</button>
             </div>
             <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
@@ -291,7 +62,7 @@
         <div class="section">
             <div class="reports-header">
                 <h2>Отчёты о соединениях</h2>
-                <button id="delete-all-reports-btn" class="action-btn">Удалить все</button>
+                <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
             </div>
             <div id="reports-list"><p>Загрузка списка отчётов...</p></div>
         </div>
@@ -302,7 +73,7 @@
                 <div class="logs-actions">
                     <button id="refresh-logs-btn" class="action-btn">Обновить</button>
                     <button id="download-logs-btn" class="action-btn">Скачать</button>
-                    <button id="clear-logs-btn" class="action-btn" style="border-color: var(--error-color); color: var(--error-color);">Очистить</button>
+                    <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
                 </div>
             </div>
             <pre id="logs-content"><code>Загрузка логов...</code></pre>
@@ -311,7 +82,7 @@
         <div class="section danger-zone">
             <h2>Опасная зона</h2>
             <p>Это действие необратимо и приведет к полной потере всех данных о пользователях, звонках и действиях.</p>
-            <button id="wipe-db-btn">Очистить базу данных</button>
+            <button id="wipe-db-btn" class="danger">Очистить базу данных</button>
         </div>
 
     </div>
@@ -375,7 +146,7 @@
                 container.innerHTML = roomList.map(room => `
                     <div class="room-item">
                         <div class="room-info">
-                            <span>ID: <code>${room.room_id}</code></span>
+                            <span>ID: <code>${room.room_id.substring(0, 18)}...</code></span>
                             <span>| Осталось: ${formatRemainingTime(room.remaining_seconds)}</span>
                             <span class="user-count">| Участников: ${room.user_count}</span>
                         </div>
@@ -397,7 +168,7 @@
                     const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });
                     if (result) {
                         alert(`Комната ${result.room_id} успешно закрыта.`);
-                        loadActiveRooms(); // Обновляем список
+                        loadActiveRooms();
                     }
                 }
             }
@@ -424,9 +195,19 @@
 
         const usersListContainer = document.getElementById('users-list');
         const userSearchInput = document.getElementById('user-search');
+        let allUsersData = [];
         async function loadUsers() {
             const users = await fetchData('users');
-            if (!users || users.length === 0) {
+            if (!users) {
+                usersListContainer.innerHTML = '<p>Не удалось загрузить пользователей.</p>';
+                return;
+            }
+            allUsersData = users;
+            renderUsers(allUsersData);
+            document.querySelectorAll('.user-item').forEach(item => item.addEventListener('click', toggleUserDetails));
+        }
+        function renderUsers(users) {
+             if (users.length === 0) {
                 usersListContainer.innerHTML = '<p>Пользователи не найдены.</p>';
                 return;
             }
@@ -448,7 +229,6 @@
                     <div class="user-details" id="details-${user.user_id}"></div>
                 </div>`;
             }).join('');
-            document.querySelectorAll('.user-item').forEach(item => item.addEventListener('click', toggleUserDetails));
         }
         async function toggleUserDetails(event) {
             const userItem = event.currentTarget;
@@ -473,9 +253,9 @@
         }
         userSearchInput.addEventListener('input', () => {
             const searchTerm = userSearchInput.value.trim().toLowerCase();
-            usersListContainer.querySelectorAll('.user-item').forEach(item => {
-                item.style.display = item.dataset.userId.toLowerCase().includes(searchTerm) ? '' : 'none';
-            });
+            const filteredUsers = allUsersData.filter(user => String(user.user_id).includes(searchTerm));
+            renderUsers(filteredUsers);
+            document.querySelectorAll('.user-item').forEach(item => item.addEventListener('click', toggleUserDetails));
         });
 
         const connectionsDateInput = document.getElementById('connections-date');
@@ -502,12 +282,11 @@
                     </div>`).join('');
                 let lifetimeInfo = session.closed_at ? `
                     <p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>
-                    <p><strong>Время жизни:</strong> ${Math.round((new Date(session.closed_at) - new Date(session.created_at)) / 60000)} мин.</p>
-                    <p><strong>Причина:</strong> ${session.close_reason || 'N/A'}</p>` : '<p><strong>Статус:</strong> Комната еще активна</p>';
+                    <p><strong>Причина:</strong> ${session.close_reason || 'N/A'}</p>` : '';
                 return `
                 <div class="connection-card">
                     <div class="card-header">
-                        <span class="room-id">Room: <code>${session.room_id}</code></span>
+                        <span class="room-id">Room: <code>${session.room_id.substring(0, 18)}...</code></span>
                         <span>${session.call_type || 'N/A'} / ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}</span>
                         <span class="status ${session.status}">${session.status}</span>
                     </div>
@@ -541,8 +320,8 @@
                 <div class="report-item">
                     <a href="/admin/reports/${filename}?token=${API_TOKEN}" target="_blank">${filename}</a>
                     <div class="report-actions">
-                        <button class="report-btn download-btn" data-filename="${filename}">Скачать</button>
-                        <button class="report-btn delete-btn" data-filename="${filename}">Удалить</button>
+                        <button class="action-btn download-btn" data-filename="${filename}">Скачать</button>
+                        <button class="action-btn delete-btn report-btn" data-filename="${filename}">Удалить</button>
                     </div>
                 </div>`).join('');
         }
@@ -598,9 +377,8 @@
             if (confirm('ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ ОЧИСТИТЬ БАЗУ ДАННЫХ? ВСЕ ДАННЫЕ БУДУТ ПОТЕРЯНЫ НАВСЕГДА!')) {
                 const result = await fetchData('database', { method: 'DELETE' });
                 if (result) {
-                    alert('База данных успешно очищена. Обновляю статистику...');
-                    loadStats();
-                    loadUsers();
+                    alert('База данных успешно очищена. Обновляю страницу...');
+                    window.location.reload();
                 }
             }
         });
@@ -614,4 +392,4 @@
         });
     </script>
 </body>
-</html>```
+</html>
