@@ -428,7 +428,6 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     connections = await database.get_connections_info(date_obj)
     return CustomJSONResponse(content=connections)
 
-# <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):
     """Возвращает список всех активных комнат из БАЗЫ ДАННЫХ."""
@@ -475,7 +474,6 @@ async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_to
         await database.log_room_closure(room_id, "Closed by admin")
         
     return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
-# <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
@@ -526,8 +524,6 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
 
-# --- НОВЫЕ ЭНДПОИНТЫ УПРАВЛЕНИЯ ---
-
 @app.get("/api/admin/logs", response_class=PlainTextResponse)
 async def get_app_logs(token: str = Depends(verify_admin_token)):
     try:
@@ -543,7 +539,17 @@ async def get_app_logs(token: str = Depends(verify_admin_token)):
 async def download_app_logs(token: str = Depends(verify_admin_token)):
     if not os.path.exists(LOG_FILE_PATH):
         raise HTTPException(status_code=404, detail="Log file not found.")
-    return FileResponse(path=LOG_FILE_PATH, filename="app.log", media_type='text/plain')
+    try:
+        with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return Response(
+            content=content,
+            media_type='text/plain',
+            headers={"Content-Disposition": "attachment; filename=app.log"}
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при чтении файла логов для скачивания: {e}")
+        raise HTTPException(status_code=500, detail="Could not read log file for download.")
 
 @app.delete("/api/admin/logs")
 async def clear_app_logs(token: str = Depends(verify_admin_token)):

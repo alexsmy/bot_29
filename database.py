@@ -2,9 +2,9 @@ import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
 from logger_config import logger
-
+from config import ADMIN_TOKEN_LIFETIME_MINUTES
 DATABASE_URL = os.environ.get("DATABASE_URL")
-ADMIN_TOKEN_LIFETIME_MINUTES = 60
+
 
 async def get_conn():
     """Создает и возвращает соединение с базой данных PostgreSQL."""
