@@ -1,0 +1,54 @@
+/* static/css/landing.css */
+/* (Стили для welcome.html и invalid_link.html) */
+
+.landing-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    height: 100vh;
+    padding: 20px;
+    background: linear-gradient(135deg, #232526 0%, #414345 100%);
+    color: var(--text-primary);
+}
+.landing-content {
+    max-width: 600px;
+}
+.landing-title {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #ffffff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+.landing-text {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    margin-bottom: 40px;
+    line-height: 1.6;
+}
+.landing-button {
+    display: inline-block;
+    padding: 15px 30px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: #fff;
+    background-color: var(--accent-blue);
+    border: none;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: background-color 0.3s ease, transform 0.2s ease;
+}
+.landing-button:hover {
+    background-color: var(--accent-blue-dark);
+    transform: translateY(-2px);
+}
+@media (max-width: 600px) {
+    .landing-title {
+        font-size: 2rem;
+    }
+    .landing-text {
+        font-size: 1rem;
+    }
+}
