@@ -309,29 +309,82 @@ html.dark .action-btn:hover {
 }
 .user-details ul { list-style: none; padding: 0; margin: 0; }
 
-/* Connections */
-.connections-list .connection-card {
+/* Connections Section - START OF CHANGES */
+.connections-list .connection-item {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1rem;
-    padding: 1rem;
+    overflow: hidden;
 }
-.card-header {
+.connection-summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 0.75rem;
+    padding: 1rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
+.connection-summary:hover {
+    background-color: var(--base-bg);
+}
+.connection-item.open .connection-summary {
+    border-bottom: 1px solid var(--border-color);
+}
+.summary-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.summary-info code {
+    font-weight: 600;
+    font-family: monospace;
+    word-break: break-all;
+}
+.summary-info .meta {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+.connection-details {
+    padding: 1rem;
+    background-color: var(--base-bg);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+.connection-details h4 {
+    margin-top: 0;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+.connection-details p {
+    margin: 0.25rem 0;
+    font-size: 0.9em;
+}
+.connection-details hr {
+    border: none;
+    border-top: 1px solid var(--border-color);
+    margin: 1rem 0;
+}
+.participant-card {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+}
+.participant-card p {
+    margin: 0.2rem 0;
+}
+/* END OF CHANGES */
+
 .status {
     padding: 0.25rem 0.75rem;
     border-radius: 99px;
     font-size: 0.8em;
     font-weight: 600;
+    flex-shrink: 0;
 }
 .status.completed { background-color: var(--success-color); color: white; }
 .status.active { background-color: var(--accent-color); color: white; }
