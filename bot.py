@@ -1,14 +1,13 @@
-# START OF FILE bot.py
-
 import os
 import sys
+import threading
 import uuid
 from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants, BotCommand, InputTextMessageContent, InlineQueryResultArticle
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
-# --- ИЗМЕНЕНИЕ: Убираем глобальный импорт 'manager' отсюда, чтобы избежать циклической зависимости ---
+from main import app as fastapi_app, manager
 from logger_config import logger
 from config import (
     PRIVATE_ROOM_LIFETIME_HOURS,
@@ -18,25 +17,10 @@ from config import (
     ADMIN_ROOM_LIFETIME_1_YEAR
 )
 
-bot_token = os.environ.get("BOT_TOKEN")
-if not bot_token:
-    logger.critical("Токен бота (BOT_TOKEN) не найден. Приложение не может запуститься.")
-    sys.exit(1)
-
-async def post_init(application: Application) -> None:
-    public_commands = [
-        BotCommand("start", "🚀 Создать новую ссылку для звонка"),
-        BotCommand("instructions", "📖 Как пользоваться ботом"),
-        BotCommand("faq", "❓ Ответы на частые вопросы"),
-    ]
-    await application.bot.set_my_commands(public_commands)
-    logger.info("Меню публичных команд успешно установлено.")
-
-builder = Application.builder().token(bot_token).post_init(post_init)
-bot_app_instance = builder.build()
-
+bot_app_instance = None
 
 def format_hours(hours: int) -> str:
+    """Правильно форматирует часы (1 час, 2 часа, 5 часов)."""
     if hours % 10 == 1 and hours % 100 != 11:
         return f"{hours} час"
     elif 2 <= hours % 10 <= 4 and (hours % 100 < 10 or hours % 100 >= 20):
@@ -56,6 +40,15 @@ def read_template_content(filename: str, replacements: dict = None) -> str:
     except FileNotFoundError:
         logger.critical(f"Файл шаблона не найден: {template_path}")
         return "Ошибка: Не удалось загрузить содержимое."
+
+async def post_init(application: Application) -> None:
+    public_commands = [
+        BotCommand("start", "🚀 Создать новую ссылку для звонка"),
+        BotCommand("instructions", "📖 Как пользоваться ботом"),
+        BotCommand("faq", "❓ Ответы на частые вопросы"),
+    ]
+    await application.bot.set_my_commands(public_commands)
+    logger.info("Меню публичных команд успешно установлено.")
 
 async def log_user_and_action(update: Update, action: str):
     user = update.effective_user
@@ -114,9 +107,6 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(reminder_text)
 
 async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int, lifetime_hours: int):
-    # --- ИЗМЕНЕНИЕ: Импортируем manager локально, внутри функции, когда он нужен ---
-    from main import manager
-    
     room_id = str(uuid.uuid4())
     web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
@@ -174,6 +164,7 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     room_id = query
     
+    # Получаем реальное время жизни комнаты из базы данных
     lifetime_hours = await database.get_room_lifetime_hours(room_id)
     lifetime_text = format_hours(lifetime_hours)
 
@@ -284,15 +275,43 @@ async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAU
     await query.message.delete()
     await _create_and_send_room_link(context, query.message.chat_id, user.id, lifetime_hours)
 
-bot_app_instance.add_handler(CommandHandler("start", start))
-bot_app_instance.add_handler(CommandHandler("instructions", instructions))
-bot_app_instance.add_handler(CommandHandler("faq", faq))
-bot_app_instance.add_handler(CommandHandler("admin", admin_command))
-bot_app_instance.add_handler(CallbackQueryHandler(handle_create_link_callback, pattern="^create_private_link$"))
-bot_app_instance.add_handler(CallbackQueryHandler(admin_panel_link_callback, pattern="^admin_panel_link$"))
-bot_app_instance.add_handler(CallbackQueryHandler(admin_create_room_menu_callback, pattern="^admin_create_room_menu$"))
-bot_app_instance.add_handler(CallbackQueryHandler(admin_create_room_callback, pattern=r"^admin_create_room_\d+$"))
-bot_app_instance.add_handler(InlineQueryHandler(handle_inline_query))
-bot_app_instance.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.ATTACHMENT, echo))
+def run_fastapi():
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_config=None)
 
-# END OF FILE bot.py
+def main() -> None:
+    global bot_app_instance
+    bot_token = os.environ.get("BOT_TOKEN")
+    if not bot_token:
+        logger.critical("Токен бота (BOT_TOKEN) не найден.")
+        sys.exit(1)
+
+    fastapi_thread = threading.Thread(target=run_fastapi)
+    fastapi_thread.daemon = True
+    fastapi_thread.start()
+    logger.info("FastAPI сервер запущен в фоновом режиме.")
+
+    application = Application.builder().token(bot_token).post_init(post_init).build()
+
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("instructions", instructions))
+    application.add_handler(CommandHandler("faq", faq))
+    application.add_handler(CommandHandler("admin", admin_command))
+
+    application.add_handler(CallbackQueryHandler(handle_create_link_callback, pattern="^create_private_link$"))
+    application.add_handler(CallbackQueryHandler(admin_panel_link_callback, pattern="^admin_panel_link$"))
+    application.add_handler(CallbackQueryHandler(admin_create_room_menu_callback, pattern="^admin_create_room_menu$"))
+    application.add_handler(CallbackQueryHandler(admin_create_room_callback, pattern=r"^admin_create_room_\d+$"))
+    
+    application.add_handler(InlineQueryHandler(handle_inline_query))
+
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.ATTACHMENT, echo))
+
+    bot_app_instance = application
+
+    logger.info("Telegram бот запускается...")
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
