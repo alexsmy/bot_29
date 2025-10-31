@@ -1,6 +1,5 @@
-// static/js/admin.js
-
 document.addEventListener('DOMContentLoaded', () => {
+    // ИЗМЕНЕНИЕ: Получаем токен напрямую из атрибута body
     const API_TOKEN = document.body.dataset.token;
     let statsChart = null;
     let allUsersData = [];
@@ -8,7 +7,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UTILS ---
     const fetchData = async (endpoint, options = {}) => {
-        const url = `/api/admin/${endpoint}?token=${API_TOKEN}`;
+        // ИЗМЕНЕНИЕ: Исправлена логика добавления токена в URL
+        const separator = endpoint.includes('?') ? '&' : '?';
+        const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
         try {
             const response = await fetch(url, options);
             if (!response.ok) {
@@ -417,7 +418,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 30000); // Update every 30 seconds
     };
 
-    // Pass token to body for easier access in JS
-    document.body.dataset.token = "{{ token }}";
     initialLoad();
 });
