@@ -1,0 +1,617 @@
+<!-- admin.html -->
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --surface-color: #2c2c2c;
+            --primary-text: #e0e0e0;
+            --secondary-text: #a0a0a0;
+            --accent-color: #0A84FF;
+            --border-color: #444;
+            --success-color: #28a745;
+            --pending-color: #ffc107;
+            --error-color: #dc3545;
+            --danger-zone-bg: rgba(220, 53, 69, 0.1);
+            --danger-zone-border: #58151c;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-text);
+            margin: 0;
+            padding: 1rem;
+            font-size: 14px;
+        }
+        h1, h2 {
+            color: #fff;
+            border-bottom: 2px solid var(--accent-color);
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            background-color: var(--surface-color);
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+        }
+        .filters {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .filters button, .filters input, .filters select, .action-btn {
+            padding: 0.5rem 0.75rem;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background-color: #3a3a3a;
+            color: var(--primary-text);
+            font-size: 1em;
+            cursor: pointer;
+        }
+        .filters button, .action-btn.primary {
+            background-color: var(--accent-color);
+            border-color: var(--accent-color);
+            color: #fff;
+        }
+        .search-hint {
+            color: var(--secondary-text);
+            font-size: 0.8em;
+            width: 100%;
+            margin-top: -0.5rem;
+            margin-bottom: 0.5rem;
+            padding-left: 0.2rem;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        .stat-card {
+            background-color: #3a3a3a;
+            padding: 1rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-card .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--accent-color);
+        }
+        .stat-card .label {
+            font-size: 0.8rem;
+            color: var(--secondary-text);
+            margin-top: 0.25rem;
+        }
+        .users-list .user-item {
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .users-list .user-item:last-child { border-bottom: none; }
+        .users-list .user-item:hover { background-color: #333; }
+        .user-item .user-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .user-summary .user-info span { display: block; }
+        .user-summary .user-info .user-name { font-weight: bold; }
+        .user-summary .user-info .user-id { font-size: 0.8em; color: var(--secondary-text); }
+        .user-summary .user-first-seen { font-size: 0.8em; color: var(--secondary-text); text-align: right; }
+        .user-details {
+            display: none;
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 1px dashed var(--border-color);
+        }
+        .user-details h3 { margin-top: 0; font-size: 1em; color: var(--secondary-text); }
+        .user-details ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
+        .user-details li { padding: 0.25rem 0; }
+        .connections-list .connection-card {
+            background-color: #3a3a3a;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            padding: 1rem;
+        }
+        .connection-card .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 0.75rem;
+        }
+        .card-header .room-id { font-weight: bold; font-family: monospace; }
+        .card-header .status { padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.8em; font-weight: bold; }
+        .status.completed { background-color: var(--success-color); color: white; }
+        .status.active { background-color: var(--accent-color); color: white; }
+        .status.pending { background-color: var(--pending-color); color: #333; }
+        .card-body .participant {
+            padding: 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+        }
+        .participant p, .card-body > p { margin: 0.25rem 0; font-size: 0.9em; }
+        .participant strong, .card-body > p > strong { color: var(--secondary-text); }
+        .reports-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        #delete-all-reports-btn {
+            border: 1px solid var(--error-color);
+            background-color: var(--error-color);
+            color: white;
+            font-size: 0.9em;
+        }
+        .report-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-family: monospace;
+        }
+        .report-item:last-child { border-bottom: none; }
+        .report-item a { color: var(--accent-color); text-decoration: none; }
+        .report-item a:hover { text-decoration: underline; }
+        .report-actions { display: flex; gap: 0.5rem; }
+        .report-btn { padding: 0.3rem 0.6rem; font-size: 0.8em; }
+        .report-btn.delete-btn { border-color: var(--error-color); color: var(--error-color); }
+        .logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .logs-actions { display: flex; gap: 0.5rem; }
+        #logs-content {
+            background-color: #1e1e1e;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            padding: 0.5rem;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        .danger-zone {
+            background-color: var(--danger-zone-bg);
+            border: 1px solid var(--danger-zone-border);
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        .danger-zone h2 { border-color: var(--error-color); }
+        .danger-zone p { color: var(--secondary-text); }
+        .danger-zone button {
+            background-color: var(--error-color);
+            border-color: var(--error-color);
+            color: white;
+            font-weight: bold;
+        }
+        details > summary {
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1.1em;
+            padding: 0.5rem;
+            background-color: #3a3a3a;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+        }
+        .room-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .room-item:last-child { border-bottom: none; }
+        .room-info { font-family: monospace; }
+        .room-info .user-count {
+            font-size: 0.8em;
+            color: var(--secondary-text);
+            margin-left: 10px;
+        }
+        .room-actions .close-room-btn {
+            border-color: var(--error-color);
+            color: var(--error-color);
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Панель администратора</h1>
+
+        <div class="section">
+            <h2>Сводная информация</h2>
+            <div class="filters">
+                <label for="stats-period">Период:</label>
+                <select id="stats-period">
+                    <option value="day">За день</option>
+                    <option value="week">За неделю</option>
+                    <option value="month">За месяц</option>
+                    <option value="all" selected>За все время</option>
+                </select>
+            </div>
+            <div id="stats-container" class="stats-grid"></div>
+        </div>
+
+        <div class="section" id="active-rooms-section">
+            <h2>Активные комнаты</h2>
+            <details open>
+                <summary>Админ-комнаты</summary>
+                <div id="admin-rooms-list"><p>Загрузка...</p></div>
+            </details>
+            <details open>
+                <summary>Пользовательские комнаты</summary>
+                <div id="user-rooms-list"><p>Загрузка...</p></div>
+            </details>
+        </div>
+
+        <div class="section">
+            <h2>Пользователи бота</h2>
+            <div class="filters">
+                <label for="user-search">Поиск по ID:</label>
+                <input type="text" id="user-search" placeholder="Введите ID пользователя...">
+            </div>
+            <div class="search-hint"><i>Список фильтруется автоматически по мере ввода ID.</i></div>
+            <div id="users-list" class="users-list"><p>Загрузка пользователей...</p></div>
+        </div>
+
+        <div class="section">
+            <h2>Информация о соединениях</h2>
+            <div class="filters">
+                <label for="connections-date">Дата:</label>
+                <input type="date" id="connections-date">
+                <button id="search-connections-btn">Показать</button>
+                <button id="collapse-connections-btn" style="display: none;">Свернуть</button>
+            </div>
+            <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
+        </div>
+
+        <div class="section">
+            <div class="reports-header">
+                <h2>Отчёты о соединениях</h2>
+                <button id="delete-all-reports-btn" class="action-btn">Удалить все</button>
+            </div>
+            <div id="reports-list"><p>Загрузка списка отчётов...</p></div>
+        </div>
+
+        <div class="section">
+            <div class="logs-header">
+                <h2>Логи приложения</h2>
+                <div class="logs-actions">
+                    <button id="refresh-logs-btn" class="action-btn">Обновить</button>
+                    <button id="download-logs-btn" class="action-btn">Скачать</button>
+                    <button id="clear-logs-btn" class="action-btn" style="border-color: var(--error-color); color: var(--error-color);">Очистить</button>
+                </div>
+            </div>
+            <pre id="logs-content"><code>Загрузка логов...</code></pre>
+        </div>
+
+        <div class="section danger-zone">
+            <h2>Опасная зона</h2>
+            <p>Это действие необратимо и приведет к полной потере всех данных о пользователях, звонках и действиях.</p>
+            <button id="wipe-db-btn">Очистить базу данных</button>
+        </div>
+
+    </div>
+
+    <script>
+        const API_TOKEN = "{{ token }}";
+
+        async function fetchData(endpoint, options = {}) {
+            const separator = endpoint.includes('?') ? '&' : '?';
+            const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
+            try {
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    console.error(`Ошибка при выполнении запроса: ${response.statusText}`);
+                    alert('Ошибка при выполнении запроса. Токен мог устареть или API недоступен.');
+                    return null;
+                }
+                if (response.headers.get("content-type")?.includes("application/json")) {
+                    return response.json();
+                }
+                return response.text();
+            } catch (error) {
+                console.error('Сетевая ошибка:', error);
+                alert('Сетевая ошибка. Проверьте консоль для деталей.');
+                return null;
+            }
+        }
+
+        function formatDate(isoString) {
+            if (!isoString) return 'N/A';
+            return new Date(isoString).toLocaleString('ru-RU', { timeZone: 'UTC', dateStyle: 'short', timeStyle: 'medium' });
+        }
+
+        function formatRemainingTime(seconds) {
+            if (seconds <= 0) return '00:00';
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+        }
+
+        const adminRoomsListContainer = document.getElementById('admin-rooms-list');
+        const userRoomsListContainer = document.getElementById('user-rooms-list');
+        const activeRoomsSection = document.getElementById('active-rooms-section');
+
+        async function loadActiveRooms() {
+            const rooms = await fetchData('active_rooms');
+            if (!rooms) {
+                adminRoomsListContainer.innerHTML = '<p>Не удалось загрузить список комнат.</p>';
+                userRoomsListContainer.innerHTML = '<p>Не удалось загрузить список комнат.</p>';
+                return;
+            }
+
+            const adminRooms = rooms.filter(r => r.is_admin_room);
+            const userRooms = rooms.filter(r => !r.is_admin_room);
+
+            const renderRoomList = (container, roomList) => {
+                if (roomList.length === 0) {
+                    container.innerHTML = '<p>Активных комнат этого типа нет.</p>';
+                    return;
+                }
+                container.innerHTML = roomList.map(room => `
+                    <div class="room-item">
+                        <div class="room-info">
+                            <span>ID: <code>${room.room_id}</code></span>
+                            <span>| Осталось: ${formatRemainingTime(room.remaining_seconds)}</span>
+                            <span class="user-count">| Участников: ${room.user_count}</span>
+                        </div>
+                        <div class="room-actions">
+                            <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
+                        </div>
+                    </div>
+                `).join('');
+            };
+
+            renderRoomList(adminRoomsListContainer, adminRooms);
+            renderRoomList(userRoomsListContainer, userRooms);
+        }
+
+        activeRoomsSection.addEventListener('click', async (event) => {
+            if (event.target.classList.contains('close-room-btn')) {
+                const roomId = event.target.dataset.roomId;
+                if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId}?`)) {
+                    const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });
+                    if (result) {
+                        alert(`Комната ${result.room_id} успешно закрыта.`);
+                        loadActiveRooms(); // Обновляем список
+                    }
+                }
+            }
+        });
+
+        const statsContainer = document.getElementById('stats-container');
+        const statsPeriodSelect = document.getElementById('stats-period');
+        async function loadStats() {
+            const period = statsPeriodSelect.value;
+            const data = await fetchData(`stats?period=${period}`);
+            if (!data) {
+                statsContainer.innerHTML = '<p>Не удалось загрузить статистику.</p>';
+                return;
+            }
+            statsContainer.innerHTML = `
+                <div class="stat-card"><div class="value">${data.total_users}</div><div class="label">Пользователей</div></div>
+                <div class="stat-card"><div class="value">${data.total_actions}</div><div class="label">Действий в боте</div></div>
+                <div class="stat-card"><div class="value">${data.total_sessions_created}</div><div class="label">Ссылок создано</div></div>
+                <div class="stat-card"><div class="value">${data.completed_calls}</div><div class="label">Успешных звонков</div></div>
+                <div class="stat-card"><div class="value">${data.avg_call_duration}</div><div class="label">Средняя длит. (сек)</div></div>
+            `;
+        }
+        statsPeriodSelect.addEventListener('change', loadStats);
+
+        const usersListContainer = document.getElementById('users-list');
+        const userSearchInput = document.getElementById('user-search');
+        async function loadUsers() {
+            const users = await fetchData('users');
+            if (!users || users.length === 0) {
+                usersListContainer.innerHTML = '<p>Пользователи не найдены.</p>';
+                return;
+            }
+            usersListContainer.innerHTML = users.map(user => {
+                const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
+                const displayName = fullName || (user.username ? `@${user.username}` : 'Без имени');
+                return `
+                <div class="user-item" data-user-id="${user.user_id}">
+                    <div class="user-summary">
+                        <div class="user-info">
+                            <span class="user-name">${displayName}</span>
+                            <span class="user-id">ID: ${user.user_id}</span>
+                        </div>
+                        <div class="user-first-seen">
+                            <span>Первый заход:</span>
+                            <span>${formatDate(user.first_seen)}</span>
+                        </div>
+                    </div>
+                    <div class="user-details" id="details-${user.user_id}"></div>
+                </div>`;
+            }).join('');
+            document.querySelectorAll('.user-item').forEach(item => item.addEventListener('click', toggleUserDetails));
+        }
+        async function toggleUserDetails(event) {
+            const userItem = event.currentTarget;
+            const userId = userItem.dataset.userId;
+            const detailsContainer = userItem.querySelector('.user-details');
+            const isVisible = detailsContainer.style.display === 'block';
+            if (isVisible) {
+                detailsContainer.style.display = 'none';
+            } else {
+                detailsContainer.style.display = 'block';
+                if (!detailsContainer.innerHTML.trim()) {
+                    detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Загрузка...</p>';
+                    const actions = await fetchData(`user_actions/${userId}`);
+                    if (actions && actions.length > 0) {
+                        detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><ul>' + actions.map(action => `
+                            <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>`).join('') + '</ul>';
+                    } else {
+                        detailsContainer.innerHTML = '<h3>Действия пользователя:</h3><p>Действий не найдено.</p>';
+                    }
+                }
+            }
+        }
+        userSearchInput.addEventListener('input', () => {
+            const searchTerm = userSearchInput.value.trim().toLowerCase();
+            usersListContainer.querySelectorAll('.user-item').forEach(item => {
+                item.style.display = item.dataset.userId.toLowerCase().includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        const connectionsDateInput = document.getElementById('connections-date');
+        const searchConnectionsBtn = document.getElementById('search-connections-btn');
+        const collapseConnectionsBtn = document.getElementById('collapse-connections-btn');
+        const connectionsListContainer = document.getElementById('connections-list');
+        
+        async function loadConnections() {
+            const date = connectionsDateInput.value;
+            if (!date) { alert('Выберите дату'); return; }
+            connectionsListContainer.innerHTML = '<p>Загрузка соединений...</p>';
+            collapseConnectionsBtn.style.display = 'none';
+            const sessions = await fetchData(`connections?date=${date}`);
+            if (!sessions || sessions.length === 0) {
+                connectionsListContainer.innerHTML = '<p>Соединения за эту дату не найдены.</p>';
+                return;
+            }
+            connectionsListContainer.innerHTML = sessions.map(session => {
+                const participantsHtml = session.participants.map((p, index) => `
+                    <div class="participant">
+                        <p><strong>Участник ${index + 1}</strong></p>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>`).join('');
+                let lifetimeInfo = session.closed_at ? `
+                    <p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>
+                    <p><strong>Время жизни:</strong> ${Math.round((new Date(session.closed_at) - new Date(session.created_at)) / 60000)} мин.</p>
+                    <p><strong>Причина:</strong> ${session.close_reason || 'N/A'}</p>` : '<p><strong>Статус:</strong> Комната еще активна</p>';
+                return `
+                <div class="connection-card">
+                    <div class="card-header">
+                        <span class="room-id">Room: <code>${session.room_id}</code></span>
+                        <span>${session.call_type || 'N/A'} / ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}</span>
+                        <span class="status ${session.status}">${session.status}</span>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
+                        ${lifetimeInfo}
+                        <hr style="border-color: var(--border-color); margin: 0.5rem 0;">
+                        ${participantsHtml || '<p>Нет информации об участниках.</p>'}
+                    </div>
+                </div>`;
+            }).join('');
+            collapseConnectionsBtn.style.display = 'inline-block';
+        }
+        searchConnectionsBtn.addEventListener('click', loadConnections);
+        collapseConnectionsBtn.addEventListener('click', () => {
+            connectionsListContainer.innerHTML = '<p>Выберите дату для просмотра соединений.</p>';
+            collapseConnectionsBtn.style.display = 'none';
+        });
+        connectionsDateInput.value = new Date().toISOString().split('T')[0];
+
+        const reportsListContainer = document.getElementById('reports-list');
+        const deleteAllReportsBtn = document.getElementById('delete-all-reports-btn');
+        async function loadReports() {
+            reportsListContainer.innerHTML = '<p>Загрузка списка отчётов...</p>';
+            const reportFiles = await fetchData('reports');
+            if (!reportFiles || reportFiles.length === 0) {
+                reportsListContainer.innerHTML = '<p>Отчёты не найдены.</p>';
+                return;
+            }
+            reportsListContainer.innerHTML = reportFiles.map(filename => `
+                <div class="report-item">
+                    <a href="/admin/reports/${filename}?token=${API_TOKEN}" target="_blank">${filename}</a>
+                    <div class="report-actions">
+                        <button class="report-btn download-btn" data-filename="${filename}">Скачать</button>
+                        <button class="report-btn delete-btn" data-filename="${filename}">Удалить</button>
+                    </div>
+                </div>`).join('');
+        }
+        reportsListContainer.addEventListener('click', async (event) => {
+            const target = event.target;
+            const filename = target.dataset.filename;
+            if (!filename) return;
+            if (target.classList.contains('download-btn')) {
+                window.location.href = `/admin/reports/${filename}?download=true&token=${API_TOKEN}`;
+            }
+            if (target.classList.contains('delete-btn')) {
+                if (confirm(`Вы уверены, что хотите удалить отчёт "${filename}"?`)) {
+                    const result = await fetchData(`reports/${filename}`, { method: 'DELETE' });
+                    if (result) loadReports();
+                }
+            }
+        });
+        deleteAllReportsBtn.addEventListener('click', async () => {
+            if (confirm('Вы уверены, что хотите удалить ВСЕ отчёты? Это действие необратимо.')) {
+                const result = await fetchData('reports', { method: 'DELETE' });
+                if (result) {
+                    alert(`Удалено отчётов: ${result.count || 0}`);
+                    loadReports();
+                }
+            }
+        });
+
+        const logsContent = document.getElementById('logs-content').querySelector('code');
+        const refreshLogsBtn = document.getElementById('refresh-logs-btn');
+        const downloadLogsBtn = document.getElementById('download-logs-btn');
+        const clearLogsBtn = document.getElementById('clear-logs-btn');
+        async function loadLogs() {
+            logsContent.textContent = 'Загрузка логов...';
+            const logs = await fetchData('logs');
+            logsContent.textContent = logs || 'Не удалось загрузить логи или файл пуст.';
+        }
+        refreshLogsBtn.addEventListener('click', loadLogs);
+        downloadLogsBtn.addEventListener('click', () => {
+            window.location.href = `/api/admin/logs/download?token=${API_TOKEN}`;
+        });
+        clearLogsBtn.addEventListener('click', async () => {
+            if (confirm('Вы уверены, что хотите очистить файл логов?')) {
+                const result = await fetchData('logs', { method: 'DELETE' });
+                if (result) {
+                    alert('Файл логов очищен.');
+                    loadLogs();
+                }
+            }
+        });
+
+        const wipeDbBtn = document.getElementById('wipe-db-btn');
+        wipeDbBtn.addEventListener('click', async () => {
+            if (confirm('ВЫ УВЕРЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ ОЧИСТИТЬ БАЗУ ДАННЫХ? ВСЕ ДАННЫЕ БУДУТ ПОТЕРЯНЫ НАВСЕГДА!')) {
+                const result = await fetchData('database', { method: 'DELETE' });
+                if (result) {
+                    alert('База данных успешно очищена. Обновляю статистику...');
+                    loadStats();
+                    loadUsers();
+                }
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStats();
+            loadActiveRooms();
+            loadUsers();
+            loadReports();
+            loadLogs();
+        });
+    </script>
+</body>
+</html>```
