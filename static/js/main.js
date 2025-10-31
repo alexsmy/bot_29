@@ -220,50 +220,55 @@ const connectionLogger = {
     }
 };
 
+// --- НАЧАЛО ИЗМЕНЕНИЙ ---
 async function probeIceServers() {
     logToScreen('[PROBE] Starting ICE server probing...');
     const serversToProbe = rtcConfig.iceServers;
     const promises = serversToProbe.map(server => {
         return new Promise(resolve => {
             const startTime = performance.now();
-            const tempPC = new RTCPeerConnection({ iceServers: [server] });
-            const candidates = [];
-            let candidateTime = null;
+            let tempPC;
             let resolved = false;
 
-            const resolvePromise = (status, candidateObj) => {
+            const resolvePromise = (status, candidateObj, rtt) => {
                 if (resolved) return;
                 resolved = true;
                 clearTimeout(timeout);
-                tempPC.close();
-                const rtt = candidateTime ? candidateTime - startTime : null;
+                if (tempPC && tempPC.signalingState !== 'closed') {
+                    tempPC.close();
+                }
                 resolve({ url: server.urls, status, rtt, candidate: candidateObj });
             };
 
             const timeout = setTimeout(() => {
-                const bestCandidate = candidates.find(c => c.candidate.includes('typ relay')) || candidates.find(c => c.candidate.includes('typ srflx'));
-                if (bestCandidate) {
-                    resolvePromise('Responded', { ...parseCandidate(bestCandidate.candidate), raw: bestCandidate.candidate });
-                } else {
-                    resolvePromise('No Response', null);
-                }
+                resolvePromise('No Response', null, null);
             }, 2500);
 
-            tempPC.onicecandidate = (e) => {
-                if (e.candidate) {
-                    if (!candidateTime) {
-                        candidateTime = performance.now();
+            try {
+                tempPC = new RTCPeerConnection({ iceServers: [server] });
+
+                tempPC.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        const rtt = performance.now() - startTime;
+                        const candidateData = { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate };
+                        resolvePromise('Responded', candidateData, rtt);
                     }
-                    candidates.push(e.candidate);
-                    const candType = e.candidate.candidate.includes('typ relay') ? 'relay' : (e.candidate.candidate.includes('typ srflx') ? 'srflx' : null);
-                    if (candType) {
-                        resolvePromise('Responded', { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate });
+                };
+                
+                tempPC.onicegatheringstatechange = () => {
+                    if (tempPC.iceGatheringState === 'complete' && !resolved) {
+                         resolvePromise('No Candidates', null, performance.now() - startTime);
                     }
-                }
-            };
-            
-            tempPC.createDataChannel('probe');
-            tempPC.createOffer().then(offer => tempPC.setLocalDescription(offer)).catch(() => resolvePromise('Error', null));
+                };
+
+                tempPC.createDataChannel('probe');
+                tempPC.createOffer()
+                    .then(offer => tempPC.setLocalDescription(offer))
+                    .catch(() => resolvePromise('Error', null, null));
+
+            } catch (error) {
+                resolvePromise('Config Error', null, null);
+            }
         });
     });
 
@@ -277,6 +282,7 @@ async function probeIceServers() {
     logToScreen(`[PROBE] Probing complete. ${results.filter(r => r.status === 'Responded').length} servers responded.`);
     return results;
 }
+// --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
 function parseCandidate(candString) {
     const parts = candString.split(' ');
