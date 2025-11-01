@@ -80,6 +80,9 @@ body {
     height: 32px;
     color: var(--accent-color);
 }
+.sidebar-title {
+    font-weight: 600;
+}
 .sidebar-nav {
     flex-grow: 1;
 }
@@ -108,13 +111,11 @@ body {
 }
 .sidebar-footer {
     margin-top: 1rem;
-    display: flex;
-    justify-content: center;
 }
 .theme-toggle-btn {
     width: 40px;
     height: 40px;
-    border-radius: 50%;
+    border-radius: 8px;
     border: 1px solid var(--border-color);
     background-color: var(--surface-bg);
     cursor: pointer;
@@ -143,6 +144,11 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 2rem;
+}
+.header-right-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 h1 {
     margin: 0;
@@ -571,13 +577,10 @@ details summary span {
         padding: 1rem;
     }
     .main-header {
-        gap: 1rem;
+        gap: 0.75rem;
     }
     .main-header .desktop-title {
         display: none;
-    }
-    .main-header h1 {
-        font-size: 1.5rem;
     }
     .mobile-menu-toggle {
         display: flex;
@@ -593,6 +596,15 @@ details summary span {
     }
     .sidebar.is-open {
         transform: translateX(0);
+    }
+    .sidebar-footer {
+        display: none;
+    }
+    #token-info {
+        padding: 0.5rem 0.75rem;
+    }
+    #token-info .token-label {
+        display: none;
     }
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
