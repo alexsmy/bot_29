@@ -244,6 +244,8 @@ async def receive_log(log: ClientLog):
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
     try:
+        os.makedirs(LOGS_DIR, exist_ok=True)
+        
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"conn_log_{timestamp}_room_{log_data.roomId[:8]}.html"
         filepath = os.path.join(LOGS_DIR, filename)
