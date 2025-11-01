@@ -1,3 +1,5 @@
+// static/js/main.js
+
 import {
     preCallCheckScreen, previewVideo, micLevelBars, cameraStatus, cameraStatusText,
     micStatus, micStatusText, continueToCallBtn, continueSpectatorBtn, cameraSelect,
@@ -18,16 +20,10 @@ import {
 
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
 import * as webrtc from './call_webrtc.js';
+import * as media from './call_media.js';
 
 const tg = window.Telegram.WebApp;
 
-let localStream;
-let previewStream;
-let micVisualizer;
-let localCallMicVisualizer;
-let remoteMicVisualizer;
-let localAudioContext;
-let remoteAudioContext;
 let currentUser = {};
 let targetUser = {};
 let currentCallType = 'audio';
@@ -37,8 +33,6 @@ let uiFadeTimeout = null;
 let isSpeakerMuted = false;
 let isMuted = false;
 let isVideoEnabled = true;
-let hasMicrophoneAccess = false;
-let hasCameraAccess = false;
 let isSpectator = false;
 let roomId = '';
 let rtcConfig = null;
@@ -326,6 +320,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initializePrivateCallMode() {
     logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
     
+    media.init(logToScreen);
+
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
@@ -337,7 +333,7 @@ function initializePrivateCallMode() {
             connectAudio.play();
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
-        onRemoteTrack: (stream) => visualizeRemoteMic(stream),
+        onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
         onRemoteMuteStatus: handleRemoteMuteStatus,
         getTargetUser: () => targetUser,
         getSelectedAudioOutId: () => selectedAudioOutId,
@@ -352,57 +348,38 @@ function initializePrivateCallMode() {
 
 async function runPreCallCheck() {
     showScreen('pre-call-check');
-    let stream;
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
-        hasCameraAccess = true;
-        hasMicrophoneAccess = true;
-    } catch (error) {
-        logToScreen(`[MEDIA_CHECK] Combined media request failed: ${error.name}. Trying separately.`);
-        const results = await Promise.allSettled([
-            navigator.mediaDevices.getUserMedia({ video: true }),
-            navigator.mediaDevices.getUserMedia({ audio: true })
-        ]);
-        const videoResult = results[0];
-        const audioResult = results[1];
+    
+    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
-        if (videoResult.status === 'fulfilled') {
-            hasCameraAccess = true;
-            stream = videoResult.value;
-        }
-        if (audioResult.status === 'fulfilled') {
-            hasMicrophoneAccess = true;
-            if (stream) {
-                audioResult.value.getAudioTracks().forEach(track => stream.addTrack(track));
-            } else {
-                stream = audioResult.value;
-            }
-        }
-        displayMediaErrors(error);
+    if (!hasCameraAccess || !hasMicrophoneAccess) {
+        displayMediaErrors({ name: 'NotFoundError' }); // Simplified error display
         continueSpectatorBtn.style.display = 'block';
     }
 
-    updateStatusIndicators();
+    updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
-    if (stream) {
-        previewStream = stream;
-        previewVideo.srcObject = stream;
-        if (hasMicrophoneAccess) visualizeMic(stream);
-        await populateDeviceSelectors();
+    if (hasCameraAccess || hasMicrophoneAccess) {
+        const selectedIds = await media.populateDeviceSelectors(
+            cameraSelect, micSelect, speakerSelect,
+            cameraSelectContainer, micSelectContainer, speakerSelectContainer
+        );
+        selectedVideoId = selectedIds.videoId;
+        selectedAudioInId = selectedIds.audioInId;
+        selectedAudioOutId = selectedIds.audioOutId;
         continueToCallBtn.disabled = false;
     } else {
         logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
     }
 }
 
-function updateStatusIndicators() {
-    cameraStatus.classList.toggle('status-ok', hasCameraAccess);
-    cameraStatus.classList.toggle('status-error', !hasCameraAccess);
-    cameraStatusText.textContent = `Камера: ${hasCameraAccess ? 'OK' : 'Нет доступа'}`;
+function updateStatusIndicators(hasCamera, hasMic) {
+    cameraStatus.classList.toggle('status-ok', hasCamera);
+    cameraStatus.classList.toggle('status-error', !hasCamera);
+    cameraStatusText.textContent = `Камера: ${hasCamera ? 'OK' : 'Нет доступа'}`;
 
-    micStatus.classList.toggle('status-ok', hasMicrophoneAccess);
-    micStatus.classList.toggle('status-error', !hasMicrophoneAccess);
-    micStatusText.textContent = `Микрофон: ${hasMicrophoneAccess ? 'OK' : 'Нет доступа'}`;
+    micStatus.classList.toggle('status-ok', hasMic);
+    micStatus.classList.toggle('status-error', !hasMic);
+    micStatusText.textContent = `Микрофон: ${hasMic ? 'OK' : 'Нет доступа'}`;
 }
 
 function displayMediaErrors(error) {
@@ -414,154 +391,29 @@ function displayMediaErrors(error) {
     } else {
         message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
     }
-}
-
-async function populateDeviceSelectors() {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    videoDevices = devices.filter(d => d.kind === 'videoinput');
-    audioInDevices = devices.filter(d => d.kind === 'audioinput');
-    audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
-
-    const populate = (select, devicesList, container) => {
-        if (devicesList.length === 0) return;
-        select.innerHTML = '';
-        devicesList.forEach(device => {
-            const option = document.createElement('option');
-            option.value = device.deviceId;
-            option.textContent = device.label || `${select.id} ${select.options.length + 1}`;
-            select.appendChild(option);
-        });
-        container.style.display = 'flex';
-    };
-
-    populate(cameraSelect, videoDevices, cameraSelectContainer);
-    populate(micSelect, audioInDevices, micSelectContainer);
-    populate(speakerSelect, audioOutDevices, speakerSelectContainer);
-
-    selectedVideoId = cameraSelect.value;
-    selectedAudioInId = micSelect.value;
-    selectedAudioOutId = speakerSelect.value;
+    // Placeholder for a more elegant error display
+    console.error(message);
 }
 
 async function updatePreviewStream() {
-    if (previewStream) {
-        previewStream.getTracks().forEach(track => track.stop());
-    }
-    if (micVisualizer) cancelAnimationFrame(micVisualizer);
-
     selectedVideoId = cameraSelect.value;
     selectedAudioInId = micSelect.value;
     selectedAudioOutId = speakerSelect.value;
+    
+    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
 
     const constraints = {
         audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
         video: hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
-    if (!constraints.audio && !constraints.video) return;
-
-    try {
-        previewStream = await navigator.mediaDevices.getUserMedia(constraints);
-        previewVideo.srcObject = previewStream;
-        if (hasMicrophoneAccess) visualizeMic(previewStream);
-    } catch (error) {
-        logToScreen(`[MEDIA_UPDATE] Error updating preview stream: ${error}`);
-    }
-}
-
-function visualizeMic(stream) {
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 32;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    source.connect(analyser);
-
-    function draw() {
-        micVisualizer = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-        const volume = Math.min(Math.floor(average / 15), micLevelBars.length);
-
-        micLevelBars.forEach((bar, index) => {
-            bar.classList.toggle('active', index < volume);
-        });
-    }
-    draw();
-}
-
-function visualizeLocalMicForCall(stream) {
-    if (localCallMicVisualizer) cancelAnimationFrame(localCallMicVisualizer);
-    if (localAudioContext) localAudioContext.close();
-    if (!stream || stream.getAudioTracks().length === 0) return;
-
-    localAudioContext = new AudioContext();
-    const source = localAudioContext.createMediaStreamSource(stream);
-    const analyser = localAudioContext.createAnalyser();
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    source.connect(analyser);
-
-    function draw() {
-        localCallMicVisualizer = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-        const intensity = Math.min(average / 100, 1.0);
-        localGlow.style.setProperty('--glow-intensity', intensity);
-    }
-    draw();
-}
-
-function visualizeRemoteMic(stream) {
-    if (remoteMicVisualizer) cancelAnimationFrame(remoteMicVisualizer);
-    if (remoteAudioContext) remoteAudioContext.close();
-
-    if (!stream || stream.getAudioTracks().length === 0) {
-        logToScreen("[REMOTE_MIC] No audio track found in remote stream to visualize.");
-        remoteAudioLevel.style.display = 'none';
-        return;
-    }
-
-    remoteAudioLevel.style.display = 'flex';
-    remoteAudioContext = new AudioContext();
-    const source = remoteAudioContext.createMediaStreamSource(stream);
-    const analyser = remoteAudioContext.createAnalyser();
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    source.connect(analyser);
-    analyser.connect(remoteAudioContext.destination);
-
-    function draw() {
-        remoteMicVisualizer = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-        
-        const intensity = Math.min(average / 100, 1.0);
-        remoteGlow.style.setProperty('--glow-intensity', intensity);
-
-        const maxVolume = 160;
-        const percentage = Math.min((average / maxVolume) * 100, 100);
-        let level = 0;
-        if (percentage > 90) level = 5;
-        else if (percentage > 70) level = 4;
-        else if (percentage > 35) level = 3;
-        else if (percentage > 10) level = 2;
-        else if (average > 1) level = 1;
-        remoteAudioLevelBars.forEach((bar, index) => bar.classList.toggle('active', index < level));
-    }
-    draw();
+    await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
 }
 
 function proceedToCall(asSpectator = false) {
     isSpectator = asSpectator;
     logToScreen(`Proceeding to call screen. Spectator mode: ${isSpectator}`);
-    if (previewStream) {
-        previewStream.getTracks().forEach(track => track.stop());
-    }
-    if (micVisualizer) cancelAnimationFrame(micVisualizer);
+    media.stopPreviewStream();
 
     showScreen('pre-call');
     showPopup('waiting');
@@ -576,9 +428,13 @@ function proceedToCall(asSpectator = false) {
         onCallAccepted: () => {
             ringOutAudio.pause(); 
             ringOutAudio.currentTime = 0;
+            const localStream = media.getLocalStream();
             webrtc.startPeerConnection(targetUser.id, true, currentCallType, localStream, rtcConfig, connectionLogger);
         },
-        onOffer: (data) => webrtc.handleOffer(data, localStream, rtcConfig, connectionLogger),
+        onOffer: (data) => {
+            const localStream = media.getLocalStream();
+            webrtc.handleOffer(data, localStream, rtcConfig, connectionLogger);
+        },
         onAnswer: webrtc.handleAnswer,
         onCandidate: webrtc.handleCandidate,
         onCallEnded: () => endCall(false, 'ended_by_peer'),
@@ -703,6 +559,7 @@ async function acceptCall() {
     
     connectionLogger.reset();
     
+    const localStream = media.getLocalStream();
     await webrtc.startPeerConnection(targetUser.id, false, currentCallType, localStream, rtcConfig, connectionLogger);
     sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
 }
@@ -737,21 +594,8 @@ async function endCall(isInitiator, reason) {
     currentConnectionDetails = null;
 
     webrtc.endPeerConnection();
-
-    if (localCallMicVisualizer) cancelAnimationFrame(localCallMicVisualizer);
-    if (remoteMicVisualizer) cancelAnimationFrame(remoteMicVisualizer);
-    if (localAudioContext) localAudioContext.close();
-    if (remoteAudioContext) remoteAudioContext.close();
-    localCallMicVisualizer = null;
-    remoteMicVisualizer = null;
-    localAudioContext = null;
-    remoteAudioContext = null;
+    media.stopAllStreams();
     if (remoteAudioLevel) remoteAudioLevel.style.display = 'none';
-
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
-        localStream = null;
-    }
 
     ringOutAudio.pause(); ringOutAudio.currentTime = 0;
     stopIncomingRing();
@@ -783,7 +627,7 @@ function setupEventListeners() {
     speakerBtn.addEventListener('click', toggleSpeaker);
     muteBtn.addEventListener('click', toggleMute);
     videoBtn.addEventListener('click', toggleVideo);
-    screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(localStream, updateScreenShareUI));
+    screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(media.getLocalStream(), updateScreenShareUI));
     acceptBtn.addEventListener('click', acceptCall);
     declineBtn.addEventListener('click', declineCall);
     
@@ -889,30 +733,19 @@ async function initializeLocalMedia(isVideo) {
         return false;
     }
     logToScreen(`[MEDIA] Requesting media. Video requested: ${isVideo}`);
-    if (localStream) localStream.getTracks().forEach(track => track.stop());
-
+    
+    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     const constraints = {
         audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
         video: isVideo && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
-    if (!constraints.audio && !constraints.video) {
-        logToScreen("[MEDIA] No media access granted for selected devices. Proceeding without local stream.");
-        return false;
-    }
-
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        logToScreen("[MEDIA] Media stream acquired successfully.");
-        localAudio.srcObject = localStream;
-        visualizeLocalMicForCall(localStream);
-
-        if (constraints.video && localStream.getVideoTracks().length > 0) {
-            localVideo.srcObject = localStream;
-            await localVideo.play();
+    const result = await media.getStreamForCall(constraints, localVideo, localAudio);
+    
+    if (result.stream) {
+        if (result.isVideo) {
             localVideoContainer.style.display = 'flex';
             isVideoEnabled = true;
-            await enumerateVideoDevices();
         } else {
             localVideoContainer.style.display = 'none';
             isVideoEnabled = false;
@@ -922,10 +755,8 @@ async function initializeLocalMedia(isVideo) {
             }
         }
         return true;
-    } catch (error) {
-        logToScreen(`[MEDIA] ERROR getting media: ${error.name} - ${error.message}`);
-        return false;
     }
+    return false;
 }
 
 function handleRemoteMuteStatus(isMuted) {
@@ -954,6 +785,8 @@ function stopIncomingRing() {
 function updateCallUI() {
     remoteUserName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
     const isVideoCall = currentCallType === 'video';
+    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
+    
     videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
     muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
     screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
@@ -964,9 +797,9 @@ function updateCallUI() {
 }
 
 function toggleMute() {
-    if (!hasMicrophoneAccess) return;
+    if (!media.getMediaAccessStatus().hasMicrophoneAccess) return;
     isMuted = !isMuted;
-    webrtc.toggleMute(isMuted, localStream);
+    webrtc.toggleMute(isMuted, media.getLocalStream());
     muteBtn.classList.toggle('active', isMuted);
     logToScreen(`[CONTROLS] Mic ${isMuted ? 'muted' : 'unmuted'}.`);
 }
@@ -979,9 +812,9 @@ function toggleSpeaker() {
 }
 
 function toggleVideo() {
-    if (!hasCameraAccess) return;
+    if (!media.getMediaAccessStatus().hasCameraAccess) return;
     isVideoEnabled = !isVideoEnabled;
-    webrtc.toggleVideo(isVideoEnabled, localStream);
+    webrtc.toggleVideo(isVideoEnabled, media.getLocalStream());
     videoBtn.classList.toggle('active', !isVideoEnabled);
     localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
@@ -1016,6 +849,7 @@ async function populateDeviceSelectorsInCall() {
         container.style.display = 'flex';
     };
 
+    const localStream = media.getLocalStream();
     const currentAudioTrack = localStream?.getAudioTracks()[0];
     const currentVideoTrack = localStream?.getVideoTracks()[0];
     
@@ -1025,12 +859,13 @@ async function populateDeviceSelectorsInCall() {
 }
 
 async function switchInputDevice(kind, deviceId) {
+    const localStream = media.getLocalStream();
     const newTrack = await webrtc.switchInputDevice(kind, deviceId, localStream);
     if (newTrack) {
         if (kind === 'video') {
             selectedVideoId = deviceId;
         } else {
-            visualizeLocalMicForCall(localStream);
+            media.visualizeLocalMicForCall(localStream);
             selectedAudioInId = deviceId;
         }
     }
@@ -1048,15 +883,6 @@ async function switchAudioOutput(deviceId) {
         logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
         logToScreen(`[SINK] Error switching audio output: ${error}`);
-    }
-}
-
-async function enumerateVideoDevices() {
-    try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        videoDevices = devices.filter(device => device.kind === 'videoinput');
-    } catch (error) {
-        logToScreen(`[DEVICES] Error enumerating devices: ${error.message}`);
     }
 }
 
