@@ -236,18 +236,6 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
-@app.on_event("startup")
-async def startup_event():
-    await database.get_pool()
-    await database.init_db()
-    if not os.path.exists(LOGS_DIR):
-        os.makedirs(LOGS_DIR)
-        logger.info(f"Создана директория для логов: {LOGS_DIR}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await database.close_pool()
-
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")

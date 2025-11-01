@@ -1,8 +1,8 @@
 import os
 import sys
-import threading
-import uuid
 import asyncio
+import uvicorn
+import uuid
 from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants, BotCommand, InputTextMessageContent, InlineQueryResultArticle
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
@@ -295,28 +295,15 @@ async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAU
     await query.message.delete()
     await _create_and_send_room_link(context, query.message.chat_id, user.id, lifetime_hours)
 
-def run_fastapi():
-    import uvicorn
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_config=None)
-
-async def init_app_resources():
-    await database.get_pool()
-    await database.init_db()
-
-def main() -> None:
+async def main() -> None:
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
         logger.critical("Токен бота (BOT_TOKEN) не найден.")
         sys.exit(1)
 
-    asyncio.run(init_app_resources())
-
-    fastapi_thread = threading.Thread(target=run_fastapi)
-    fastapi_thread.daemon = True
-    fastapi_thread.start()
-    logger.info("FastAPI сервер запущен в фоновом режиме.")
+    await database.get_pool()
+    await database.init_db()
 
     application = Application.builder().token(bot_token).post_init(post_init).build()
     
@@ -338,8 +325,25 @@ def main() -> None:
 
     bot_app_instance = application
 
-    logger.info("Telegram бот запускается...")
-    application.run_polling()
+    port = int(os.environ.get("PORT", 8000))
+    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_config=None)
+    server = uvicorn.Server(config)
+
+    async with application:
+        await application.start()
+        logger.info("Telegram бот запускается...")
+        
+        server_task = asyncio.create_task(server.serve())
+        bot_task = asyncio.create_task(application.updater.start_polling())
+        
+        await asyncio.gather(server_task, bot_task)
+        
+        await application.stop()
+    
+    await database.close_pool()
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Приложение останавливается.")
