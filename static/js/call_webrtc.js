@@ -1,286 +1,163 @@
+import { sendMessage } from './call_websocket.js';
+import { remoteVideo, remoteAudio, localVideo } from './call_ui_elements.js';
+
 const PREVENT_P2P_DOWNGRADE = true;
 
 let peerConnection;
 let remoteStream;
 let dataChannel;
 let iceCandidateQueue = [];
-let rtcConfig = null;
-let connectionStatsInterval = null;
-let lastRtcStats = null;
-let iceServerDetails = {};
-let currentConnectionDetails = null;
-let currentConnectionType = 'unknown';
+let isScreenSharing = false;
+let screenStream = null;
+let originalVideoTrack = null;
 let iceRestartTimeoutId = null;
 
-// Зависимости, которые будут переданы из main.js
-let signalingSender;
-let uiCallbacks;
-let logger;
-
-const connectionLogger = {
-    isDataSent: false,
-    data: {},
-    reset: function(roomId, userId, isInitiator) {
-        this.isDataSent = false;
-        this.data = {
-            roomId: roomId,
-            userId: userId,
-            isCallInitiator: isInitiator,
-            probeResults: [],
-            selectedConnection: null
-        };
-    },
-    setProbeResults: function(results) {
-        this.data.probeResults = results;
-    },
-    sendProbeLog: function() {
-        if (this.isDataSent || !this.data.isCallInitiator) return;
-        this.isDataSent = true;
-        logger('[LOGGER] Sending probe-only log for failed connection attempt.');
-        fetch('/api/log/connection-details', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(this.data)
-        }).catch(error => console.error('Failed to send connection log:', error));
-    },
-    analyzeAndSend: async function() {
-        if (this.isDataSent || !peerConnection) return;
-        if (!this.data.isCallInitiator) {
-            logger('[LOGGER] Not the call initiator, skipping log submission.');
-            return;
-        }
-        this.isDataSent = true;
-
-        logger('[LOGGER] Starting final analysis of connection stats...');
-        try {
-            const stats = await peerConnection.getStats();
-            const statsMap = new Map();
-            stats.forEach(report => statsMap.set(report.id, report));
-            
-            let activePair = null;
-            statsMap.forEach(report => {
-                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
-                    activePair = report;
-                }
-            });
-
-            if (activePair) {
-                const local = statsMap.get(activePair.localCandidateId);
-                const remote = statsMap.get(activePair.remoteCandidateId);
-                const rtt = activePair.currentRoundTripTime * 1000;
-                let explanation = 'Не удалось определить причину выбора.';
-
-                if (local.candidateType === 'host' && remote.candidateType === 'host') {
-                    explanation = 'Выбран наилучший путь: прямое соединение в локальной сети (host-to-host). Это обеспечивает минимальную задержку.';
-                } else if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
-                    explanation = 'Выбран запасной вариант: соединение через ретрансляционный TURN-сервер (relay). Прямое соединение невозможно, трафик пойдет через посредника, что может увеличить задержку.';
-                } else if (['srflx', 'prflx'].includes(local.candidateType) || ['srflx', 'prflx'].includes(remote.candidateType)) {
-                    if (rtt < 20) {
-                        explanation = 'Выбран быстрый P2P-путь, характерный для сложных локальных сетей (например, с VPN или Docker). Низкий RTT подтверждает, что трафик не покидает локальную сеть.';
-                    } else {
-                        explanation = 'Выбран оптимальный путь: прямое P2P соединение через интернет. STUN-сервер или сам пир помог устройствам "увидеть" друг друга за NAT.';
-                    }
-                }
-
-                this.data.selectedConnection = {
-                    local: {
-                        type: local.candidateType,
-                        address: `${local.address || local.ip}:${local.port}`,
-                        protocol: local.protocol,
-                        server: local.url || 'N/A (Host Candidate)'
-                    },
-                    remote: {
-                        type: remote.candidateType,
-                        address: `${remote.address || remote.ip}:${remote.port}`,
-                        protocol: remote.protocol,
-                    },
-                    rtt: activePair.currentRoundTripTime,
-                    explanation: explanation
-                };
-            }
-
-            logger('[LOGGER] Analysis complete. Sending connection details to server.');
-            fetch('/api/log/connection-details', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(this.data)
-            }).catch(error => console.error('Failed to send connection log:', error));
-
-        } catch (e) {
-            logger(`[LOGGER] Error during stats analysis: ${e}`);
-        }
-    }
+let callbacks = {
+    log: () => {},
+    onCallConnected: () => {},
+    onCallEndedByPeer: () => {},
+    onRemoteTrack: () => {},
+    onRemoteMuteStatus: () => {},
+    updateConnectionIcon: () => {},
+    getCurrentConnectionType: () => 'unknown',
+    setCurrentConnectionType: () => {},
+    setCurrentConnectionDetails: () => {},
 };
 
-function parseCandidate(candString) {
-    const parts = candString.split(' ');
-    return {
-        type: parts[7],
-        address: parts[4],
-        port: parts[5],
-        protocol: parts[2]
-    };
-}
-
-async function probeIceServers() {
-    logger('[PROBE] Starting ICE server probing...');
-    const serversToProbe = rtcConfig.iceServers;
-    const promises = serversToProbe.map(server => {
-        return new Promise(resolve => {
-            const startTime = performance.now();
-            let tempPC;
-            let resolved = false;
-
-            const resolvePromise = (status, candidateObj, rtt) => {
-                if (resolved) return;
-                resolved = true;
-                clearTimeout(timeout);
-                if (tempPC && tempPC.signalingState !== 'closed') {
-                    tempPC.close();
-                }
-                resolve({ url: server.urls, status, rtt, candidate: candidateObj });
-            };
-
-            const timeout = setTimeout(() => {
-                resolvePromise('No Response', null, null);
-            }, 2500);
-
-            try {
-                tempPC = new RTCPeerConnection({ iceServers: [server] });
-
-                tempPC.onicecandidate = (e) => {
-                    if (e.candidate) {
-                        const rtt = performance.now() - startTime;
-                        const candidateData = { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate };
-                        resolvePromise('Responded', candidateData, rtt);
-                    }
-                };
-                
-                tempPC.onicegatheringstatechange = () => {
-                    if (tempPC.iceGatheringState === 'complete' && !resolved) {
-                         resolvePromise('No Candidates', null, performance.now() - startTime);
-                    }
-                };
-
-                tempPC.createDataChannel('probe');
-                tempPC.createOffer()
-                    .then(offer => tempPC.setLocalDescription(offer))
-                    .catch(() => resolvePromise('Error', null, null));
-
-            } catch (error) {
-                resolvePromise('Config Error', null, null);
-            }
-        });
-    });
-
-    let results = await Promise.all(promises);
-    results.sort((a, b) => {
-        if (a.rtt === null) return 1;
-        if (b.rtt === null) return -1;
-        return a.rtt - b.rtt;
-    });
-
-    logger(`[PROBE] Probing complete. ${results.filter(r => r.status === 'Responded').length} servers responded.`);
-    return results;
+export function init(cb) {
+    callbacks = { ...callbacks, ...cb };
 }
 
 function setupDataChannelEvents(channel) {
-    channel.onopen = () => logger('[DC] DataChannel is open.');
-    channel.onclose = () => logger('[DC] DataChannel is closed.');
-    channel.onerror = (error) => logger(`[DC] DataChannel error: ${error}`);
+    channel.onopen = () => callbacks.log('[DC] DataChannel is open.');
+    channel.onclose = () => callbacks.log('[DC] DataChannel is closed.');
+    channel.onerror = (error) => callbacks.log(`[DC] DataChannel error: ${error}`);
     channel.onmessage = (event) => {
         try {
             const message = JSON.parse(event.data);
-            logger(`[DC] Received message: ${message.type}`);
+            callbacks.log(`[DC] Received message: ${message.type}`);
             if (message.type === 'hangup') {
-                uiCallbacks.onHangupReceived();
+                callbacks.onCallEndedByPeer('ended_by_peer_dc');
             } else if (message.type === 'mute_status') {
-                uiCallbacks.onRemoteMute(message.muted);
+                callbacks.onRemoteMuteStatus(message.muted);
             }
         } catch (e) {
-            logger(`[DC] Received non-JSON message: ${event.data}`);
+            callbacks.log(`[DC] Received non-JSON message: ${event.data}`);
         }
     };
 }
 
-async function createPeerConnectionInternal(localUserStream, isInitiator, roomId, userId) {
-    logger("[WEBRTC] Creating RTCPeerConnection.");
+async function initiateIceRestart() {
+    if (!peerConnection) return;
+    callbacks.log('[WEBRTC] Creating new offer with iceRestart: true');
+    try {
+        const offer = await peerConnection.createOffer({ iceRestart: true });
+        await peerConnection.setLocalDescription(offer);
+        sendMessage({ type: 'offer', data: { target_id: callbacks.getTargetUser().id, offer: offer } });
+    } catch (error) {
+        callbacks.log(`[WEBRTC] ICE Restart failed: ${error}`);
+        callbacks.onCallEndedByPeer('ice_restart_failed');
+    }
+}
+
+export async function createPeerConnection(rtcConfig, localStream, selectedAudioOutId, connectionLogger) {
+    callbacks.log("[WEBRTC] Creating RTCPeerConnection.");
     if (!rtcConfig) {
-        logger("[CRITICAL] rtcConfig is not available.");
+        callbacks.log("[CRITICAL] rtcConfig is not available.");
         alert("Ошибка конфигурации сети. Пожалуйста, обновите страницу.");
         return;
-    }
-
-    connectionLogger.reset(roomId, userId, isInitiator);
-    if (isInitiator) {
-        const probeResults = await probeIceServers();
-        connectionLogger.setProbeResults(probeResults);
     }
 
     if (peerConnection) peerConnection.close();
     peerConnection = new RTCPeerConnection(rtcConfig);
     remoteStream = new MediaStream();
-    uiCallbacks.setupRemoteStream(remoteStream);
+    remoteVideo.srcObject = remoteStream;
+    remoteAudio.srcObject = remoteStream;
+
+    if (selectedAudioOutId && typeof remoteVideo.setSinkId === 'function') {
+        remoteVideo.setSinkId(selectedAudioOutId).catch(e => callbacks.log(`[SINK] Error setting sinkId for video: ${e}`));
+        remoteAudio.setSinkId(selectedAudioOutId).catch(e => callbacks.log(`[SINK] Error setting sinkId for audio: ${e}`));
+    }
 
     peerConnection.ondatachannel = (event) => {
-        logger('[DC] Received remote DataChannel.');
+        callbacks.log('[DC] Received remote DataChannel.');
         dataChannel = event.channel;
         setupDataChannelEvents(dataChannel);
     };
 
     peerConnection.oniceconnectionstatechange = () => {
         const state = peerConnection.iceConnectionState;
-        logger(`[WEBRTC] ICE State: ${state}`);
+        callbacks.log(`[WEBRTC] ICE State: ${state}`);
         
         if (state === 'connected') {
             connectionLogger.analyzeAndSend();
             if (iceRestartTimeoutId) {
                 clearTimeout(iceRestartTimeoutId);
                 iceRestartTimeoutId = null;
-                logger('[WEBRTC] Connection recovered before ICE Restart was initiated.');
+                callbacks.log('[WEBRTC] Connection recovered before ICE Restart was initiated.');
             }
         } else if (state === 'disconnected') {
-            logger('[WEBRTC] Connection is disconnected. Scheduling ICE Restart check.');
+            callbacks.log('[WEBRTC] Connection is disconnected. Scheduling ICE Restart check.');
             if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
             iceRestartTimeoutId = setTimeout(() => {
                 if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
-                    logger('[WEBRTC] Connection did not recover. Initiating ICE Restart.');
+                    callbacks.log('[WEBRTC] Connection did not recover. Initiating ICE Restart.');
                     initiateIceRestart();
                 }
             }, 5000);
         } else if (state === 'failed') {
-            logger(`[WEBRTC] P2P connection failed. Ending call.`);
-            uiCallbacks.onConnectionFailed();
+            callbacks.log(`[WEBRTC] P2P connection failed. Ending call.`);
+            callbacks.onCallEndedByPeer('p2p_failed'); 
         }
     };
 
-    peerConnection.onsignalingstatechange = () => logger(`[WEBRTC] Signaling State: ${peerConnection.signalingState}`);
+    peerConnection.onsignalingstatechange = () => callbacks.log(`[WEBRTC] Signaling State: ${peerConnection.signalingState}`);
     
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
            const isRelayCandidate = event.candidate.candidate.includes(" typ relay ");
             
-            if (PREVENT_P2P_DOWNGRADE && currentConnectionType === 'p2p' && isRelayCandidate) {
-                logger(`[WEBRTC_POLICY] Blocking TURN candidate to prevent downgrade from P2P.`);
+            if (PREVENT_P2P_DOWNGRADE && callbacks.getCurrentConnectionType() === 'p2p' && isRelayCandidate) {
+                callbacks.log(`[WEBRTC_POLICY] Blocking TURN candidate to prevent downgrade from P2P.`);
                 return; 
             }
-            signalingSender({ type: 'candidate', candidate: event.candidate });
+
+            sendMessage({ type: 'candidate', data: { target_id: callbacks.getTargetUser().id, candidate: event.candidate } });
         }
     };
 
     peerConnection.ontrack = event => {
-        logger(`[WEBRTC] Received remote track: ${event.track.kind}`);
+        callbacks.log(`[WEBRTC] Received remote track: ${event.track.kind}`);
         remoteStream.addTrack(event.track);
-        if (event.track.kind === 'audio') {
-            uiCallbacks.visualizeRemoteMic(remoteStream);
-        }
+        callbacks.onRemoteTrack(remoteStream);
     };
 
-    if (localUserStream) {
-        localUserStream.getTracks().forEach(track => peerConnection.addTrack(track, localUserStream));
-        logger("[WEBRTC] Local tracks added to PeerConnection.");
+    if (localStream) {
+        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+        callbacks.log("[WEBRTC] Local tracks added to PeerConnection.");
     } else {
-        logger("[WEBRTC] No local stream available to add tracks.");
+        callbacks.log("[WEBRTC] No local stream available to add tracks.");
+    }
+}
+
+export async function startPeerConnection(targetId, isCaller, callType, localStream, rtcConfig, connectionLogger) {
+    callbacks.log(`[WEBRTC] Starting PeerConnection. Is caller: ${isCaller}`);
+    await createPeerConnection(rtcConfig, localStream, callbacks.getSelectedAudioOutId(), connectionLogger);
+
+    if (isCaller) {
+        callbacks.log('[DC] Creating DataChannel.');
+        dataChannel = peerConnection.createDataChannel('control');
+        setupDataChannelEvents(dataChannel);
+
+        const offerOptions = {
+            offerToReceiveAudio: true, 
+            offerToReceiveVideo: callType === 'video' 
+        };
+        callbacks.log(`[WEBRTC] Creating Offer with options: ${JSON.stringify(offerOptions)}`);
+        const offer = await peerConnection.createOffer(offerOptions);
+
+        await peerConnection.setLocalDescription(offer);
+        sendMessage({ type: 'offer', data: { target_id: targetId, offer: offer } });
     }
 }
 
@@ -289,182 +166,58 @@ async function processIceCandidateQueue() {
         const candidate = iceCandidateQueue.shift();
         try {
             await peerConnection.addIceCandidate(candidate);
-            logger("[WEBRTC] Added a queued ICE candidate.");
+            callbacks.log("[WEBRTC] Added a queued ICE candidate.");
         } catch (e) {
-            logger(`[WEBRTC] ERROR adding queued ICE candidate: ${e}`);
+            callbacks.log(`[WEBRTC] ERROR adding queued ICE candidate: ${e}`);
         }
     }
 }
 
-async function monitorConnectionStats() {
-    if (!peerConnection || peerConnection.iceConnectionState !== 'connected') return;
-    try {
-        const stats = await peerConnection.getStats();
-        let activeCandidatePair = null, remoteInboundRtp = null;
-        stats.forEach(report => {
-            if (report.type === 'candidate-pair' && report.state === 'succeeded') activeCandidatePair = report;
-            if (report.type === 'remote-inbound-rtp' && (report.kind === 'video' || !remoteInboundRtp)) remoteInboundRtp = report;
-        });
-
-        if (activeCandidatePair?.localCandidateId) {
-            const localCand = stats.get(activeCandidatePair.localCandidateId);
-            const remoteCand = stats.get(activeCandidatePair.remoteCandidateId);
-
-            if (localCand?.candidateType && remoteCand?.candidateType) {
-                const localType = localCand.candidateType;
-                const remoteType = remoteCand.candidateType;
-                
-                let connectionTypeForIcon = 'unknown';
-                if (localType === 'relay' || remoteType === 'relay') {
-                    connectionTypeForIcon = 'relay';
-                    currentConnectionType = 'relay';
-                    const relayCandidate = localType === 'relay' ? localCand : remoteCand;
-                    if (relayCandidate.url && iceServerDetails[relayCandidate.url]) {
-                        currentConnectionDetails = iceServerDetails[relayCandidate.url];
-                    }
-                } else if (localType === 'host' && remoteType === 'host') {
-                    connectionTypeForIcon = 'local';
-                    currentConnectionType = 'p2p'; 
-                    currentConnectionDetails = { region: 'local', provider: 'network' };
-                } else {
-                    connectionTypeForIcon = 'p2p';
-                    currentConnectionType = 'p2p';
-                    let details = { region: 'direct', provider: 'p2p' };
-                    if (localCand.url && iceServerDetails[localCand.url]) {
-                        const serverInfo = iceServerDetails[localCand.url];
-                        details = { region: serverInfo.region, provider: `p2p (via ${serverInfo.provider})` };
-                    }
-                    currentConnectionDetails = details;
-                }
-                uiCallbacks.updateConnectionIcon(connectionTypeForIcon, currentConnectionDetails);
-            } else {
-                uiCallbacks.updateConnectionIcon('unknown', null);
-                currentConnectionType = 'unknown';
-                currentConnectionDetails = null;
-            }
-        }
-
-        let quality = 'unknown';
-        if (remoteInboundRtp && activeCandidatePair) {
-            const roundTripTime = activeCandidatePair.currentRoundTripTime * 1000;
-            const jitter = remoteInboundRtp.jitter * 1000;
-            let packetsLostDelta = 0;
-            if (lastRtcStats?.remoteInboundRtp) {
-                const packetsLostNow = remoteInboundRtp.packetsLost || 0;
-                const packetsReceivedNow = remoteInboundRtp.packetsReceived || 0;
-                const packetsLostBefore = lastRtcStats.remoteInboundRtp.packetsLost || 0;
-                const packetsReceivedBefore = lastRtcStats.remoteInboundRtp.packetsReceived || 0;
-                const totalPacketsSinceLast = (packetsReceivedNow - packetsReceivedBefore) + (packetsLostNow - packetsLostBefore);
-                if (totalPacketsSinceLast > 0) packetsLostDelta = (packetsLostNow - packetsLostBefore) / totalPacketsSinceLast;
-            }
-            let score = (roundTripTime < 150) + (jitter < 50) + (packetsLostDelta < 0.02);
-            if (score === 3) quality = 'good';
-            else if (score >= 1) quality = 'medium';
-            else quality = 'bad';
-            logger(`[STATS] Quality: rtt=${roundTripTime.toFixed(0)}ms, jitter=${jitter.toFixed(2)}ms, loss=${(packetsLostDelta*100).toFixed(2)}% -> ${quality}`);
-        }
-        uiCallbacks.updateConnectionQualityIcon(quality);
-        lastRtcStats = { remoteInboundRtp };
-    } catch (error) {
-        logger(`Error getting connection stats: ${error}`);
-    }
-}
-
-async function initiateIceRestart() {
-    if (!peerConnection) return;
-    logger('[WEBRTC] Creating new offer with iceRestart: true');
-    try {
-        const offer = await peerConnection.createOffer({ iceRestart: true });
-        await peerConnection.setLocalDescription(offer);
-        signalingSender({ type: 'offer', offer: offer });
-    } catch (error) {
-        logger(`[WEBRTC] ICE Restart failed: ${error}`);
-        uiCallbacks.onConnectionFailed();
-    }
-}
-
-// --- Public API for the module ---
-
-export function init(config, sender, callbacks, logFunc) {
-    rtcConfig = config.rtc;
-    iceServerDetails = config.details;
-    signalingSender = sender;
-    uiCallbacks = callbacks;
-    logger = logFunc;
-}
-
-export async function startConnection(isCaller, callType, localUserStream, roomId, userId) {
-    logger(`[WEBRTC] Starting PeerConnection. Is caller: ${isCaller}`);
-    await createPeerConnectionInternal(localUserStream, isCaller, roomId, userId);
-
-    if (isCaller) {
-        logger('[DC] Creating DataChannel.');
-        dataChannel = peerConnection.createDataChannel('control');
-        setupDataChannelEvents(dataChannel);
-
-        const offerOptions = {
-            offerToReceiveAudio: true, 
-            offerToReceiveVideo: callType === 'video' 
-        };
-        logger(`[WEBRTC] Creating Offer with options: ${JSON.stringify(offerOptions)}`);
-        const offer = await peerConnection.createOffer(offerOptions);
-
-        await peerConnection.setLocalDescription(offer);
-        signalingSender({ type: 'offer', offer: offer });
-    }
-}
-
-export async function handleRemoteOffer(offer, fromId, localUserStream, roomId, userId) {
-    logger("[WEBRTC] Received Offer, creating Answer.");
+export async function handleOffer(data, localStream, rtcConfig, connectionLogger) {
+    callbacks.log("[WEBRTC] Received Offer, creating Answer.");
     if (!peerConnection) {
-        await startConnection(false, null, localUserStream, roomId, userId);
+        await startPeerConnection(data.from, false, data.call_type, localStream, rtcConfig, connectionLogger);
     }
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
-    signalingSender({ type: 'answer', answer: answer });
+    sendMessage({ type: 'answer', data: { target_id: data.from, answer: answer } });
     
-    uiCallbacks.onCallConnected();
+    callbacks.onCallConnected();
     processIceCandidateQueue();
 }
 
-export async function handleRemoteAnswer(answer) {
-    logger("[WEBRTC] Received Answer.");
+export async function handleAnswer(data) {
+    callbacks.log("[WEBRTC] Received Answer.");
     if (peerConnection && !peerConnection.currentRemoteDescription) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-        uiCallbacks.onCallConnected();
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+        callbacks.onCallConnected();
         processIceCandidateQueue();
     }
 }
 
-export async function handleRemoteCandidate(candidate) {
-    if (candidate) {
-        const iceCandidate = new RTCIceCandidate(candidate);
+export async function handleCandidate(data) {
+    if (data.candidate) {
+        const candidate = new RTCIceCandidate(data.candidate);
         if (peerConnection && peerConnection.remoteDescription) {
-            await peerConnection.addIceCandidate(iceCandidate);
+            await peerConnection.addIceCandidate(candidate);
         } else {
-            iceCandidateQueue.push(iceCandidate);
-            logger("[WEBRTC] Queued an ICE candidate.");
+            iceCandidateQueue.push(candidate);
+            callbacks.log("[WEBRTC] Queued an ICE candidate.");
         }
     }
 }
 
-export function closeConnection(isInitiator) {
-    currentConnectionType = 'unknown';
-    if (isInitiator && dataChannel && dataChannel.readyState === 'open') {
-        logger('[DC] Sending hangup via DataChannel.');
-        dataChannel.send(JSON.stringify({ type: 'hangup' }));
-    }
-    
-    if (isInitiator && !connectionLogger.isDataSent) {
-        connectionLogger.sendProbeLog();
-    }
-
-    if (connectionStatsInterval) clearInterval(connectionStatsInterval);
+export function endPeerConnection() {
     if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
-    lastRtcStats = null;
     iceRestartTimeoutId = null;
-    currentConnectionDetails = null;
+
+    if (isScreenSharing) {
+        if (screenStream) screenStream.getTracks().forEach(track => track.stop());
+        isScreenSharing = false;
+        screenStream = null;
+        originalVideoTrack = null;
+    }
 
     if (dataChannel) {
         dataChannel.onmessage = null;
@@ -483,16 +236,90 @@ export function closeConnection(isInitiator) {
         peerConnection.close();
         peerConnection = null;
     }
+
+    remoteAudio.srcObject = null;
+    remoteVideo.srcObject = null;
     
     iceCandidateQueue = [];
-    logger('[WEBRTC] Connection closed and resources cleaned up.');
+    callbacks.log('[WEBRTC] Peer connection resources cleaned up.');
 }
 
-export function getStats() {
-    if (!peerConnection) return null;
-    return peerConnection.getStats();
+export function toggleMute(isMuted, localStream) {
+    if (localStream) localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+    if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'mute_status', muted: isMuted }));
+    }
 }
 
-export function getDataChannel() {
-    return dataChannel;
+export function toggleVideo(isVideoEnabled, localStream) {
+    if (isScreenSharing) return;
+    if (localStream) localStream.getVideoTracks().forEach(track => track.enabled = isVideoEnabled);
+}
+
+export async function toggleScreenShare(localStream, onStateChange) {
+    if (!isScreenSharing) {
+        try {
+            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+            const screenTrack = screenStream.getVideoTracks()[0];
+            originalVideoTrack = localStream?.getVideoTracks()[0] || null;
+            const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+            if (sender) await sender.replaceTrack(screenTrack);
+            screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(localStream, onStateChange); };
+            isScreenSharing = true;
+            onStateChange(true);
+            callbacks.log("[CONTROLS] Screen sharing started.");
+        } catch (error) {
+            callbacks.log(`[CONTROLS] Could not start screen sharing: ${error.message}`);
+        }
+    } else {
+        if (screenStream) screenStream.getTracks().forEach(track => track.stop());
+        screenStream = null;
+        const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) {
+            await sender.replaceTrack(originalVideoTrack);
+            if (originalVideoTrack) {
+                originalVideoTrack.enabled = callbacks.isVideoEnabled();
+            }
+        }
+        isScreenSharing = false;
+        onStateChange(false);
+        callbacks.log("[CONTROLS] Screen sharing stopped.");
+    }
+}
+
+export async function switchInputDevice(kind, deviceId, localStream) {
+    if (!localStream || !peerConnection) return null;
+    callbacks.log(`[CONTROLS] Switching ${kind} input to deviceId: ${deviceId}`);
+
+    try {
+        const currentTrack = kind === 'video' ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
+        if (currentTrack) {
+            currentTrack.stop();
+        }
+
+        const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: { deviceId: { exact: deviceId } } });
+        const newTrack = newStream.getTracks()[0];
+
+        const sender = peerConnection.getSenders().find(s => s.track?.kind === kind);
+        if (sender) {
+            await sender.replaceTrack(newTrack);
+        }
+
+        localStream.removeTrack(currentTrack);
+        localStream.addTrack(newTrack);
+
+        if (kind === 'video') {
+            originalVideoTrack = newTrack;
+            localVideo.srcObject = localStream;
+            await localVideo.play();
+        }
+        return newTrack;
+    } catch (error) {
+        callbacks.log(`[CONTROLS] Error switching ${kind} device: ${error}`);
+        return null;
+    }
+}
+
+export function getPeerConnection() {
+    return peerConnection;
 }

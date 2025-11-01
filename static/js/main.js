@@ -42,20 +42,193 @@ let hasCameraAccess = false;
 let isSpectator = false;
 let roomId = '';
 let rtcConfig = null;
-let isScreenSharing = false;
-let screenStream = null;
-let originalVideoTrack = null;
+let connectionStatsInterval = null;
+let lastRtcStats = null;
 let videoDevices = [];
 let audioInDevices = [];
 let audioOutDevices = [];
 let selectedVideoId = null;
 let selectedAudioInId = null;
 let selectedAudioOutId = null;
-let currentVideoDeviceIndex = 0;
+let iceServerDetails = {};
+let currentConnectionDetails = null;
+let infoPopupTimeout = null;
 let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
 let initialConnectionToastShown = false;
+
+let currentConnectionType = 'unknown';
+
+const connectionLogger = {
+    isDataSent: false,
+    data: {},
+    reset: function() {
+        this.isDataSent = false;
+        this.data = {
+            roomId: roomId,
+            userId: currentUser.id,
+            isCallInitiator: isCallInitiator,
+            probeResults: [],
+            selectedConnection: null
+        };
+    },
+    setProbeResults: function(results) {
+        this.data.probeResults = results;
+    },
+    sendProbeLog: function() {
+        if (this.isDataSent || !this.data.isCallInitiator) return;
+        this.isDataSent = true;
+        logToScreen('[LOGGER] Sending probe-only log for failed connection attempt.');
+        fetch('/api/log/connection-details', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.data)
+        }).catch(error => console.error('Failed to send connection log:', error));
+    },
+    analyzeAndSend: async function() {
+        if (this.isDataSent) return;
+        const peerConnection = webrtc.getPeerConnection();
+        if (!peerConnection) return;
+
+        if (!this.data.isCallInitiator) {
+            logToScreen('[LOGGER] Not the call initiator, skipping log submission.');
+            return;
+        }
+        this.isDataSent = true;
+
+        logToScreen('[LOGGER] Starting final analysis of connection stats...');
+        try {
+            const stats = await peerConnection.getStats();
+            const statsMap = new Map();
+            stats.forEach(report => statsMap.set(report.id, report));
+            
+            let activePair = null;
+            statsMap.forEach(report => {
+                if (report.type === 'candidate-pair' && report.state === 'succeeded') {
+                    activePair = report;
+                }
+            });
+
+            if (activePair) {
+                const local = statsMap.get(activePair.localCandidateId);
+                const remote = statsMap.get(activePair.remoteCandidateId);
+                const rtt = activePair.currentRoundTripTime * 1000;
+                let explanation = 'Не удалось определить причину выбора.';
+
+                if (local.candidateType === 'host' && remote.candidateType === 'host') {
+                    explanation = 'Выбран наилучший путь: прямое соединение в локальной сети (host-to-host). Это обеспечивает минимальную задержку.';
+                } else if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
+                    explanation = 'Выбран запасной вариант: соединение через ретрансляционный TURN-сервер (relay). Прямое соединение невозможно, трафик пойдет через посредника, что может увеличить задержку.';
+                } else if (['srflx', 'prflx'].includes(local.candidateType) || ['srflx', 'prflx'].includes(remote.candidateType)) {
+                    if (rtt < 20) {
+                        explanation = 'Выбран быстрый P2P-путь, характерный для сложных локальных сетей (например, с VPN или Docker). Низкий RTT подтверждает, что трафик не покидает локальную сеть.';
+                    } else {
+                        explanation = 'Выбран оптимальный путь: прямое P2P соединение через интернет. STUN-сервер или сам пир помог устройствам "увидеть" друг друга за NAT.';
+                    }
+                }
+
+                this.data.selectedConnection = {
+                    local: {
+                        type: local.candidateType,
+                        address: `${local.address || local.ip}:${local.port}`,
+                        protocol: local.protocol,
+                        server: local.url || 'N/A (Host Candidate)'
+                    },
+                    remote: {
+                        type: remote.candidateType,
+                        address: `${remote.address || remote.ip}:${remote.port}`,
+                        protocol: remote.protocol,
+                    },
+                    rtt: activePair.currentRoundTripTime,
+                    explanation: explanation
+                };
+            }
+
+            logToScreen('[LOGGER] Analysis complete. Sending connection details to server.');
+            fetch('/api/log/connection-details', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.data)
+            }).catch(error => console.error('Failed to send connection log:', error));
+
+        } catch (e) {
+            logToScreen(`[LOGGER] Error during stats analysis: ${e}`);
+        }
+    }
+};
+
+async function probeIceServers() {
+    logToScreen('[PROBE] Starting ICE server probing...');
+    const serversToProbe = rtcConfig.iceServers;
+    const promises = serversToProbe.map(server => {
+        return new Promise(resolve => {
+            const startTime = performance.now();
+            let tempPC;
+            let resolved = false;
+
+            const resolvePromise = (status, candidateObj, rtt) => {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(timeout);
+                if (tempPC && tempPC.signalingState !== 'closed') {
+                    tempPC.close();
+                }
+                resolve({ url: server.urls, status, rtt, candidate: candidateObj });
+            };
+
+            const timeout = setTimeout(() => {
+                resolvePromise('No Response', null, null);
+            }, 2500);
+
+            try {
+                tempPC = new RTCPeerConnection({ iceServers: [server] });
+
+                tempPC.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        const rtt = performance.now() - startTime;
+                        const candidateData = { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate };
+                        resolvePromise('Responded', candidateData, rtt);
+                    }
+                };
+                
+                tempPC.onicegatheringstatechange = () => {
+                    if (tempPC.iceGatheringState === 'complete' && !resolved) {
+                         resolvePromise('No Candidates', null, performance.now() - startTime);
+                    }
+                };
+
+                tempPC.createDataChannel('probe');
+                tempPC.createOffer()
+                    .then(offer => tempPC.setLocalDescription(offer))
+                    .catch(() => resolvePromise('Error', null, null));
+
+            } catch (error) {
+                resolvePromise('Config Error', null, null);
+            }
+        });
+    });
+
+    let results = await Promise.all(promises);
+    results.sort((a, b) => {
+        if (a.rtt === null) return 1;
+        if (b.rtt === null) return -1;
+        return a.rtt - b.rtt;
+    });
+
+    logToScreen(`[PROBE] Probing complete. ${results.filter(r => r.status === 'Responded').length} servers responded.`);
+    return results;
+}
+
+function parseCandidate(candString) {
+    const parts = candString.split(' ');
+    return {
+        type: parts[7],
+        address: parts[4],
+        port: parts[5],
+        protocol: parts[2]
+    };
+}
 
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
@@ -112,8 +285,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             username: s.username,
             credential: s.credential
         }));
-        
-        const iceServerDetails = {};
+        rtcConfig = { iceServers: peerConnectionConfig, iceCandidatePoolSize: 10 };
+
         servers.forEach(s => {
             let provider = 'Unknown';
             if (s.source) {
@@ -129,14 +302,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
         });
 
-        rtcConfig = { rtc: { iceServers: peerConnectionConfig, iceCandidatePoolSize: 10 }, details: iceServerDetails };
         logToScreen("ICE servers configuration and details loaded successfully.");
     } catch (error) {
         logToScreen(`[CRITICAL] Failed to fetch ICE servers: ${error.message}. Falling back to public STUN.`);
         alert("Не удалось загрузить конфигурацию сети. Качество звонка может быть низким.");
         rtcConfig = {
-            rtc: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] },
-            details: {}
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+            ]
         };
     }
 
@@ -151,6 +325,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function initializePrivateCallMode() {
     logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
+    
+    const webrtcCallbacks = {
+        log: logToScreen,
+        onCallConnected: () => {
+            if (!callScreen.classList.contains('active')) {
+                showScreen('call');
+                updateCallUI();
+            }
+            startTimer();
+            connectAudio.play();
+        },
+        onCallEndedByPeer: (reason) => endCall(false, reason),
+        onRemoteTrack: (stream) => visualizeRemoteMic(stream),
+        onRemoteMuteStatus: handleRemoteMuteStatus,
+        getTargetUser: () => targetUser,
+        getSelectedAudioOutId: () => selectedAudioOutId,
+        getCurrentConnectionType: () => currentConnectionType,
+        isVideoEnabled: () => isVideoEnabled,
+    };
+    webrtc.init(webrtcCallbacks);
+
     setupEventListeners();
     runPreCallCheck();
 }
@@ -371,44 +566,6 @@ function proceedToCall(asSpectator = false) {
     showScreen('pre-call');
     showPopup('waiting');
     
-    const signalingSender = (message) => {
-        const fullMessage = { ...message, data: { ...message.data, target_id: targetUser.id } };
-        sendMessage(fullMessage);
-    };
-
-    const uiCallbacks = {
-        onHangupReceived: () => endCall(false, 'ended_by_peer_dc'),
-        onRemoteMute: handleRemoteMuteStatus,
-        onConnectionFailed: () => endCall(false, 'p2p_failed'),
-        onCallConnected: () => {
-            startTimer();
-            connectAudio.play();
-        },
-        setupRemoteStream: (stream) => {
-            remoteVideo.srcObject = stream;
-            remoteAudio.srcObject = stream;
-            if (selectedAudioOutId && typeof remoteVideo.setSinkId === 'function') {
-                remoteVideo.setSinkId(selectedAudioOutId).catch(e => logToScreen(`[SINK] Error setting sinkId for video: ${e}`));
-                remoteAudio.setSinkId(selectedAudioOutId).catch(e => logToScreen(`[SINK] Error setting sinkId for audio: ${e}`));
-            }
-        },
-        visualizeRemoteMic: visualizeRemoteMic,
-        updateConnectionIcon: (type, details) => {
-            updateConnectionIcon(type);
-            if (details && !initialConnectionToastShown) {
-                initialConnectionToastShown = true;
-                if (type === 'p2p' || type === 'local') {
-                    showConnectionToast('good', 'Установлено прямое P2P-соединение. Качество связи будет максимальным.');
-                } else if (type === 'relay') {
-                    showConnectionToast('bad', 'Прямое соединение не удалось. Звонок идет через сервер, возможны задержки.');
-                }
-            }
-        },
-        updateConnectionQualityIcon: updateConnectionQualityIcon
-    };
-
-    webrtc.init(rtcConfig, signalingSender, uiCallbacks, logToScreen);
-
     const wsHandlers = {
         onIdentity: (data) => {
             currentUser.id = data.id;
@@ -419,11 +576,11 @@ function proceedToCall(asSpectator = false) {
         onCallAccepted: () => {
             ringOutAudio.pause(); 
             ringOutAudio.currentTime = 0;
-            webrtc.startConnection(true, currentCallType, localStream, roomId, currentUser.id);
+            webrtc.startPeerConnection(targetUser.id, true, currentCallType, localStream, rtcConfig, connectionLogger);
         },
-        onOffer: (data) => webrtc.handleRemoteOffer(data.offer, data.from, localStream, roomId, currentUser.id),
-        onAnswer: (data) => webrtc.handleRemoteAnswer(data.answer),
-        onCandidate: (data) => webrtc.handleRemoteCandidate(data.candidate),
+        onOffer: (data) => webrtc.handleOffer(data, localStream, rtcConfig, connectionLogger),
+        onAnswer: webrtc.handleAnswer,
+        onCandidate: webrtc.handleCandidate,
         onCallEnded: () => endCall(false, 'ended_by_peer'),
         onCallMissed: () => {
             alert("Абонент не отвечает.");
@@ -537,10 +694,9 @@ async function acceptCall() {
     const hasMedia = await initializeLocalMedia(currentCallType === 'video');
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
 
-    logToScreen("[CALL] Notifying server of acceptance.");
+    logToScreen("[CALL] Starting WebRTC connection.");
+    await webrtc.startPeerConnection(targetUser.id, false, currentCallType, localStream, rtcConfig, connectionLogger);
     sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
-    showScreen('call');
-    updateCallUI();
 }
 
 function declineCall() {
@@ -558,18 +714,21 @@ async function endCall(isInitiator, reason) {
     logToScreen(`[CALL] Ending call. Initiator: ${isInitiator}, Reason: ${reason}`);
     setGracefulDisconnect(true);
 
+    currentConnectionType = 'unknown';
+
     if (isInitiator && targetUser.id) {
         sendMessage({ type: 'hangup', data: { target_id: targetUser.id } });
     }
-    
-    webrtc.closeConnection(isInitiator);
 
-    if (isScreenSharing) {
-        if (screenStream) screenStream.getTracks().forEach(track => track.stop());
-        isScreenSharing = false;
-        screenStream = null;
-        originalVideoTrack = null;
+    if (isInitiator && !connectionLogger.isDataSent) {
+        connectionLogger.sendProbeLog();
     }
+
+    if (connectionStatsInterval) clearInterval(connectionStatsInterval);
+    lastRtcStats = null;
+    currentConnectionDetails = null;
+
+    webrtc.endPeerConnection();
 
     if (localCallMicVisualizer) cancelAnimationFrame(localCallMicVisualizer);
     if (remoteMicVisualizer) cancelAnimationFrame(remoteMicVisualizer);
@@ -590,10 +749,14 @@ async function endCall(isInitiator, reason) {
     stopIncomingRing();
 
     localAudio.srcObject = null;
-    remoteAudio.srcObject = null;
     localVideo.srcObject = null;
-    remoteVideo.srcObject = null;
+    localVideoContainer.style.display = 'none';
+    remoteVideo.style.display = 'none';
     
+    connectionQuality.classList.remove('active');
+    updateConnectionQualityIcon('unknown');
+    updateConnectionIcon('unknown');
+
     stopTimer();
     showModal('incoming-call', false);
     showScreen('pre-call');
@@ -612,7 +775,7 @@ function setupEventListeners() {
     speakerBtn.addEventListener('click', toggleSpeaker);
     muteBtn.addEventListener('click', toggleMute);
     videoBtn.addEventListener('click', toggleVideo);
-    screenShareBtn.addEventListener('click', toggleScreenShare);
+    screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(localStream, updateScreenShareUI));
     acceptBtn.addEventListener('click', acceptCall);
     declineBtn.addEventListener('click', declineCall);
     
@@ -737,7 +900,6 @@ async function initializeLocalMedia(isVideo) {
         visualizeLocalMicForCall(localStream);
 
         if (constraints.video && localStream.getVideoTracks().length > 0) {
-            originalVideoTrack = localStream.getVideoTracks()[0];
             localVideo.srcObject = localStream;
             await localVideo.play();
             localVideoContainer.style.display = 'flex';
@@ -796,14 +958,9 @@ function updateCallUI() {
 function toggleMute() {
     if (!hasMicrophoneAccess) return;
     isMuted = !isMuted;
-    if (localStream) localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+    webrtc.toggleMute(isMuted, localStream);
     muteBtn.classList.toggle('active', isMuted);
     logToScreen(`[CONTROLS] Mic ${isMuted ? 'muted' : 'unmuted'}.`);
-    
-    const dataChannel = webrtc.getDataChannel();
-    if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify({ type: 'mute_status', muted: isMuted }));
-    }
 }
 
 function toggleSpeaker() {
@@ -814,9 +971,9 @@ function toggleSpeaker() {
 }
 
 function toggleVideo() {
-    if (isScreenSharing || !hasCameraAccess) return;
+    if (!hasCameraAccess) return;
     isVideoEnabled = !isVideoEnabled;
-    if (localStream) localStream.getVideoTracks().forEach(track => track.enabled = isVideoEnabled);
+    webrtc.toggleVideo(isVideoEnabled, localStream);
     videoBtn.classList.toggle('active', !isVideoEnabled);
     localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
@@ -860,40 +1017,14 @@ async function populateDeviceSelectorsInCall() {
 }
 
 async function switchInputDevice(kind, deviceId) {
-    if (!localStream) return;
-    logToScreen(`[CONTROLS] Switching ${kind} input to deviceId: ${deviceId}`);
-
-    try {
-        const currentTrack = kind === 'video' ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
-        if (currentTrack) {
-            currentTrack.stop();
-        }
-
-        const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: { deviceId: { exact: deviceId } } });
-        const newTrack = newStream.getTracks()[0];
-
-        const pc = webrtc.getPeerConnection();
-        if (pc) {
-            const sender = pc.getSenders().find(s => s.track?.kind === kind);
-            if (sender) {
-                await sender.replaceTrack(newTrack);
-            }
-        }
-
-        localStream.removeTrack(currentTrack);
-        localStream.addTrack(newTrack);
-
+    const newTrack = await webrtc.switchInputDevice(kind, deviceId, localStream);
+    if (newTrack) {
         if (kind === 'video') {
-            originalVideoTrack = newTrack;
-            localVideo.srcObject = localStream;
-            await localVideo.play();
             selectedVideoId = deviceId;
         } else {
             visualizeLocalMicForCall(localStream);
             selectedAudioInId = deviceId;
         }
-    } catch (error) {
-        logToScreen(`[CONTROLS] Error switching ${kind} device: ${error}`);
     }
 }
 
@@ -921,50 +1052,13 @@ async function enumerateVideoDevices() {
     }
 }
 
-async function toggleScreenShare() {
-    if (!isScreenSharing) {
-        try {
-            screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            const screenTrack = screenStream.getVideoTracks()[0];
-            originalVideoTrack = localStream?.getVideoTracks()[0] || null;
-            const pc = webrtc.getPeerConnection();
-            if (pc) {
-                const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-                if (sender) await sender.replaceTrack(screenTrack);
-            }
-            screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(); };
-            isScreenSharing = true;
-            updateScreenShareUI(true);
-            logToScreen("[CONTROLS] Screen sharing started.");
-        } catch (error) {
-            logToScreen(`[CONTROLS] Could not start screen sharing: ${error.message}`);
-        }
-    } else {
-        if (screenStream) screenStream.getTracks().forEach(track => track.stop());
-        screenStream = null;
-        const pc = webrtc.getPeerConnection();
-        if (pc) {
-            const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-            if (sender) {
-                await sender.replaceTrack(originalVideoTrack);
-                if (originalVideoTrack) {
-                    originalVideoTrack.enabled = isVideoEnabled;
-                }
-            }
-        }
-        isScreenSharing = false;
-        updateScreenShareUI(false);
-        logToScreen("[CONTROLS] Screen sharing stopped.");
-    }
-}
-
 function updateScreenShareUI(isSharing) {
     screenShareBtn.classList.toggle('active', isSharing);
     localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'flex' : 'none');
 }
 
 function resetCallControls() {
-    isMuted = false; isVideoEnabled = true; isSpeakerMuted = false; isScreenSharing = false;
+    isMuted = false; isVideoEnabled = true; isSpeakerMuted = false;
     initialConnectionToastShown = false;
     muteBtn.classList.remove('active');
     videoBtn.classList.remove('active');
@@ -1003,7 +1097,7 @@ function startTimer() {
     }
 
     if (connectionStatsInterval) clearInterval(connectionStatsInterval);
-    connectionStatsInterval = setInterval(webrtc.monitorConnectionStats, 3000);
+    connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
     updateConnectionIcon('unknown');
     updateConnectionQualityIcon('unknown');
     connectionQuality.classList.add('active');
@@ -1110,4 +1204,99 @@ function showConnectionToast(type, message) {
     setTimeout(() => {
         connectionToast.classList.remove('visible');
     }, 7000);
+}
+
+async function monitorConnectionStats() {
+    const peerConnection = webrtc.getPeerConnection();
+    if (!peerConnection || peerConnection.iceConnectionState !== 'connected') return;
+    try {
+        const stats = await peerConnection.getStats();
+        let activeCandidatePair = null, remoteInboundRtp = null;
+        stats.forEach(report => {
+            if (report.type === 'candidate-pair' && report.state === 'succeeded') activeCandidatePair = report;
+            if (report.type === 'remote-inbound-rtp' && (report.kind === 'video' || !remoteInboundRtp)) remoteInboundRtp = report;
+        });
+
+        if (activeCandidatePair?.localCandidateId) {
+
+            const localCand = stats.get(activeCandidatePair.localCandidateId);
+            const remoteCand = stats.get(activeCandidatePair.remoteCandidateId);
+
+            if (localCand?.candidateType && remoteCand?.candidateType) {
+                const localType = localCand.candidateType;
+                const remoteType = remoteCand.candidateType;
+                
+                let connectionTypeForIcon = 'unknown';
+
+                if (localType === 'relay' || remoteType === 'relay') {
+                    connectionTypeForIcon = 'relay';
+                    currentConnectionType = 'relay';
+                    const relayCandidate = localType === 'relay' ? localCand : remoteCand;
+                    if (relayCandidate.url && iceServerDetails[relayCandidate.url]) {
+                        currentConnectionDetails = iceServerDetails[relayCandidate.url];
+                    }
+                } 
+
+                else if (localType === 'host' && remoteType === 'host') {
+                    connectionTypeForIcon = 'local';
+                    currentConnectionType = 'p2p'; 
+                    currentConnectionDetails = { region: 'local', provider: 'network' };
+                }
+
+                else {
+                    connectionTypeForIcon = 'p2p';
+                    currentConnectionType = 'p2p';
+                    let details = { region: 'direct', provider: 'p2p' };
+                    if (localCand.url && iceServerDetails[localCand.url]) {
+                        const serverInfo = iceServerDetails[localCand.url];
+                        details = { 
+                            region: serverInfo.region, 
+                            provider: `p2p (via ${serverInfo.provider})` 
+                        };
+                    }
+                    currentConnectionDetails = details;
+                }
+                
+                updateConnectionIcon(connectionTypeForIcon);
+
+                if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
+                    initialConnectionToastShown = true;
+                    if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
+                        showConnectionToast('good', 'Установлено прямое P2P-соединение. Качество связи будет максимальным.');
+                    } else if (connectionTypeForIcon === 'relay') {
+                        showConnectionToast('bad', 'Прямое соединение не удалось. Звонок идет через сервер, возможны задержки.');
+                    }
+                }
+
+            } else {
+                updateConnectionIcon('unknown');
+                currentConnectionType = 'unknown';
+                currentConnectionDetails = null;
+            }
+        }
+
+        let quality = 'unknown';
+        if (remoteInboundRtp && activeCandidatePair) {
+            const roundTripTime = activeCandidatePair.currentRoundTripTime * 1000;
+            const jitter = remoteInboundRtp.jitter * 1000;
+            let packetsLostDelta = 0;
+            if (lastRtcStats?.remoteInboundRtp) {
+                const packetsLostNow = remoteInboundRtp.packetsLost || 0;
+                const packetsReceivedNow = remoteInboundRtp.packetsReceived || 0;
+                const packetsLostBefore = lastRtcStats.remoteInboundRtp.packetsLost || 0;
+                const packetsReceivedBefore = lastRtcStats.remoteInboundRtp.packetsReceived || 0;
+                const totalPacketsSinceLast = (packetsReceivedNow - packetsReceivedBefore) + (packetsLostNow - packetsLostBefore);
+                if (totalPacketsSinceLast > 0) packetsLostDelta = (packetsLostNow - packetsLostBefore) / totalPacketsSinceLast;
+            }
+            let score = (roundTripTime < 150) + (jitter < 50) + (packetsLostDelta < 0.02);
+            if (score === 3) quality = 'good';
+            else if (score >= 1) quality = 'medium';
+            else quality = 'bad';
+            logToScreen(`[STATS] Quality: rtt=${roundTripTime.toFixed(0)}ms, jitter=${jitter.toFixed(2)}ms, loss=${(packetsLostDelta*100).toFixed(2)}% -> ${quality}`);
+        }
+        updateConnectionQualityIcon(quality);
+        lastRtcStats = { remoteInboundRtp };
+    } catch (error) {
+        logToScreen(`Error getting connection stats: ${error}`);
+    }
 }
