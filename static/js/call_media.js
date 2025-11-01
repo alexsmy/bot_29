@@ -1,5 +1,7 @@
 // static/js/call_media.js
 
+// static/js/call_media.js
+
 let localStream;
 let previewStream;
 let micVisualizer;
@@ -7,6 +9,8 @@ let localCallMicVisualizer;
 let remoteMicVisualizer;
 let localAudioContext;
 let remoteAudioContext;
+let remoteGainNode = null;
+let isRemoteMuted = false;
 
 let videoDevices = [];
 let audioInDevices = [];
@@ -43,6 +47,7 @@ export function stopAllStreams() {
     remoteMicVisualizer = null;
     localAudioContext = null;
     remoteAudioContext = null;
+    remoteGainNode = null;
 }
 
 export function stopPreviewStream() {
@@ -229,10 +234,16 @@ export function visualizeRemoteMic(stream) {
     const source = remoteAudioContext.createMediaStreamSource(stream);
     const analyser = remoteAudioContext.createAnalyser();
     analyser.fftSize = 256;
+    
+    remoteGainNode = remoteAudioContext.createGain();
+    remoteGainNode.gain.value = isRemoteMuted ? 0 : 1;
+
     const bufferLength = analyser.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
+    
     source.connect(analyser);
-    analyser.connect(remoteAudioContext.destination);
+    analyser.connect(remoteGainNode);
+    remoteGainNode.connect(remoteAudioContext.destination);
 
     function draw() {
         remoteMicVisualizer = requestAnimationFrame(draw);
@@ -253,4 +264,12 @@ export function visualizeRemoteMic(stream) {
         remoteAudioLevelBars.forEach((bar, index) => bar.classList.toggle('active', index < level));
     }
     draw();
+}
+
+export function toggleRemoteSpeakerMute() {
+    isRemoteMuted = !isRemoteMuted;
+    if (remoteGainNode) {
+        remoteGainNode.gain.value = isRemoteMuted ? 0 : 1;
+    }
+    return isRemoteMuted;
 }
