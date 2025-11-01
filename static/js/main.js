@@ -158,6 +158,78 @@ const connectionLogger = {
     }
 };
 
+async function probeIceServers() {
+    logToScreen('[PROBE] Starting ICE server probing...');
+    const serversToProbe = rtcConfig.iceServers;
+    const promises = serversToProbe.map(server => {
+        return new Promise(resolve => {
+            const startTime = performance.now();
+            let tempPC;
+            let resolved = false;
+
+            const resolvePromise = (status, candidateObj, rtt) => {
+                if (resolved) return;
+                resolved = true;
+                clearTimeout(timeout);
+                if (tempPC && tempPC.signalingState !== 'closed') {
+                    tempPC.close();
+                }
+                resolve({ url: server.urls, status, rtt, candidate: candidateObj });
+            };
+
+            const timeout = setTimeout(() => {
+                resolvePromise('No Response', null, null);
+            }, 2500);
+
+            try {
+                tempPC = new RTCPeerConnection({ iceServers: [server] });
+
+                tempPC.onicecandidate = (e) => {
+                    if (e.candidate) {
+                        const rtt = performance.now() - startTime;
+                        const candidateData = { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate };
+                        resolvePromise('Responded', candidateData, rtt);
+                    }
+                };
+                
+                tempPC.onicegatheringstatechange = () => {
+                    if (tempPC.iceGatheringState === 'complete' && !resolved) {
+                         resolvePromise('No Candidates', null, performance.now() - startTime);
+                    }
+                };
+
+                tempPC.createDataChannel('probe');
+                tempPC.createOffer()
+                    .then(offer => tempPC.setLocalDescription(offer))
+                    .catch(() => resolvePromise('Error', null, null));
+
+            } catch (error) {
+                resolvePromise('Config Error', null, null);
+            }
+        });
+    });
+
+    let results = await Promise.all(promises);
+    results.sort((a, b) => {
+        if (a.rtt === null) return 1;
+        if (b.rtt === null) return -1;
+        return a.rtt - b.rtt;
+    });
+
+    logToScreen(`[PROBE] Probing complete. ${results.filter(r => r.status === 'Responded').length} servers responded.`);
+    return results;
+}
+
+function parseCandidate(candString) {
+    const parts = candString.split(' ');
+    return {
+        type: parts[7],
+        address: parts[4],
+        port: parts[5],
+        protocol: parts[2]
+    };
+}
+
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
     fetch('/log', {
@@ -590,6 +662,11 @@ async function initiateCall(userToCall, callType) {
     if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
 
     targetUser = userToCall;
+
+    connectionLogger.reset();
+    const probeResults = await probeIceServers();
+    connectionLogger.setProbeResults(probeResults);
+
     sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
     showScreen('call');
@@ -623,6 +700,9 @@ async function acceptCall() {
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
 
     logToScreen("[CALL] Starting WebRTC connection.");
+    
+    connectionLogger.reset();
+    
     await webrtc.startPeerConnection(targetUser.id, false, currentCallType, localStream, rtcConfig, connectionLogger);
     sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
 }
