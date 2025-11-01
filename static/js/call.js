@@ -1,83 +1,30 @@
+
+import {
+    preCallCheckScreen, previewVideo, micLevelBars, cameraStatus, cameraStatusText,
+    micStatus, micStatusText, continueToCallBtn, continueSpectatorBtn, cameraSelect,
+    micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
+    preCallScreen, popupWaiting, popupActions, popupInitiating, lifetimeTimer,
+    closeSessionBtn, instructionsBtn, instructionsModal, closeInstructionsBtns,
+    callScreen, audioCallVisualizer, localGlow, remoteGlow, incomingCallModal,
+    callerName, incomingCallType, acceptBtn, declineBtn, hangupBtn, remoteUserName,
+    callTimer, speakerBtn, muteBtn, videoBtn, videoControlItem, screenShareBtn,
+    screenShareControlItem, localAudio, remoteAudio, localVideo, remoteVideo,
+    localVideoContainer, toggleLocalViewBtn, toggleRemoteViewBtn, ringOutAudio,
+    connectAudio, ringInAudio, connectionStatus, connectionQuality, qualityGoodSvg,
+    qualityMediumSvg, qualityBadSvg, remoteAudioLevel, remoteAudioLevelBars,
+    connectionInfoPopup, remoteMuteToast, connectionToast, deviceSettingsBtn,
+    deviceSettingsModal, closeSettingsBtns, cameraSelectCall, micSelectCall,
+    speakerSelectCall, cameraSelectContainerCall, micSelectContainerCall,
+    speakerSelectContainerCall,
+    showScreen, showModal, showPopup, updateCallUI, resetUiFade, setupVideoCallUiListeners,
+    removeVideoCallUiListeners, startTimer, stopTimer, visualizeMic, visualizeLocalMicForCall,
+    visualizeRemoteMic, updateStatusIndicators, displayMediaErrors, updateConnectionIcon,
+    updateConnectionQualityIcon, showConnectionInfo, showConnectionToast
+} from './call_ui.js';
+
 const tg = window.Telegram.WebApp;
 
 const PREVENT_P2P_DOWNGRADE = true;
-
-const preCallCheckScreen = document.getElementById('pre-call-check-screen');
-const previewVideo = document.getElementById('previewVideo');
-const micLevelBars = document.querySelectorAll('.mic-level-bar');
-const cameraStatus = document.getElementById('camera-status');
-const cameraStatusText = document.getElementById('camera-status-text');
-const micStatus = document.getElementById('mic-status');
-const micStatusText = document.getElementById('mic-status-text');
-const continueToCallBtn = document.getElementById('continue-to-call-btn');
-const continueSpectatorBtn = document.getElementById('continue-spectator-btn');
-const cameraSelect = document.getElementById('camera-select');
-const micSelect = document.getElementById('mic-select');
-const speakerSelect = document.getElementById('speaker-select');
-const cameraSelectContainer = document.getElementById('camera-select-container');
-const micSelectContainer = document.getElementById('mic-select-container');
-const speakerSelectContainer = document.getElementById('speaker-select-container');
-
-const preCallScreen = document.getElementById('pre-call-screen');
-const popupWaiting = document.getElementById('popup-waiting');
-const popupActions = document.getElementById('popup-actions');
-const popupInitiating = document.getElementById('popup-initiating');
-const lifetimeTimer = document.getElementById('lifetime-timer');
-const closeSessionBtn = document.getElementById('close-session-btn');
-const instructionsBtn = document.getElementById('instructions-btn');
-const instructionsModal = document.getElementById('instructions-modal');
-const closeInstructionsBtns = document.querySelectorAll('.close-instructions-btn');
-
-const callScreen = document.getElementById('call-screen');
-const audioCallVisualizer = document.getElementById('audio-call-visualizer');
-const localGlow = document.getElementById('local-glow');
-const remoteGlow = document.getElementById('remote-glow');
-const incomingCallModal = document.getElementById('incoming-call-modal');
-const callerName = document.getElementById('caller-name');
-const incomingCallType = document.getElementById('incoming-call-type');
-const acceptBtn = document.getElementById('accept-btn');
-const declineBtn = document.getElementById('decline-btn');
-const hangupBtn = document.getElementById('hangup-btn');
-const remoteUserName = document.getElementById('remote-user-name');
-const callTimer = document.getElementById('call-timer');
-const speakerBtn = document.getElementById('speaker-btn');
-const muteBtn = document.getElementById('mute-btn');
-const videoBtn = document.getElementById('video-btn');
-const videoControlItem = document.getElementById('video-control-item');
-const switchCameraBtn = document.getElementById('switch-camera-btn');
-const switchCameraControlItem = document.getElementById('switch-camera-control-item');
-const screenShareBtn = document.getElementById('screen-share-btn');
-const screenShareControlItem = document.getElementById('screen-share-control-item');
-const localAudio = document.getElementById('localAudio');
-const remoteAudio = document.getElementById('remoteAudio');
-const localVideo = document.getElementById('localVideo');
-const remoteVideo = document.getElementById('remoteVideo');
-const localVideoContainer = document.getElementById('local-video-container');
-const toggleLocalViewBtn = document.getElementById('toggle-local-view-btn');
-const toggleRemoteViewBtn = document.getElementById('toggle-remote-view-btn');
-const ringOutAudio = document.getElementById('ringOutAudio');
-const connectAudio = document.getElementById('connectAudio');
-const ringInAudio = document.getElementById('ringInAudio');
-const connectionStatus = document.getElementById('connection-status');
-const connectionQuality = document.getElementById('connection-quality');
-const qualityGoodSvg = document.getElementById('quality-good-svg');
-const qualityMediumSvg = document.getElementById('quality-medium-svg');
-const qualityBadSvg = document.getElementById('quality-bad-svg');
-const remoteAudioLevel = document.getElementById('remote-audio-level');
-const remoteAudioLevelBars = document.querySelectorAll('.remote-audio-level-bar');
-const connectionInfoPopup = document.getElementById('connection-info-popup');
-const remoteMuteToast = document.getElementById('remote-mute-toast');
-const connectionToast = document.getElementById('connection-toast');
-
-const deviceSettingsBtn = document.getElementById('device-settings-btn');
-const deviceSettingsModal = document.getElementById('device-settings-modal');
-const closeSettingsBtns = document.querySelectorAll('.close-settings-btn');
-const cameraSelectCall = document.getElementById('camera-select-call');
-const micSelectCall = document.getElementById('mic-select-call');
-const speakerSelectCall = document.getElementById('speaker-select-call');
-const cameraSelectContainerCall = document.getElementById('camera-select-container-call');
-const micSelectContainerCall = document.getElementById('mic-select-container-call');
-const speakerSelectContainerCall = document.getElementById('speaker-select-container-call');
 
 let ws;
 let peerConnection;
@@ -287,10 +234,10 @@ async function probeIceServers() {
 function parseCandidate(candString) {
     const parts = candString.split(' ');
     return {
-        type: parts[7],
-        address: parts[4],
-        port: parts[5],
-        protocol: parts[2]
+        type: parts,
+        address: parts,
+        port: parts,
+        protocol: parts
     };
 }
 
@@ -321,24 +268,7 @@ function logToScreen(message) {
     sendLogToServer(logMessage);
 }
 
-function loadIcons() {
-    const iconPlaceholders = document.querySelectorAll('[data-icon-name]');
-    if (typeof ICONS === 'undefined') {
-        console.error('icons.js is not loaded or ICONS object is not defined.');
-        return;
-    }
-    iconPlaceholders.forEach(placeholder => {
-        const iconName = placeholder.dataset.iconName;
-        if (ICONS[iconName]) {
-            placeholder.innerHTML = ICONS[iconName];
-        } else {
-            console.warn(`Icon with name "${iconName}" not found.`);
-        }
-    });
-}
-
 document.addEventListener('DOMContentLoaded', async () => {
-    loadIcons();
     const path = window.location.pathname;
     logToScreen(`App loaded. Path: ${path}`);
 
@@ -386,7 +316,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (path.startsWith('/call/')) {
         const parts = path.split('/');
-        roomId = parts[2];
+        roomId = parts;
         initializePrivateCallMode();
     } else {
         document.body.innerHTML = "<h1>Неверный URL</h1>";
@@ -412,8 +342,8 @@ async function runPreCallCheck() {
             navigator.mediaDevices.getUserMedia({ video: true }),
             navigator.mediaDevices.getUserMedia({ audio: true })
         ]);
-        const videoResult = results[0];
-        const audioResult = results[1];
+        const videoResult = results;
+        const audioResult = results;
 
         if (videoResult.status === 'fulfilled') {
             hasCameraAccess = true;
@@ -431,37 +361,16 @@ async function runPreCallCheck() {
         continueSpectatorBtn.style.display = 'block';
     }
 
-    updateStatusIndicators();
+    updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
     if (stream) {
         previewStream = stream;
         previewVideo.srcObject = stream;
-        if (hasMicrophoneAccess) visualizeMic(stream);
+        if (hasMicrophoneAccess) micVisualizer = visualizeMic(stream, micLevelBars);
         await populateDeviceSelectors();
         continueToCallBtn.disabled = false;
     } else {
         logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
-    }
-}
-
-function updateStatusIndicators() {
-    cameraStatus.classList.toggle('status-ok', hasCameraAccess);
-    cameraStatus.classList.toggle('status-error', !hasCameraAccess);
-    cameraStatusText.textContent = `Камера: ${hasCameraAccess ? 'OK' : 'Нет доступа'}`;
-
-    micStatus.classList.toggle('status-ok', hasMicrophoneAccess);
-    micStatus.classList.toggle('status-error', !hasMicrophoneAccess);
-    micStatusText.textContent = `Микрофон: ${hasMicrophoneAccess ? 'OK' : 'Нет доступа'}`;
-}
-
-function displayMediaErrors(error) {
-    let message = 'Не удалось получить доступ к камере и/или микрофону. ';
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        message += 'Вы заблокировали доступ. Пожалуйста, измените разрешения в настройках браузера.';
-    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        message += 'Устройства не найдены. Убедитесь, что они подключены и работают.';
-    } else {
-        message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
     }
 }
 
@@ -496,7 +405,7 @@ async function updatePreviewStream() {
     if (previewStream) {
         previewStream.getTracks().forEach(track => track.stop());
     }
-    if (micVisualizer) cancelAnimationFrame(micVisualizer);
+    if (micVisualizer) cancelAnimationFrame(micVisualizer.id);
 
     selectedVideoId = cameraSelect.value;
     selectedAudioInId = micSelect.value;
@@ -512,96 +421,10 @@ async function updatePreviewStream() {
     try {
         previewStream = await navigator.mediaDevices.getUserMedia(constraints);
         previewVideo.srcObject = previewStream;
-        if (hasMicrophoneAccess) visualizeMic(previewStream);
+        if (hasMicrophoneAccess) micVisualizer = visualizeMic(previewStream, micLevelBars);
     } catch (error) {
         logToScreen(`[MEDIA_UPDATE] Error updating preview stream: ${error}`);
     }
-}
-
-function visualizeMic(stream) {
-    const audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
-    const analyser = audioContext.createAnalyser();
-    analyser.fftSize = 32;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    source.connect(analyser);
-
-    function draw() {
-        micVisualizer = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-        const volume = Math.min(Math.floor(average / 15), micLevelBars.length);
-
-        micLevelBars.forEach((bar, index) => {
-            bar.classList.toggle('active', index < volume);
-        });
-    }
-    draw();
-}
-
-function visualizeLocalMicForCall(stream) {
-    if (localCallMicVisualizer) cancelAnimationFrame(localCallMicVisualizer);
-    if (localAudioContext) localAudioContext.close();
-    if (!stream || stream.getAudioTracks().length === 0) return;
-
-    localAudioContext = new AudioContext();
-    const source = localAudioContext.createMediaStreamSource(stream);
-    const analyser = localAudioContext.createAnalyser();
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    source.connect(analyser);
-
-    function draw() {
-        localCallMicVisualizer = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-        const intensity = Math.min(average / 100, 1.0);
-        localGlow.style.setProperty('--glow-intensity', intensity);
-    }
-    draw();
-}
-
-function visualizeRemoteMic(stream) {
-    if (remoteMicVisualizer) cancelAnimationFrame(remoteMicVisualizer);
-    if (remoteAudioContext) remoteAudioContext.close();
-
-    if (!stream || stream.getAudioTracks().length === 0) {
-        logToScreen("[REMOTE_MIC] No audio track found in remote stream to visualize.");
-        remoteAudioLevel.style.display = 'none';
-        return;
-    }
-
-    remoteAudioLevel.style.display = 'flex';
-    remoteAudioContext = new AudioContext();
-    const source = remoteAudioContext.createMediaStreamSource(stream);
-    const analyser = remoteAudioContext.createAnalyser();
-    analyser.fftSize = 256;
-    const bufferLength = analyser.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-    source.connect(analyser);
-    analyser.connect(remoteAudioContext.destination);
-
-    function draw() {
-        remoteMicVisualizer = requestAnimationFrame(draw);
-        analyser.getByteFrequencyData(dataArray);
-        const average = dataArray.reduce((a, b) => a + b, 0) / bufferLength;
-        
-        const intensity = Math.min(average / 100, 1.0);
-        remoteGlow.style.setProperty('--glow-intensity', intensity);
-
-        const maxVolume = 160;
-        const percentage = Math.min((average / maxVolume) * 100, 100);
-        let level = 0;
-        if (percentage > 90) level = 5;
-        else if (percentage > 70) level = 4;
-        else if (percentage > 35) level = 3;
-        else if (percentage > 10) level = 2;
-        else if (average > 1) level = 1;
-        remoteAudioLevelBars.forEach((bar, index) => bar.classList.toggle('active', index < level));
-    }
-    draw();
 }
 
 function proceedToCall(asSpectator = false) {
@@ -610,48 +433,13 @@ function proceedToCall(asSpectator = false) {
     if (previewStream) {
         previewStream.getTracks().forEach(track => track.stop());
     }
-    if (micVisualizer) cancelAnimationFrame(micVisualizer);
+    if (micVisualizer) cancelAnimationFrame(micVisualizer.id);
 
     showScreen('pre-call');
     showPopup('waiting');
     connectWebSocket();
     updateRoomLifetime();
     lifetimeTimerInterval = setInterval(updateRoomLifetime, 60000);
-}
-
-function showScreen(screenName) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    if (screenName) document.getElementById(`${screenName}-screen`).classList.add('active');
-}
-
-function showModal(modalName, show) {
-    const modal = document.getElementById(`${modalName}-modal`);
-    if (modal) modal.classList.toggle('active', show);
-}
-
-function showPopup(popupName) {
-    document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
-    if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
-}
-
-function resetUiFade() {
-    callScreen.classList.add('ui-interactive');
-    callScreen.classList.remove('ui-faded');
-    clearTimeout(uiFadeTimeout);
-    uiFadeTimeout = setTimeout(() => callScreen.classList.add('ui-faded'), 2000);
-    setTimeout(() => callScreen.classList.remove('ui-interactive'), 150);
-}
-
-function setupVideoCallUiListeners() {
-    callScreen.addEventListener('mousemove', resetUiFade);
-    callScreen.addEventListener('click', resetUiFade);
-    callScreen.addEventListener('touchstart', resetUiFade);
-}
-
-function removeVideoCallUiListeners() {
-    callScreen.removeEventListener('mousemove', resetUiFade);
-    callScreen.removeEventListener('click', resetUiFade);
-    callScreen.removeEventListener('touchstart', resetUiFade);
 }
 
 function connectWebSocket() {
@@ -748,7 +536,7 @@ function handleUserList(users) {
         targetUser = {};
         showPopup('waiting');
     } else {
-        targetUser = otherUsers[0];
+        targetUser = otherUsers;
         if (targetUser.status === 'busy') {
             showPopup('initiating');
         } else {
@@ -773,7 +561,7 @@ async function initiateCall(userToCall, callType) {
     sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
     showScreen('call');
-    updateCallUI();
+    updateCallUI(currentCallType, hasCameraAccess, hasMicrophoneAccess, targetUser);
     callTimer.textContent = "Вызов...";
     ringOutAudio.play();
 }
@@ -849,8 +637,8 @@ async function endCall(isInitiator, reason) {
         originalVideoTrack = null;
     }
 
-    if (localCallMicVisualizer) cancelAnimationFrame(localCallMicVisualizer);
-    if (remoteMicVisualizer) cancelAnimationFrame(remoteMicVisualizer);
+    if (localCallMicVisualizer) cancelAnimationFrame(localCallMicVisualizer.id);
+    if (remoteMicVisualizer) cancelAnimationFrame(remoteMicVisualizer.id);
     if (localAudioContext) localAudioContext.close();
     if (remoteAudioContext) remoteAudioContext.close();
     localCallMicVisualizer = null;
@@ -952,7 +740,7 @@ function setupEventListeners() {
         iconSpan.innerHTML = remoteVideo.classList.contains('force-cover') ? ICONS.remoteViewContain : ICONS.remoteViewCover;
     });
 
-    connectionStatus.addEventListener('click', showConnectionInfo);
+    connectionStatus.addEventListener('click', () => showConnectionInfo(currentConnectionDetails));
 
     setupLocalVideoInteraction();
 }
@@ -964,7 +752,7 @@ function setupLocalVideoInteraction() {
         if (e.type === 'touchstart' && e.touches.length > 1) return;
         hasMoved = false;
         const rect = localVideoContainer.getBoundingClientRect();
-        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientX = e.type === 'touchstart' ? e.touches.clientX : e.clientX;
         dragStartX = clientX;
         offsetX = clientX - rect.left;
         longPressTimer = setTimeout(() => {
@@ -978,7 +766,7 @@ function setupLocalVideoInteraction() {
     };
 
     const onDragMove = (e) => {
-        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientX = e.type === 'touchmove' ? e.touches.clientX : e.clientX;
         if (!hasMoved && Math.abs(clientX - dragStartX) > 5) {
             hasMoved = true;
             clearTimeout(longPressTimer);
@@ -1036,10 +824,10 @@ async function initializeLocalMedia(isVideo) {
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
         logToScreen("[MEDIA] Media stream acquired successfully.");
         localAudio.srcObject = localStream;
-        visualizeLocalMicForCall(localStream);
+        localCallMicVisualizer = visualizeLocalMicForCall(localStream, localGlow);
 
         if (constraints.video && localStream.getVideoTracks().length > 0) {
-            originalVideoTrack = localStream.getVideoTracks()[0];
+            originalVideoTrack = localStream.getVideoTracks();
             localVideo.srcObject = localStream;
             await localVideo.play();
             localVideoContainer.style.display = 'flex';
@@ -1169,7 +957,7 @@ async function createPeerConnection() {
         logToScreen(`[WEBRTC] Received remote track: ${event.track.kind}`);
         remoteStream.addTrack(event.track);
         if (event.track.kind === 'audio') {
-            visualizeRemoteMic(remoteStream);
+            remoteMicVisualizer = visualizeRemoteMic(remoteStream, remoteGlow, remoteAudioLevelBars);
         }
     };
     if (localStream) {
@@ -1226,8 +1014,8 @@ async function handleOffer(data) {
     
     if (!callScreen.classList.contains('active')) {
         showScreen('call');
-        updateCallUI();
-        startTimer();
+        updateCallUI(currentCallType, hasCameraAccess, hasMicrophoneAccess, targetUser);
+        startTimer(callScreen, callTimer, remoteUserName, currentCallType, (intervalId) => callTimerInterval = intervalId);
         connectAudio.play();
     }
     processIceCandidateQueue();
@@ -1237,7 +1025,7 @@ async function handleAnswer(data) {
     logToScreen("[WEBRTC] Received Answer.");
     if (peerConnection && !peerConnection.currentRemoteDescription) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        startTimer();
+        startTimer(callScreen, callTimer, remoteUserName, currentCallType, (intervalId) => callTimerInterval = intervalId);
         connectAudio.play();
         processIceCandidateQueue();
     }
@@ -1274,18 +1062,6 @@ function isMobileDevice() {
 function stopIncomingRing() {
     ringInAudio.pause();
     ringInAudio.currentTime = 0;
-}
-
-function updateCallUI() {
-    remoteUserName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
-    const isVideoCall = currentCallType === 'video';
-    videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
-    muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
-    screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
-    remoteVideo.style.display = isVideoCall ? 'block' : 'none';
-    
-    callScreen.classList.toggle('video-call-active', isVideoCall);
-    callScreen.classList.toggle('audio-call-active', !isVideoCall);
 }
 
 function toggleMute() {
@@ -1348,8 +1124,8 @@ async function populateDeviceSelectorsInCall() {
         container.style.display = 'flex';
     };
 
-    const currentAudioTrack = localStream?.getAudioTracks()[0];
-    const currentVideoTrack = localStream?.getVideoTracks()[0];
+    const currentAudioTrack = localStream?.getAudioTracks();
+    const currentVideoTrack = localStream?.getVideoTracks();
     
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
@@ -1361,13 +1137,13 @@ async function switchInputDevice(kind, deviceId) {
     logToScreen(`[CONTROLS] Switching ${kind} input to deviceId: ${deviceId}`);
 
     try {
-        const currentTrack = kind === 'video' ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
+        const currentTrack = kind === 'video' ? localStream.getVideoTracks() : localStream.getAudioTracks();
         if (currentTrack) {
             currentTrack.stop();
         }
 
         const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: { deviceId: { exact: deviceId } } });
-        const newTrack = newStream.getTracks()[0];
+        const newTrack = newStream.getTracks();
 
         const sender = peerConnection.getSenders().find(s => s.track?.kind === kind);
         if (sender) {
@@ -1383,7 +1159,7 @@ async function switchInputDevice(kind, deviceId) {
             await localVideo.play();
             selectedVideoId = deviceId;
         } else {
-            visualizeLocalMicForCall(localStream);
+            localCallMicVisualizer = visualizeLocalMicForCall(localStream, localGlow);
             selectedAudioInId = deviceId;
         }
     } catch (error) {
@@ -1419,8 +1195,8 @@ async function toggleScreenShare() {
     if (!isScreenSharing) {
         try {
             screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            const screenTrack = screenStream.getVideoTracks()[0];
-            originalVideoTrack = localStream?.getVideoTracks()[0] || null;
+            const screenTrack = screenStream.getVideoTracks();
+            originalVideoTrack = localStream?.getVideoTracks() || null;
             const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
             if (sender) await sender.replaceTrack(screenTrack);
             screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(); };
@@ -1470,40 +1246,6 @@ function resetCallControls() {
     isEndingCall = false;
 }
 
-function startTimer() {
-    callScreen.classList.add('call-connected');
-    if (callTimerInterval) clearInterval(callTimerInterval);
-    let seconds = 0;
-    callTimer.textContent = '00:00';
-    remoteUserName.style.display = 'none';
-    callTimerInterval = setInterval(() => {
-        seconds++;
-        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
-        const secs = String(seconds % 60).padStart(2, '0');
-        callTimer.textContent = `${mins}:${secs}`;
-    }, 1000);
-
-    if (currentCallType === 'video') {
-        setupVideoCallUiListeners();
-        resetUiFade();
-    } else {
-        audioCallVisualizer.style.display = 'flex';
-    }
-
-    if (connectionStatsInterval) clearInterval(connectionStatsInterval);
-    connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
-    updateConnectionIcon('unknown');
-    updateConnectionQualityIcon('unknown');
-    connectionQuality.classList.add('active');
-}
-
-function stopTimer() {
-    clearInterval(callTimerInterval);
-    callTimerInterval = null;
-    callTimer.textContent = '00:00';
-    remoteUserName.style.display = 'block';
-}
-
 async function updateRoomLifetime() {
     try {
         const response = await fetch(`/room/lifetime/${roomId}`);
@@ -1541,63 +1283,6 @@ async function closeSession() {
 function redirectToInvalidLink() {
     isGracefulDisconnect = true;
     window.location.reload();
-}
-
-function updateConnectionIcon(type) {
-    connectionStatus.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
-    const typeMap = {
-        local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
-        p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
-        relay: { id: 'conn-relay', title: 'Соединение через сервер (Relay)' },
-        unknown: { id: 'conn-unknown', title: 'Определение типа соединения...' }
-    };
-    const { id, title } = typeMap[type] || typeMap.unknown;
-    document.getElementById(id)?.classList.add('active');
-    connectionStatus.setAttribute('data-type-title', title);
-    const qualityText = connectionStatus.title.split(' / ')[0] || 'Качество соединения';
-    connectionStatus.title = `${qualityText} / ${title}`;
-}
-
-function updateConnectionQualityIcon(quality) {
-    connectionQuality.classList.remove('quality-good', 'quality-medium', 'quality-bad');
-    [qualityGoodSvg, qualityMediumSvg, qualityBadSvg].forEach(svg => {
-        svg.classList.remove('active-quality-svg');
-        svg.style.display = 'none';
-    });
-    const qualityMap = {
-        good: { class: 'quality-good', text: 'Отличное соединение', svg: qualityGoodSvg },
-        medium: { class: 'quality-medium', text: 'Среднее соединение', svg: qualityMediumSvg },
-        bad: { class: 'quality-bad', text: 'Плохое соединение', svg: qualityBadSvg },
-        unknown: { class: '', text: 'Оценка качества...', svg: null }
-    };
-    const { class: qualityClass, text: qualityText, svg: activeSvg } = qualityMap[quality] || qualityMap.unknown;
-    if (qualityClass) connectionQuality.classList.add(qualityClass);
-    if (activeSvg) {
-        activeSvg.style.display = 'block';
-        activeSvg.classList.add('active-quality-svg');
-    }
-    const typeTitle = connectionStatus.getAttribute('data-type-title') || 'Определение типа...';
-    connectionStatus.title = `${qualityText} / ${typeTitle}`;
-}
-
-function showConnectionInfo() {
-    if (!currentConnectionDetails) return;
-    clearTimeout(infoPopupTimeout);
-    connectionInfoPopup.textContent = `${currentConnectionDetails.region}, ${currentConnectionDetails.provider}`;
-    connectionInfoPopup.classList.add('active');
-    infoPopupTimeout = setTimeout(() => {
-        connectionInfoPopup.classList.remove('active');
-    }, 3000);
-}
-
-function showConnectionToast(type, message) {
-    connectionToast.textContent = message;
-    connectionToast.classList.remove('toast-good', 'toast-bad');
-    connectionToast.classList.add(`toast-${type}`);
-    connectionToast.classList.add('visible');
-    setTimeout(() => {
-        connectionToast.classList.remove('visible');
-    }, 7000);
 }
 
 async function monitorConnectionStats() {
