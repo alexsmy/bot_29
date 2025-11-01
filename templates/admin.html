@@ -3,49 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
+    <title>Admin Panel</title>
     <link rel="stylesheet" href="/static/css/admin.css">
 </head>
 <body data-token="{{ token }}" data-token-expires-at="{{ expires_at }}">
-    <div id="sidebar-overlay" class="sidebar-overlay"></div>
-
     <div class="dashboard-container">
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
         <aside class="sidebar">
             <div class="sidebar-header">
-                <h3>Admin Panel</h3>
+                <div id="sidebar-header-icon-placeholder" class="sidebar-header-icon"></div>
             </div>
             <nav class="sidebar-nav">
                 <a href="#stats" class="nav-link active">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M16,11.78L20.24,4.45L21.66,5.87L17.41,13.2L16,11.78M15.55,13.58L11.71,9.74L7.47,14L2.22,8.75L3.64,7.33L7.47,11.16L11.71,6.92L17,12.17L15.55,13.58Z" /></svg>
-                    <span>Статистика</span>
+                    <span class="icon" id="icon-stats"></span> Статистика
                 </a>
                 <a href="#rooms" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,18H6A2,2 0 0,1 4,16V5A2,2 0 0,1 6,3H18A2,2 0 0,1 20,5V12.08C18.4,12.55 17,13.82 17,15.5A2.5,2.5 0 0,0 19.5,18H12M6,5V16H11.5A2.5,2.5 0 0,1 11,15.5C11,13.83 12.5,12.42 14.2,12.09V5H6M18,5H14.2C14.61,5.58 15,6.26 15,7A2,2 0 0,1 13,9H9.5V11H13A4,4 0 0,0 17,7C17,6.66 16.95,6.33 16.86,6H18V5M23,15.5A2.5,2.5 0 0,1 20.5,18H17A2.5,2.5 0 0,1 14.5,15.5A2.5,2.5 0 0,1 17,13A2.5,2.5 0 0,1 19.5,15.5H23Z" /></svg>
-                    <span>Активные комнаты</span>
+                    <span class="icon" id="icon-rooms"></span> Активные комнаты
                 </a>
                 <a href="#users" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A4,4 0 0,1 16,7A4,4 0 0,1 12,11A4,4 0 0,1 8,7A4,4 0 0,1 12,3M12,13C14.67,13 20,14.33 20,17V20H4V17C4,14.33 9.33,13 12,13Z" /></svg>
-                    <span>Пользователи</span>
+                    <span class="icon" id="icon-users"></span> Пользователи
                 </a>
-                 <a href="#connections" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M16.5,9A2.5,2.5 0 0,0 14,11.5A2.5,2.5 0 0,0 16.5,14A2.5,2.5 0 0,0 19,11.5A2.5,2.5 0 0,0 16.5,9M9,11.5A2.5,2.5 0 0,1 6.5,9A2.5,2.5 0 0,1 9,6.5A2.5,2.5 0 0,1 11.5,9A2.5,2.5 0 0,1 9,11.5M16.5,15C14.09,15 9.5,16.25 9.5,18.5V21H23.5V18.5C23.5,16.25 18.91,15 16.5,15M9,13C6.5,13 2,14.25 2,16.5V19H9V16.5C9,15.42 9.24,14.44 9.68,13.56C9.45,13.5 9.22,13.5 9,13.5Z" /></svg>
-                    <span>Соединения</span>
+                <a href="#connections" class="nav-link">
+                    <span class="icon" id="icon-connections"></span> Соединения
                 </a>
                 <a href="#notifications" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29V4A2,2 0 0,1 12,2A2,2 0 0,1 14,4V4.29C16.97,5.17 19,7.9 19,11V17L21,19M12,22A2,2 0 0,1 10,20H14A2,2 0 0,1 12,22Z" /></svg>
-                    <span>Уведомления</span>
+                    <span class="icon" id="icon-notifications"></span> Уведомления
                 </a>
                 <a href="#reports" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20M12,19L8,15H11V12H13V15H16L12,19Z" /></svg>
-                    <span>Отчёты</span>
+                    <span class="icon" id="icon-reports"></span> Отчёты
                 </a>
                 <a href="#logs" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M19,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M9.5,17.5L6.5,14.5L7.91,13.09L9.5,14.67L16.09,8.09L17.5,9.5L9.5,17.5Z" /></svg>
-                    <span>Логи</span>
+                    <span class="icon" id="icon-logs"></span> Логи
                 </a>
                 <a href="#danger" class="nav-link">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" /></svg>
-                    <span>Опасная зона</span>
+                    <span class="icon" id="icon-danger"></span> Опасная зона
                 </a>
             </nav>
             <div class="sidebar-footer">
@@ -58,23 +49,22 @@
         <main class="main-content">
             <header class="main-header">
                 <button id="mobile-menu-btn" class="mobile-menu-toggle">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
+                    <span id="mobile-menu-icon-placeholder"></span>
                 </button>
-                <h1>Панель администратора</h1>
+                <h1 class="desktop-title">Панель администратора</h1>
                 <div id="token-info">
                     Токен действителен: <span id="token-timer">--:--</span>
                 </div>
             </header>
 
             <section id="stats" class="content-section active">
-                <h2>Сводная информация</h2>
-                <div class="filters">
-                    <label for="stats-period">Период:</label>
-                    <select id="stats-period">
-                        <option value="day">За день</option>
-                        <option value="week">За неделю</option>
+                <div class="section-header">
+                    <h2>Сводная информация</h2>
+                    <select id="stats-period" class="action-btn">
+                        <option value="all">За все время</option>
                         <option value="month">За месяц</option>
-                        <option value="all" selected>За все время</option>
+                        <option value="week">За неделю</option>
+                        <option value="day">За сутки</option>
                     </select>
                 </div>
                 <div id="stats-container" class="stats-grid">
@@ -89,66 +79,77 @@
 
             <section id="rooms" class="content-section">
                 <h2>Активные комнаты</h2>
+                <p class="section-description">Список всех активных комнат, которые еще не истекли.</p>
                 <div class="filters">
                     <input type="text" id="room-search" placeholder="Поиск по ID комнаты...">
                 </div>
                 <details open>
-                    <summary>Админ (<span id="admin-room-count">0</span>)</summary>
-                    <div id="admin-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
+                    <summary>Администраторские комнаты (<span>-</span>)</summary>
+                    <div id="admin-rooms-list" class="room-list-container">
+                        <div class="skeleton-list"></div>
+                    </div>
                 </details>
                 <details open>
-                    <summary>Пользовательские (<span id="user-room-count">0</span>)</summary>
-                    <div id="user-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
+                    <summary>Пользовательские комнаты (<span>-</span>)</summary>
+                    <div id="user-rooms-list" class="room-list-container">
+                        <div class="skeleton-list"></div>
+                    </div>
                 </details>
             </section>
 
             <section id="users" class="content-section">
-                <h2>Пользователи бота</h2>
+                <h2>Пользователи</h2>
+                <p class="section-description">Список всех пользователей, которые взаимодействовали с ботом.</p>
                 <div class="filters">
-                    <input type="text" id="user-search" placeholder="Поиск по ID, имени или @username...">
+                    <input type="text" id="user-search" placeholder="Поиск по имени, username или ID...">
                 </div>
-                <div id="users-list" class="users-list"><div class="skeleton-list"></div></div>
+                <div id="users-list" class="users-list">
+                    <div class="skeleton-list"></div>
+                </div>
             </section>
-            
+
             <section id="connections" class="content-section">
-                <h2>Информация о соединениях</h2>
+                <h2>История соединений</h2>
+                <p class="section-description">Просмотр информации о сессиях звонков за определенную дату.</p>
                 <div class="filters">
                     <input type="date" id="connections-date">
-                    <button id="search-connections-btn" class="primary">Показать</button>
+                    <button id="search-connections-btn" class="action-btn primary">Поиск</button>
                 </div>
-                <div id="connections-list" class="connections-list"><p>Выберите дату для просмотра соединений.</p></div>
+                <div id="connections-list" class="connections-list">
+                    <p class="empty-list">Выберите дату для просмотра соединений.</p>
+                </div>
             </section>
 
             <section id="notifications" class="content-section">
                 <h2>Настройки уведомлений</h2>
-                <p class="section-description">Выберите, какие уведомления вы хотите получать в Telegram.</p>
+                <p class="section-description">Управляйте тем, какие уведомления вы хотите получать от бота.</p>
                 <div class="notification-settings-form">
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="notify_on_room_creation" name="notify_on_room_creation">
-                            <span>Уведомлять о создании новой <b>пользовательской</b> комнаты</span>
+                            <input type="checkbox" name="notify_on_room_creation">
+                            <span>Получать уведомление при создании комнаты</span>
                         </label>
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="notify_on_call_start" name="notify_on_call_start">
-                            <span>Уведомлять о <b>начале</b> звонка в любой комнате</span>
+                            <input type="checkbox" name="notify_on_call_start">
+                            <span>Получать уведомление при начале звонка</span>
                         </label>
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="notify_on_call_end" name="notify_on_call_end">
-                            <span>Уведомлять о <b>завершении</b> звонка</span>
+                            <input type="checkbox" name="notify_on_call_end">
+                            <span>Получать уведомление при завершении звонка</span>
                         </label>
                     </div>
                     <div class="form-group">
                         <label class="checkbox-label">
-                            <input type="checkbox" id="send_connection_report" name="send_connection_report">
-                            <span>Присылать <b>отчет о соединении</b> (HTML-файл) после звонка</span>
+                            <input type="checkbox" name="send_connection_report">
+                            <span>Присылать отчет о качестве соединения</span>
                         </label>
                     </div>
                     <div class="form-actions">
-                        <button id="save-notification-settings" class="action-btn primary">Применить</button>
+                        <button id="save-notification-settings" class="action-btn primary">Сохранить</button>
                         <span id="settings-saved-indicator" class="saved-indicator">Сохранено!</span>
                     </div>
                 </div>
@@ -159,28 +160,33 @@
                     <h2>Отчёты о соединениях</h2>
                     <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
                 </div>
-                <div id="reports-list"><div class="skeleton-list"></div></div>
+                <p class="section-description">Здесь хранятся детальные HTML-отчёты о качестве WebRTC соединений.</p>
+                <div id="reports-list" class="room-list-container">
+                    <div class="skeleton-list"></div>
+                </div>
             </section>
 
             <section id="logs" class="content-section">
                 <div class="section-header">
                     <h2>Логи приложения</h2>
-                    <div class="actions">
+                    <div>
                         <button id="refresh-logs-btn" class="action-btn">Обновить</button>
                         <button id="download-logs-btn" class="action-btn">Скачать</button>
                         <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
                     </div>
                 </div>
-                <pre id="logs-content" class="logs-panel"><code>Загрузка логов...</code></pre>
+                <p class="section-description">Последние записи из файла логов `app.log`.</p>
+                <div id="logs-content" class="logs-panel"><code>Загрузка...</code></div>
             </section>
 
             <section id="danger" class="content-section">
                 <div class="danger-zone">
                     <h2>Опасная зона</h2>
-                    <p>Это действие необратимо и приведет к полной потере всех данных о пользователях, звонках и действиях.</p>
-                    <button id="wipe-db-btn" class="danger">Очистить базу данных</button>
+                    <p>Действия в этой зоне необратимы. Будьте внимательны.</p>
+                    <button id="wipe-db-btn" class="action-btn danger">Очистить базу данных</button>
                 </div>
             </section>
+
         </main>
     </div>
     <script src="/static/js/admin.js"></script>
