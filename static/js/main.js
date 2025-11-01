@@ -807,6 +807,7 @@ function toggleMute() {
 function toggleSpeaker() {
     isSpeakerMuted = !isSpeakerMuted;
     remoteAudio.muted = isSpeakerMuted;
+    remoteVideo.muted = isSpeakerMuted;
     speakerBtn.classList.toggle('active', isSpeakerMuted);
     logToScreen(`[CONTROLS] Remote audio (speaker) ${isSpeakerMuted ? 'muted' : 'unmuted'}.`);
 }
