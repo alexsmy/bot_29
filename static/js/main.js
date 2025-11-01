@@ -67,6 +67,7 @@ const remoteAudioLevel = document.getElementById('remote-audio-level');
 const remoteAudioLevelBars = document.querySelectorAll('.remote-audio-level-bar');
 const connectionInfoPopup = document.getElementById('connection-info-popup');
 const remoteMuteToast = document.getElementById('remote-mute-toast');
+const connectionToast = document.getElementById('connection-toast');
 
 const deviceSettingsBtn = document.getElementById('device-settings-btn');
 const deviceSettingsModal = document.getElementById('device-settings-modal');
@@ -122,6 +123,7 @@ let infoPopupTimeout = null;
 let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
+let initialConnectionToastShown = false;
 
 let currentConnectionType = 'unknown';
 
@@ -220,7 +222,6 @@ const connectionLogger = {
     }
 };
 
-// --- НАЧАЛО ИЗМЕНЕНИЙ ---
 async function probeIceServers() {
     logToScreen('[PROBE] Starting ICE server probing...');
     const serversToProbe = rtcConfig.iceServers;
@@ -282,7 +283,6 @@ async function probeIceServers() {
     logToScreen(`[PROBE] Probing complete. ${results.filter(r => r.status === 'Responded').length} servers responded.`);
     return results;
 }
-// --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
 function parseCandidate(candString) {
     const parts = candString.split(' ');
@@ -1453,6 +1453,7 @@ function updateScreenShareUI(isSharing) {
 
 function resetCallControls() {
     isMuted = false; isVideoEnabled = true; isSpeakerMuted = false; isScreenSharing = false;
+    initialConnectionToastShown = false;
     muteBtn.classList.remove('active');
     videoBtn.classList.remove('active');
     speakerBtn.classList.remove('active');
@@ -1589,6 +1590,16 @@ function showConnectionInfo() {
     }, 3000);
 }
 
+function showConnectionToast(type, message) {
+    connectionToast.textContent = message;
+    connectionToast.classList.remove('toast-good', 'toast-bad');
+    connectionToast.classList.add(`toast-${type}`);
+    connectionToast.classList.add('visible');
+    setTimeout(() => {
+        connectionToast.classList.remove('visible');
+    }, 7000);
+}
+
 async function monitorConnectionStats() {
     if (!peerConnection || peerConnection.iceConnectionState !== 'connected') return;
     try {
@@ -1642,6 +1653,15 @@ async function monitorConnectionStats() {
                 }
                 
                 updateConnectionIcon(connectionTypeForIcon);
+
+                if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
+                    initialConnectionToastShown = true;
+                    if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
+                        showConnectionToast('good', 'Установлено прямое P2P-соединение. Качество связи будет максимальным.');
+                    } else if (connectionTypeForIcon === 'relay') {
+                        showConnectionToast('bad', 'Прямое соединение не удалось. Звонок идет через сервер, возможны задержки.');
+                    }
+                }
 
             } else {
                 updateConnectionIcon('unknown');
