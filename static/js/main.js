@@ -1,3 +1,4 @@
+
 const tg = window.Telegram.WebApp;
 
 const PREVENT_P2P_DOWNGRADE = true;
@@ -52,9 +53,8 @@ const localAudio = document.getElementById('localAudio');
 const remoteAudio = document.getElementById('remoteAudio');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
-const videoGridContainer = document.getElementById('video-grid-container');
 const localVideoContainer = document.getElementById('local-video-container');
-const layoutToggleBtn = document.getElementById('layout-toggle-btn');
+const toggleLayoutBtn = document.getElementById('toggle-layout-btn');
 const ringOutAudio = document.getElementById('ringOutAudio');
 const connectAudio = document.getElementById('connectAudio');
 const ringInAudio = document.getElementById('ringInAudio');
@@ -124,7 +124,6 @@ let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
 let initialConnectionToastShown = false;
-let currentLayout = 'pip';
 
 let currentConnectionType = 'unknown';
 
@@ -288,10 +287,10 @@ async function probeIceServers() {
 function parseCandidate(candString) {
     const parts = candString.split(' ');
     return {
-        type: parts[7],
-        address: parts[4],
-        port: parts[5],
-        protocol: parts[2]
+        type: parts,
+        address: parts,
+        port: parts,
+        protocol: parts
     };
 }
 
@@ -387,7 +386,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     if (path.startsWith('/call/')) {
         const parts = path.split('/');
-        roomId = parts[2];
+        roomId = parts;
         initializePrivateCallMode();
     } else {
         document.body.innerHTML = "<h1>Неверный URL</h1>";
@@ -413,8 +412,8 @@ async function runPreCallCheck() {
             navigator.mediaDevices.getUserMedia({ video: true }),
             navigator.mediaDevices.getUserMedia({ audio: true })
         ]);
-        const videoResult = results[0];
-        const audioResult = results[1];
+        const videoResult = results;
+        const audioResult = results;
 
         if (videoResult.status === 'fulfilled') {
             hasCameraAccess = true;
@@ -749,7 +748,7 @@ function handleUserList(users) {
         targetUser = {};
         showPopup('waiting');
     } else {
-        targetUser = otherUsers[0];
+        targetUser = otherUsers;
         if (targetUser.status === 'busy') {
             showPopup('initiating');
         } else {
@@ -889,6 +888,8 @@ async function endCall(isInitiator, reason) {
     remoteAudio.srcObject = null;
     localVideo.srcObject = null;
     remoteVideo.srcObject = null;
+    localVideoContainer.style.display = 'none';
+    remoteVideo.style.display = 'none';
     
     connectionQuality.classList.remove('active');
     updateConnectionQualityIcon('unknown');
@@ -937,24 +938,32 @@ function setupEventListeners() {
         }
     });
 
-    layoutToggleBtn.addEventListener('click', toggleLayout);
-    localVideo.addEventListener('click', toggleObjectFit);
-    remoteVideo.addEventListener('click', toggleObjectFit);
+    toggleLayoutBtn.addEventListener('click', toggleSplitViewLayout);
+    remoteVideo.addEventListener('click', (e) => { e.stopPropagation(); toggleObjectFit(remoteVideo); });
+    localVideo.addEventListener('click', (e) => { e.stopPropagation(); toggleObjectFit(localVideo); });
 
     connectionStatus.addEventListener('click', showConnectionInfo);
 
     setupLocalVideoInteraction();
 }
 
+function toggleSplitViewLayout() {
+    callScreen.classList.toggle('split-view-active');
+}
+
+function toggleObjectFit(videoElement) {
+    videoElement.classList.toggle('force-cover');
+}
+
 function setupLocalVideoInteraction() {
     let isDragging = false, hasMoved = false, dragStartX, offsetX, longPressTimer;
 
     const onDragStart = (e) => {
-        if (currentLayout !== 'pip') return;
+        if (callScreen.classList.contains('split-view-active')) return;
         if (e.type === 'touchstart' && e.touches.length > 1) return;
         hasMoved = false;
         const rect = localVideoContainer.getBoundingClientRect();
-        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        const clientX = e.type === 'touchstart' ? e.touches.clientX : e.clientX;
         dragStartX = clientX;
         offsetX = clientX - rect.left;
         longPressTimer = setTimeout(() => {
@@ -968,8 +977,7 @@ function setupLocalVideoInteraction() {
     };
 
     const onDragMove = (e) => {
-        if (currentLayout !== 'pip') return;
-        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        const clientX = e.type === 'touchmove' ? e.touches.clientX : e.clientX;
         if (!hasMoved && Math.abs(clientX - dragStartX) > 5) {
             hasMoved = true;
             clearTimeout(longPressTimer);
@@ -988,9 +996,11 @@ function setupLocalVideoInteraction() {
         }
     };
 
-    const onDragEnd = () => {
-        if (currentLayout !== 'pip') return;
+    const onDragEnd = (e) => {
         clearTimeout(longPressTimer);
+        if (!hasMoved && !e.target.closest('button')) {
+            localVideoContainer.classList.toggle('small');
+        }
         isDragging = false;
         localVideoContainer.classList.remove('dragging');
         document.removeEventListener('mousemove', onDragMove);
@@ -1028,12 +1038,14 @@ async function initializeLocalMedia(isVideo) {
         visualizeLocalMicForCall(localStream);
 
         if (constraints.video && localStream.getVideoTracks().length > 0) {
-            originalVideoTrack = localStream.getVideoTracks()[0];
+            originalVideoTrack = localStream.getVideoTracks();
             localVideo.srcObject = localStream;
             await localVideo.play();
+            localVideoContainer.style.display = 'block';
             isVideoEnabled = true;
             await enumerateVideoDevices();
         } else {
+            localVideoContainer.style.display = 'none';
             isVideoEnabled = false;
             if (constraints.video) {
                 logToScreen("[MEDIA] WARNING: Video requested but no video track found.");
@@ -1266,11 +1278,10 @@ function stopIncomingRing() {
 function updateCallUI() {
     remoteUserName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
     const isVideoCall = currentCallType === 'video';
-    videoGridContainer.style.display = isVideoCall ? 'flex' : 'none';
     videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
     muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
     screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
-    layoutToggleBtn.style.display = isVideoCall ? 'flex' : 'none';
+    remoteVideo.style.display = isVideoCall ? 'block' : 'none';
     
     callScreen.classList.toggle('video-call-active', isVideoCall);
     callScreen.classList.toggle('audio-call-active', !isVideoCall);
@@ -1303,22 +1314,8 @@ function toggleVideo() {
     isVideoEnabled = !isVideoEnabled;
     if (localStream) localStream.getVideoTracks().forEach(track => track.enabled = isVideoEnabled);
     videoBtn.classList.toggle('active', !isVideoEnabled);
+    localVideoContainer.style.display = isVideoEnabled ? 'block' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
-}
-
-function toggleLayout() {
-    if (currentLayout === 'pip') {
-        currentLayout = 'grid';
-        videoGridContainer.className = isMobileDevice() ? 'layout-grid-mobile' : 'layout-grid-desktop';
-    } else {
-        currentLayout = 'pip';
-        videoGridContainer.className = 'layout-pip';
-    }
-    logToScreen(`[UI] Layout changed to ${currentLayout}`);
-}
-
-function toggleObjectFit(event) {
-    event.target.classList.toggle('force-cover');
 }
 
 async function openDeviceSettings() {
@@ -1350,8 +1347,8 @@ async function populateDeviceSelectorsInCall() {
         container.style.display = 'flex';
     };
 
-    const currentAudioTrack = localStream?.getAudioTracks()[0];
-    const currentVideoTrack = localStream?.getVideoTracks()[0];
+    const currentAudioTrack = localStream?.getAudioTracks();
+    const currentVideoTrack = localStream?.getVideoTracks();
     
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
@@ -1363,13 +1360,13 @@ async function switchInputDevice(kind, deviceId) {
     logToScreen(`[CONTROLS] Switching ${kind} input to deviceId: ${deviceId}`);
 
     try {
-        const currentTrack = kind === 'video' ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
+        const currentTrack = kind === 'video' ? localStream.getVideoTracks() : localStream.getAudioTracks();
         if (currentTrack) {
             currentTrack.stop();
         }
 
         const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: { deviceId: { exact: deviceId } } });
-        const newTrack = newStream.getTracks()[0];
+        const newTrack = newStream.getTracks();
 
         const sender = peerConnection.getSenders().find(s => s.track?.kind === kind);
         if (sender) {
@@ -1421,8 +1418,8 @@ async function toggleScreenShare() {
     if (!isScreenSharing) {
         try {
             screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            const screenTrack = screenStream.getVideoTracks()[0];
-            originalVideoTrack = localStream?.getVideoTracks()[0] || null;
+            const screenTrack = screenStream.getVideoTracks();
+            originalVideoTrack = localStream?.getVideoTracks() || null;
             const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
             if (sender) await sender.replaceTrack(screenTrack);
             screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(); };
@@ -1450,23 +1447,21 @@ async function toggleScreenShare() {
 
 function updateScreenShareUI(isSharing) {
     screenShareBtn.classList.toggle('active', isSharing);
+    localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'block' : 'none');
 }
 
 function resetCallControls() {
     isMuted = false; isVideoEnabled = true; isSpeakerMuted = false; isScreenSharing = false;
     initialConnectionToastShown = false;
-    currentLayout = 'pip';
-    videoGridContainer.className = 'layout-pip';
-    videoGridContainer.style.display = 'none';
-    localVideo.classList.remove('force-cover');
-    remoteVideo.classList.remove('force-cover');
     muteBtn.classList.remove('active');
     videoBtn.classList.remove('active');
     speakerBtn.classList.remove('active');
     screenShareBtn.classList.remove('active');
+    localVideo.classList.remove('force-cover');
+    remoteVideo.classList.remove('force-cover');
     clearTimeout(uiFadeTimeout);
     removeVideoCallUiListeners();
-    callScreen.classList.remove('ui-faded', 'ui-interactive', 'video-call-active', 'audio-call-active');
+    callScreen.classList.remove('ui-faded', 'ui-interactive', 'video-call-active', 'audio-call-active', 'split-view-active');
     audioCallVisualizer.style.display = 'none';
     remoteUserName.style.display = 'block';
     isEndingCall = false;
@@ -1556,7 +1551,7 @@ function updateConnectionIcon(type) {
     const { id, title } = typeMap[type] || typeMap.unknown;
     document.getElementById(id)?.classList.add('active');
     connectionStatus.setAttribute('data-type-title', title);
-    const qualityText = connectionStatus.title.split(' / ')[0] || 'Качество соединения';
+    const qualityText = connectionStatus.title.split(' / ') || 'Качество соединения';
     connectionStatus.title = `${qualityText} / ${title}`;
 }
 
