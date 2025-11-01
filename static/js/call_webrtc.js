@@ -90,7 +90,7 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
         callbacks.log(`[WEBRTC] ICE State: ${state}`);
         
         if (state === 'connected') {
-            connectionLogger.analyzeAndSend();
+            connectionLogger.analyzeAndSend(); // <<< ИСПРАВЛЕНИЕ: Возвращаем вызов для отправки отчета
             if (iceRestartTimeoutId) {
                 clearTimeout(iceRestartTimeoutId);
                 iceRestartTimeoutId = null;
