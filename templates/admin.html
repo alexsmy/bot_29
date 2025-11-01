@@ -5,12 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard</title>
     <link rel="stylesheet" href="/static/css/admin.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
-<body data-token="{{ token }}">
-    <!-- <<< НАЧАЛО ИЗМЕНЕНИЙ: Оверлей для мобильного меню >>> -->
+<body data-token="{{ token }}" data-token-expires-at="{{ expires_at }}">
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
-    <!-- <<< КОНЕЦ ИЗМЕНЕНИЙ >>> -->
 
     <div class="dashboard-container">
         <aside class="sidebar">
@@ -52,20 +49,17 @@
                 </a>
             </nav>
             <div class="sidebar-footer">
-                <button id="theme-toggle">
-                    <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12,18C11.11,18 10.26,17.8 9.5,17.45C11.56,16.84 13,14.84 13,12.5C13,10.16 11.56,8.16 9.5,7.55C10.26,7.2 11.11,7 12,7C15.31,7 18,9.69 18,13C18,16.31 15.31,19 12,19M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z" /></svg>
-                    <span>Сменить тему</span>
+                <button id="theme-toggle" class="theme-toggle-btn" title="Сменить тему">
+                    <span id="theme-icon-placeholder"></span>
                 </button>
             </div>
         </aside>
 
         <main class="main-content">
             <header class="main-header">
-                <!-- <<< НАЧАЛО ИЗМЕНЕНИЙ: Кнопка мобильного меню >>> -->
                 <button id="mobile-menu-btn" class="mobile-menu-toggle">
                     <svg class="icon" viewBox="0 0 24 24"><path fill="currentColor" d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z" /></svg>
                 </button>
-                <!-- <<< КОНЕЦ ИЗМЕНЕНИЙ >>> -->
                 <h1>Панель администратора</h1>
                 <div id="token-info">
                     Токен действителен: <span id="token-timer">--:--</span>
@@ -89,20 +83,21 @@
                     <div class="stat-card skeleton"></div>
                     <div class="stat-card skeleton"></div>
                     <div class="stat-card skeleton"></div>
-                </div>
-                <div class="chart-container">
-                    <canvas id="statsChart"></canvas>
+                    <div class="stat-card skeleton"></div>
                 </div>
             </section>
 
             <section id="rooms" class="content-section">
                 <h2>Активные комнаты</h2>
+                <div class="filters">
+                    <input type="text" id="room-search" placeholder="Поиск по ID комнаты...">
+                </div>
                 <details open>
-                    <summary>Админ-комнаты</summary>
+                    <summary>Админ (<span id="admin-room-count">0</span>)</summary>
                     <div id="admin-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
                 </details>
-                <details>
-                    <summary>Пользовательские комнаты</summary>
+                <details open>
+                    <summary>Пользовательские (<span id="user-room-count">0</span>)</summary>
                     <div id="user-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div>
                 </details>
             </section>
@@ -176,7 +171,7 @@
                         <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
                     </div>
                 </div>
-                <pre id="logs-content"><code>Загрузка логов...</code></pre>
+                <pre id="logs-content" class="logs-panel"><code>Загрузка логов...</code></pre>
             </section>
 
             <section id="danger" class="content-section">

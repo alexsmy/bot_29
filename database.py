@@ -177,12 +177,12 @@ async def add_admin_token(token: str):
             token, expiry_time
         )
 
-async def is_admin_token_valid(token: str) -> bool:
+async def get_admin_token_expiry(token: str) -> Optional[datetime]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM admin_tokens WHERE expires_at < $1", datetime.now(timezone.utc))
-        row = await conn.fetchrow("SELECT 1 FROM admin_tokens WHERE token = $1", token)
-        return row is not None
+        row = await conn.fetchrow("SELECT expires_at FROM admin_tokens WHERE token = $1", token)
+        return row['expires_at'] if row else None
 
 async def get_stats(period):
     query_parts = {
@@ -198,12 +198,14 @@ async def get_stats(period):
         total_actions = await conn.fetchval("SELECT COUNT(*) FROM bot_actions")
         total_sessions = await conn.fetchval("SELECT COUNT(*) FROM call_sessions")
         completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_sessions WHERE status = 'completed'")
+        active_rooms_count = await conn.fetchval("SELECT COUNT(*) FROM call_sessions WHERE expires_at > NOW() AND closed_at IS NULL")
         return {
             "total_users": total_users or 0,
             "total_actions": total_actions or 0,
             "total_sessions_created": total_sessions or 0,
             "completed_calls": completed_calls_data['count'] or 0,
-            "avg_call_duration": round(completed_calls_data['avg_duration'] or 0)
+            "avg_call_duration": round(completed_calls_data['avg_duration'] or 0),
+            "active_rooms_count": active_rooms_count or 0
         }
 
 async def get_users_info():

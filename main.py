@@ -419,14 +419,17 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         logger.warning(f"Connection attempt to full room {room_id} was rejected.")
 
 
-async def verify_admin_token(token: str):
-    if not await database.is_admin_token_valid(token):
+async def verify_admin_token(request: Request, token: str):
+    expires_at = await database.get_admin_token_expiry(token)
+    if not expires_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token")
+    request.state.token_expires_at = expires_at
     return token
 
 @app.get("/admin/{token}", response_class=HTMLResponse)
 async def get_admin_page(request: Request, token: str = Depends(verify_admin_token)):
-    return templates.TemplateResponse("admin.html", {"request": request, "token": token})
+    expires_at_iso = request.state.token_expires_at.isoformat()
+    return templates.TemplateResponse("admin.html", {"request": request, "token": token, "expires_at": expires_at_iso})
 
 @app.get("/api/admin/stats")
 async def get_admin_stats(period: str = "all", token: str = Depends(verify_admin_token)):
