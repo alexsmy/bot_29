@@ -52,9 +52,9 @@ const localAudio = document.getElementById('localAudio');
 const remoteAudio = document.getElementById('remoteAudio');
 const localVideo = document.getElementById('localVideo');
 const remoteVideo = document.getElementById('remoteVideo');
+const videoGridContainer = document.getElementById('video-grid-container');
 const localVideoContainer = document.getElementById('local-video-container');
-const toggleLocalViewBtn = document.getElementById('toggle-local-view-btn');
-const toggleRemoteViewBtn = document.getElementById('toggle-remote-view-btn');
+const layoutToggleBtn = document.getElementById('layout-toggle-btn');
 const ringOutAudio = document.getElementById('ringOutAudio');
 const connectAudio = document.getElementById('connectAudio');
 const ringInAudio = document.getElementById('ringInAudio');
@@ -124,6 +124,7 @@ let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
 let initialConnectionToastShown = false;
+let currentLayout = 'pip';
 
 let currentConnectionType = 'unknown';
 
@@ -888,8 +889,6 @@ async function endCall(isInitiator, reason) {
     remoteAudio.srcObject = null;
     localVideo.srcObject = null;
     remoteVideo.srcObject = null;
-    localVideoContainer.style.display = 'none';
-    remoteVideo.style.display = 'none';
     
     connectionQuality.classList.remove('active');
     updateConnectionQualityIcon('unknown');
@@ -938,19 +937,9 @@ function setupEventListeners() {
         }
     });
 
-    toggleLocalViewBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        localVideo.classList.toggle('force-cover');
-        const iconSpan = toggleLocalViewBtn.querySelector('.icon');
-        iconSpan.innerHTML = localVideo.classList.contains('force-cover') ? ICONS.localViewCover : ICONS.localViewContain;
-    });
-
-    toggleRemoteViewBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        remoteVideo.classList.toggle('force-cover');
-        const iconSpan = toggleRemoteViewBtn.querySelector('.icon');
-        iconSpan.innerHTML = remoteVideo.classList.contains('force-cover') ? ICONS.remoteViewContain : ICONS.remoteViewCover;
-    });
+    layoutToggleBtn.addEventListener('click', toggleLayout);
+    localVideo.addEventListener('click', toggleObjectFit);
+    remoteVideo.addEventListener('click', toggleObjectFit);
 
     connectionStatus.addEventListener('click', showConnectionInfo);
 
@@ -961,6 +950,7 @@ function setupLocalVideoInteraction() {
     let isDragging = false, hasMoved = false, dragStartX, offsetX, longPressTimer;
 
     const onDragStart = (e) => {
+        if (currentLayout !== 'pip') return;
         if (e.type === 'touchstart' && e.touches.length > 1) return;
         hasMoved = false;
         const rect = localVideoContainer.getBoundingClientRect();
@@ -978,6 +968,7 @@ function setupLocalVideoInteraction() {
     };
 
     const onDragMove = (e) => {
+        if (currentLayout !== 'pip') return;
         const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
         if (!hasMoved && Math.abs(clientX - dragStartX) > 5) {
             hasMoved = true;
@@ -997,11 +988,9 @@ function setupLocalVideoInteraction() {
         }
     };
 
-    const onDragEnd = (e) => {
+    const onDragEnd = () => {
+        if (currentLayout !== 'pip') return;
         clearTimeout(longPressTimer);
-        if (!hasMoved && !e.target.closest('button')) {
-            localVideoContainer.classList.toggle('small');
-        }
         isDragging = false;
         localVideoContainer.classList.remove('dragging');
         document.removeEventListener('mousemove', onDragMove);
@@ -1042,11 +1031,9 @@ async function initializeLocalMedia(isVideo) {
             originalVideoTrack = localStream.getVideoTracks()[0];
             localVideo.srcObject = localStream;
             await localVideo.play();
-            localVideoContainer.style.display = 'flex';
             isVideoEnabled = true;
             await enumerateVideoDevices();
         } else {
-            localVideoContainer.style.display = 'none';
             isVideoEnabled = false;
             if (constraints.video) {
                 logToScreen("[MEDIA] WARNING: Video requested but no video track found.");
@@ -1282,7 +1269,7 @@ function updateCallUI() {
     videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
     muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
     screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
-    remoteVideo.style.display = isVideoCall ? 'block' : 'none';
+    layoutToggleBtn.style.display = isVideoCall ? 'flex' : 'none';
     
     callScreen.classList.toggle('video-call-active', isVideoCall);
     callScreen.classList.toggle('audio-call-active', !isVideoCall);
@@ -1315,8 +1302,22 @@ function toggleVideo() {
     isVideoEnabled = !isVideoEnabled;
     if (localStream) localStream.getVideoTracks().forEach(track => track.enabled = isVideoEnabled);
     videoBtn.classList.toggle('active', !isVideoEnabled);
-    localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
+}
+
+function toggleLayout() {
+    if (currentLayout === 'pip') {
+        currentLayout = 'grid';
+        videoGridContainer.className = isMobileDevice() ? 'layout-grid-mobile' : 'layout-grid-desktop';
+    } else {
+        currentLayout = 'pip';
+        videoGridContainer.className = 'layout-pip';
+    }
+    logToScreen(`[UI] Layout changed to ${currentLayout}`);
+}
+
+function toggleObjectFit(event) {
+    event.target.classList.toggle('force-cover');
 }
 
 async function openDeviceSettings() {
@@ -1448,20 +1449,19 @@ async function toggleScreenShare() {
 
 function updateScreenShareUI(isSharing) {
     screenShareBtn.classList.toggle('active', isSharing);
-    localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'flex' : 'none');
 }
 
 function resetCallControls() {
     isMuted = false; isVideoEnabled = true; isSpeakerMuted = false; isScreenSharing = false;
     initialConnectionToastShown = false;
+    currentLayout = 'pip';
+    videoGridContainer.className = 'layout-pip';
+    localVideo.classList.remove('force-cover');
+    remoteVideo.classList.remove('force-cover');
     muteBtn.classList.remove('active');
     videoBtn.classList.remove('active');
     speakerBtn.classList.remove('active');
     screenShareBtn.classList.remove('active');
-    localVideo.classList.remove('force-cover');
-    remoteVideo.classList.remove('force-cover');
-    toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
-    toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
     clearTimeout(uiFadeTimeout);
     removeVideoCallUiListeners();
     callScreen.classList.remove('ui-faded', 'ui-interactive', 'video-call-active', 'audio-call-active');

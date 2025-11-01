@@ -1,5 +1,3 @@
-<!-- templates/call.html -->
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -115,17 +113,12 @@
 
         <!-- ЭКРАН 3: ЗВОНОК -->
         <div id="call-screen" class="screen">
-            <video id="remoteVideo" autoplay playsinline></video>
-
-            <div id="local-video-container">
-                <video id="localVideo" autoplay muted playsinline></video>
-                <div class="view-controls">
-                    <button id="toggle-local-view-btn" class="view-control-btn" title="Переключить вид (локальный)">
-                        <span class="icon" data-icon-name="localViewContain"></span>
-                    </button>
-                    <button id="toggle-remote-view-btn" class="view-control-btn" title="Переключить вид (удаленный)">
-                        <span class="icon" data-icon-name="remoteViewCover"></span>
-                    </button>
+            <div id="video-grid-container" class="layout-pip">
+                <div id="remote-video-wrapper">
+                    <video id="remoteVideo" autoplay playsinline></video>
+                </div>
+                <div id="local-video-container">
+                    <video id="localVideo" autoplay muted playsinline></video>
                 </div>
             </div>
 
@@ -144,25 +137,32 @@
             </div>
 
             <div class="call-ui-overlay">
-                <div class="top-info">
-                    <div id="connection-status" title="Качество / Тип соединения">
-                        <span id="connection-quality" class="icon">
-                            <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
-                            <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
-                            <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
-                        </span>
-                        <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
-                        <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
-                        <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
-                        <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
+                <div class="top-controls-wrapper">
+                    <div class="top-left-controls">
+                        <button id="layout-toggle-btn" class="control-btn top-btn" title="Сменить раскладку">
+                            <span data-icon-name="layoutGrid"></span>
+                        </button>
                     </div>
-                    <div id="connection-info-popup" class="connection-info-popup"></div>
-                    <div id="remote-audio-level" class="remote-audio-level-container">
-                        <div class="remote-audio-level-bar"></div>
-                        <div class="remote-audio-level-bar"></div>
-                        <div class="remote-audio-level-bar"></div>
-                        <div class="remote-audio-level-bar"></div>
-                        <div class="remote-audio-level-bar"></div>
+                    <div class="top-info">
+                        <div id="connection-status" title="Качество / Тип соединения">
+                            <span id="connection-quality" class="icon">
+                                <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
+                                <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
+                                <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
+                            </span>
+                            <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
+                            <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
+                            <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
+                            <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
+                        </div>
+                        <div id="connection-info-popup" class="connection-info-popup"></div>
+                        <div id="remote-audio-level" class="remote-audio-level-container">
+                            <div class="remote-audio-level-bar"></div>
+                            <div class="remote-audio-level-bar"></div>
+                            <div class="remote-audio-level-bar"></div>
+                            <div class="remote-audio-level-bar"></div>
+                            <div class="remote-audio-level-bar"></div>
+                        </div>
                     </div>
                 </div>
 

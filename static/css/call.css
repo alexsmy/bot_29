@@ -498,96 +498,69 @@
   background: radial-gradient(ellipse at center, var(--bg-color) 40%, #4d1a1a 100%);
 }
 
-#remoteVideo {
+#video-grid-container {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  object-fit: contain;
   background-color: #000;
   z-index: 101;
-  display: none;
+  display: flex;
+  transition: all 0.3s ease-in-out;
 }
 
-#local-video-container {
+#remote-video-wrapper, #local-video-container {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #000;
+  transition: all 0.3s ease-in-out;
+}
+
+#localVideo, #remoteVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  cursor: pointer;
+  transition: object-fit 0.2s ease;
+}
+
+.layout-pip #remote-video-wrapper {
+  width: 100%;
+  height: 100%;
+}
+.layout-pip #local-video-container {
   position: absolute;
   top: 20px;
   left: 20px;
+  width: 120px;
+  height: 180px;
+  border-radius: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   z-index: 103;
-  display: none;
-  cursor: pointer;
-  transform-origin: top left;
-  transition: opacity 0.3s, transform 0.3s ease-in-out, box-shadow 0.2s ease-in-out;
-  background-color: rgba(0,0,0,0.3);
-  border-radius: 10px;
-  overflow: visible;
-  display: flex;
-  align-items: center;
+  cursor: grab;
 }
-
-#localVideo {
-  width: 100px;
-  height: 150px;
-  object-fit: contain;
-  background-color: #000;
-  display: block;
-  border-radius: 10px;
-  transition: width 0.2s ease, height 0.2s ease;
-}
-
-#local-video-container.small #localVideo {
-  width: 50px;
-  height: 75px;
-}
-
-#local-video-container.dragging {
+.layout-pip #local-video-container.dragging {
+  cursor: grabbing;
   box-shadow: 0 5px 15px rgba(0,0,0,0.5);
   transform: scale(1.05);
-  cursor: grabbing;
-  z-index: 104;
-  transition: opacity 0.3s, transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, left 0s;
 }
 
-#local-video-container.small.dragging {
-    transform: scale(1.05);
-}
+.layout-grid-desktop { flex-direction: row; }
+.layout-grid-desktop > * { flex: 1; min-width: 0; }
 
-.view-controls {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-left: 8px;
-}
+.layout-grid-mobile { flex-direction: column; }
+.layout-grid-mobile > * { flex: 1; min-height: 0; }
+.layout-grid-mobile #local-video-container { order: -1; }
 
-.view-control-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background-color: rgba(0, 0, 0, 0.5);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  transition: background-color 0.2s ease;
-}
-
-.view-control-btn:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-.view-control-btn .icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-}
-
-.view-control-btn .icon svg {
+.layout-grid-desktop #local-video-container,
+.layout-grid-mobile #local-video-container {
   width: 100%;
   height: 100%;
+  border-radius: 0;
+  border: none;
+  cursor: default;
 }
 
 .force-cover {
@@ -676,12 +649,29 @@
   text-align: center;
   padding: 20px;
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.7) 100%);
+  pointer-events: none;
+}
+
+.call-ui-overlay > * {
+  pointer-events: auto;
+}
+
+.top-controls-wrapper {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.top-left-controls {
+  display: flex;
+  gap: 10px;
 }
 
 .top-info {
-    position: absolute;
-    top: 20px;
-    right: 20px;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -752,6 +742,15 @@
   align-items: center;
   justify-content: center;
   transition: background-color 0.2s, transform 0.15s ease;
+}
+
+.control-btn.top-btn {
+  width: 48px;
+  height: 48px;
+}
+.control-btn.top-btn svg {
+  width: 24px;
+  height: 24px;
 }
 
 .control-btn svg { width: 28px; height: 28px; }
@@ -975,7 +974,7 @@
 
 .toast-notification {
     position: fixed;
-    top: 20px;
+    top: 80px;
     left: 50%;
     transform: translate(-50%, -20px);
     background-color: rgba(42, 42, 42, 0.95);
@@ -1016,7 +1015,7 @@
 .video-call-active .center-info,
 .video-call-active .call-controls-grid,
 .video-call-active .hangup-wrapper,
-.video-call-active .top-info { /* top-info is included for consistent behavior, though it doesn't fade out */
+.video-call-active .top-controls-wrapper {
     transition: opacity 3s ease-out;
 }
 
@@ -1024,25 +1023,23 @@
 .video-call-active.ui-interactive .center-info,
 .video-call-active.ui-interactive .call-controls-grid,
 .video-call-active.ui-interactive .hangup-wrapper,
-.video-call-active.ui-interactive .top-info {
+.video-call-active.ui-interactive .top-controls-wrapper {
     transition: opacity 0.1s ease-out;
 }
 
 /* By default, all UI elements are fully visible and interactive. */
-.video-call-active .top-info,
+.video-call-active .top-controls-wrapper,
 .video-call-active .center-info,
 .video-call-active .bottom-controls {
     opacity: 1;
-    pointer-events: auto;
 }
 
 /* When the UI is faded (no interaction)... */
 
-/* Fade the timer and the main control buttons grid. Disable clicks on them. */
+/* Fade the timer and the main control buttons grid. */
 .video-call-active.ui-faded .center-info,
 .video-call-active.ui-faded .call-controls-grid {
     opacity: 0.3;
-    pointer-events: none;
 }
 
 /* Fade the hangup button to a slightly more visible state. */
@@ -1050,11 +1047,10 @@
     opacity: 0.6;
 }
 
-/* EXCEPTION: Keep the top info bar (connection status) and remote audio level fully visible and interactive. */
-.video-call-active.ui-faded .top-info,
+/* EXCEPTION: Keep the top info bar fully visible. */
+.video-call-active.ui-faded .top-controls-wrapper,
 .video-call-active.ui-faded .remote-audio-level-container {
     opacity: 1;
-    pointer-events: auto;
 }
 
 
@@ -1071,4 +1067,5 @@
   #audio-call-visualizer { gap: 10px; }
   .avatar-container { width: 90px; height: 90px; }
   .avatar-container svg { width: 40px; height: 40px; }
+  .layout-pip #local-video-container { width: 90px; height: 135px; }
 }
