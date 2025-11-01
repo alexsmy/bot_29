@@ -1,10 +1,15 @@
 document.addEventListener('DOMContentLoaded', () => {
     const API_TOKEN = document.body.dataset.token;
-    let statsChart = null;
+    const TOKEN_EXPIRES_AT_ISO = document.body.dataset.tokenExpiresAt;
     let allUsersData = [];
+    let allRoomsData = [];
     let autoUpdateInterval = null;
 
-    // --- UTILS ---
+    const ICONS = {
+        sun: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5V1.5H10.5V4.5H12M18.36,7.05L20.48,4.93L19.07,3.5L16.95,5.64L18.36,7.05M19.5,13.5H22.5V12H19.5V13.5M16.95,18.36L19.07,20.48L20.48,19.07L18.36,16.95L16.95,18.36M12,19.5V22.5H13.5V19.5H12M5.64,16.95L3.5,19.07L4.93,20.48L7.05,18.36L5.64,16.95M4.5,12H1.5V13.5H4.5V12M7.05,5.64L4.93,3.5L3.5,4.93L5.64,7.05L7.05,5.64Z" /></svg>`,
+        moon: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2M12 4A8 8 0 0 1 20 12A8 8 0 0 1 12 20V4Z" /></svg>`
+    };
+
     const fetchData = async (endpoint, options = {}) => {
         const separator = endpoint.includes('?') ? '&' : '?';
         const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
@@ -41,20 +46,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${h}:${m}:${s}`;
     };
 
-    // --- THEME ---
     const themeToggle = document.getElementById('theme-toggle');
-    const currentTheme = localStorage.getItem('theme') || 'light';
-    document.documentElement.classList.add(currentTheme);
+    const themeIconPlaceholder = document.getElementById('theme-icon-placeholder');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.classList.add(savedTheme);
+    themeIconPlaceholder.innerHTML = savedTheme === 'dark' ? ICONS.sun : ICONS.moon;
 
     themeToggle.addEventListener('click', () => {
         const newTheme = document.documentElement.classList.contains('dark') ? 'light' : 'dark';
         document.documentElement.classList.remove('light', 'dark');
         document.documentElement.classList.add(newTheme);
         localStorage.setItem('theme', newTheme);
-        updateChartTheme(newTheme);
+        themeIconPlaceholder.innerHTML = newTheme === 'dark' ? ICONS.sun : ICONS.moon;
     });
 
-    // --- NAVIGATION ---
     const navLinks = document.querySelectorAll('.nav-link');
     const contentSections = document.querySelectorAll('.content-section');
     navLinks.forEach(link => {
@@ -69,16 +74,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 section.classList.toggle('active', section.id === targetId);
             });
             
-            // <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
-            // Закрываем мобильное меню при клике на ссылку
             if (window.innerWidth <= 768) {
                 closeMobileMenu();
             }
-            // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
         });
     });
     
-    // <<< НАЧАЛО ИЗМЕНЕНИЙ: Логика мобильного меню >>>
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
     const sidebar = document.querySelector('.sidebar');
     const sidebarOverlay = document.getElementById('sidebar-overlay');
@@ -95,12 +96,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     mobileMenuBtn.addEventListener('click', openMobileMenu);
     sidebarOverlay.addEventListener('click', closeMobileMenu);
-    // <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
-
-    // --- TOKEN TIMER ---
     const tokenTimerEl = document.getElementById('token-timer');
-    let tokenLifetime = 3600; // 60 minutes in seconds
+    let tokenLifetime = Math.floor((new Date(TOKEN_EXPIRES_AT_ISO) - new Date()) / 1000);
     const updateTokenTimer = () => {
         tokenLifetime--;
         if (tokenLifetime <= 0) {
@@ -108,14 +106,12 @@ document.addEventListener('DOMContentLoaded', () => {
             clearInterval(tokenInterval);
             return;
         }
-        tokenTimerEl.textContent = formatRemainingTime(tokenLifetime).substring(3); // Show only MM:SS
+        tokenTimerEl.textContent = formatRemainingTime(tokenLifetime).substring(3);
     };
     const tokenInterval = setInterval(updateTokenTimer, 1000);
 
-    // --- STATS ---
     const statsContainer = document.getElementById('stats-container');
     const statsPeriodSelect = document.getElementById('stats-period');
-    const statsCanvas = document.getElementById('statsChart');
 
     const renderStats = (data) => {
         statsContainer.innerHTML = `
@@ -124,87 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="stat-card"><div class="value">${data.total_sessions_created}</div><div class="label">Ссылок создано</div></div>
             <div class="stat-card"><div class="value">${data.completed_calls}</div><div class="label">Успешных звонков</div></div>
             <div class="stat-card"><div class="value">${data.avg_call_duration}</div><div class="label">Средняя длит. (сек)</div></div>
+            <div class="stat-card"><div class="value">${data.active_rooms_count}</div><div class="label">Активных комнат</div></div>
         `;
-    };
-
-    const createOrUpdateChart = (data) => {
-        const chartData = {
-            labels: ['Пользователи', 'Действия', 'Ссылки', 'Звонки'],
-            datasets: [{
-                label: 'Количество',
-                data: [data.total_users, data.total_actions, data.total_sessions_created, data.completed_calls],
-                backgroundColor: [
-                    'rgba(59, 130, 246, 0.5)',
-                    'rgba(245, 158, 11, 0.5)',
-                    'rgba(34, 197, 94, 0.5)',
-                    'rgba(139, 92, 246, 0.5)'
-                ],
-                borderColor: [
-                    'rgba(59, 130, 246, 1)',
-                    'rgba(245, 158, 11, 1)',
-                    'rgba(34, 197, 94, 1)',
-                    'rgba(139, 92, 246, 1)'
-                ],
-                borderWidth: 1
-            }]
-        };
-
-        const theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        const gridColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-        const textColor = theme === 'dark' ? '#e4e4e7' : '#1e293b';
-
-        if (statsChart) {
-            statsChart.data = chartData;
-            statsChart.options.scales.y.grid.color = gridColor;
-            statsChart.options.scales.x.grid.color = gridColor;
-            statsChart.options.scales.y.ticks.color = textColor;
-            statsChart.options.scales.x.ticks.color = textColor;
-            statsChart.options.plugins.legend.labels.color = textColor;
-            statsChart.update();
-        } else {
-            statsChart = new Chart(statsCanvas, {
-                type: 'bar',
-                data: chartData,
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'top',
-                            labels: { color: textColor }
-                        },
-                        title: {
-                            display: true,
-                            text: 'Общая статистика',
-                            color: textColor
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            grid: { color: gridColor },
-                            ticks: { color: textColor }
-                        },
-                        x: {
-                            grid: { color: gridColor },
-                            ticks: { color: textColor }
-                        }
-                    }
-                }
-            });
-        }
-    };
-    
-    const updateChartTheme = (theme) => {
-        if (!statsChart) return;
-        const gridColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
-        const textColor = theme === 'dark' ? '#e4e4e7' : '#1e293b';
-        statsChart.options.scales.y.grid.color = gridColor;
-        statsChart.options.scales.x.grid.color = gridColor;
-        statsChart.options.scales.y.ticks.color = textColor;
-        statsChart.options.scales.x.ticks.color = textColor;
-        statsChart.options.plugins.legend.labels.color = textColor;
-        statsChart.options.plugins.title.color = textColor;
-        statsChart.update();
     };
 
     const loadStats = async () => {
@@ -212,14 +129,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await fetchData(`stats?period=${period}`);
         if (data) {
             renderStats(data);
-            createOrUpdateChart(data);
         }
     };
     statsPeriodSelect.addEventListener('change', loadStats);
 
-    // --- ACTIVE ROOMS ---
     const adminRoomsContainer = document.getElementById('admin-rooms-list');
     const userRoomsContainer = document.getElementById('user-rooms-list');
+    const adminRoomCountEl = document.getElementById('admin-room-count');
+    const userRoomCountEl = document.getElementById('user-room-count');
+    const roomSearchInput = document.getElementById('room-search');
 
     const getCallStatusIcon = (userCount, callStatus, callType) => {
         if (userCount === 2 && callStatus === 'active') {
@@ -234,8 +152,16 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const renderRooms = (rooms) => {
-        const adminRooms = rooms.filter(r => r.is_admin_room);
-        const userRooms = rooms.filter(r => !r.is_admin_room);
+        const searchTerm = roomSearchInput.value.trim().toLowerCase();
+        const filteredRooms = searchTerm 
+            ? rooms.filter(r => r.room_id.toLowerCase().includes(searchTerm))
+            : rooms;
+
+        const adminRooms = filteredRooms.filter(r => r.is_admin_room);
+        const userRooms = filteredRooms.filter(r => !r.is_admin_room);
+
+        adminRoomCountEl.textContent = adminRooms.length;
+        userRoomCountEl.textContent = userRooms.length;
 
         const renderList = (container, list) => {
             if (list.length === 0) {
@@ -265,9 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const loadActiveRooms = async () => {
         const rooms = await fetchData('active_rooms');
         if (rooms) {
-            renderRooms(rooms);
+            allRoomsData = rooms;
+            renderRooms(allRoomsData);
         }
     };
+    
+    roomSearchInput.addEventListener('input', () => renderRooms(allRoomsData));
 
     document.getElementById('rooms').addEventListener('click', async (e) => {
         if (e.target.classList.contains('close-room-btn')) {
@@ -281,7 +210,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- USERS ---
     const usersListContainer = document.getElementById('users-list');
     const userSearchInput = document.getElementById('user-search');
 
@@ -342,8 +270,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 detailsContainer.innerHTML = '<p>Загрузка действий...</p>';
                 const actions = await fetchData(`user_actions/${userId}`);
                 if (actions && actions.length > 0) {
-                    detailsContainer.innerHTML = '<ul>' + actions.map(action => `
-                        <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>`).join('') + '</ul>';
+                    detailsContainer.innerHTML = '<div class="user-details-content"><ul>' + actions.map(action => `
+                        <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>`).join('') + '</ul></div>';
                 } else {
                     detailsContainer.innerHTML = '<p>Действий не найдено.</p>';
                 }
@@ -351,7 +279,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- CONNECTIONS ---
     const connectionsDateInput = document.getElementById('connections-date');
     const searchConnectionsBtn = document.getElementById('search-connections-btn');
     const connectionsListContainer = document.getElementById('connections-list');
@@ -416,7 +343,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- NOTIFICATIONS ---
     const saveNotificationsBtn = document.getElementById('save-notification-settings');
     const savedIndicator = document.getElementById('settings-saved-indicator');
     const notificationCheckboxes = document.querySelectorAll('.notification-settings-form input[type="checkbox"]');
@@ -450,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- REPORTS ---
     const reportsListContainer = document.getElementById('reports-list');
     const deleteAllReportsBtn = document.getElementById('delete-all-reports-btn');
 
@@ -488,7 +413,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- LOGS ---
     const logsContent = document.getElementById('logs-content').querySelector('code');
     const loadLogs = async () => {
         const logs = await fetchData('logs');
@@ -505,7 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- DANGER ZONE ---
     document.getElementById('wipe-db-btn').addEventListener('click', async () => {
         if (confirm('ВЫ УВЕРЕНЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ ОЧИСТИТЬ БАЗУ ДАННЫХ?')) {
             await fetchData('database', { method: 'DELETE' });
@@ -514,7 +437,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- INITIAL LOAD & AUTO-UPDATE ---
     const initialLoad = () => {
         loadStats();
         loadActiveRooms();
