@@ -498,10 +498,6 @@
   background: radial-gradient(ellipse at center, var(--bg-color) 40%, #4d1a1a 100%);
 }
 
-#remoteVideo, #localVideo {
-  cursor: pointer;
-}
-
 #remoteVideo {
   position: absolute;
   top: 0; left: 0;
@@ -520,10 +516,12 @@
   display: none;
   cursor: pointer;
   transform-origin: top left;
-  transition: opacity 0.3s, transform 0.3s ease-in-out, box-shadow 0.2s ease-in-out, width 0.3s, height 0.3s;
+  transition: opacity 0.3s, transform 0.3s ease-in-out, box-shadow 0.2s ease-in-out;
   background-color: rgba(0,0,0,0.3);
   border-radius: 10px;
-  overflow: hidden;
+  overflow: visible;
+  display: flex;
+  align-items: center;
 }
 
 #localVideo {
@@ -551,6 +549,45 @@
 
 #local-video-container.small.dragging {
     transform: scale(1.05);
+}
+
+.view-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-left: 8px;
+}
+
+.view-control-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background-color 0.2s ease;
+}
+
+.view-control-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+
+.view-control-btn .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.view-control-btn .icon svg {
+  width: 100%;
+  height: 100%;
 }
 
 .force-cover {
@@ -639,30 +676,12 @@
   text-align: center;
   padding: 20px;
   background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.7) 100%);
-  pointer-events: none;
-}
-
-.call-ui-overlay > * {
-  pointer-events: auto;
 }
 
 .top-info {
     position: absolute;
     top: 20px;
-    left: 20px;
     right: 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-}
-
-.top-left-btn {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-}
-
-.top-info > div {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
@@ -675,7 +694,6 @@
     flex-direction: column;
     justify-content: flex-end;
     padding-bottom: 20px;
-    pointer-events: none;
 }
 
 .caller-info-top {
@@ -957,7 +975,7 @@
 
 .toast-notification {
     position: fixed;
-    top: 80px;
+    top: 20px;
     left: 50%;
     transform: translate(-50%, -20px);
     background-color: rgba(42, 42, 42, 0.95);
@@ -993,13 +1011,16 @@
  * CORRECTED UI Fading Logic for Video Calls
  */
 
+/* Define the transition speed for UI elements.
+   The transition is applied directly to the elements that will change opacity. */
 .video-call-active .center-info,
 .video-call-active .call-controls-grid,
 .video-call-active .hangup-wrapper,
-.video-call-active .top-info {
+.video-call-active .top-info { /* top-info is included for consistent behavior, though it doesn't fade out */
     transition: opacity 3s ease-out;
 }
 
+/* When the user is interacting, make the fade-in transition much faster. */
 .video-call-active.ui-interactive .center-info,
 .video-call-active.ui-interactive .call-controls-grid,
 .video-call-active.ui-interactive .hangup-wrapper,
@@ -1007,6 +1028,7 @@
     transition: opacity 0.1s ease-out;
 }
 
+/* By default, all UI elements are fully visible and interactive. */
 .video-call-active .top-info,
 .video-call-active .center-info,
 .video-call-active .bottom-controls {
@@ -1014,61 +1036,25 @@
     pointer-events: auto;
 }
 
+/* When the UI is faded (no interaction)... */
+
+/* Fade the timer and the main control buttons grid. Disable clicks on them. */
 .video-call-active.ui-faded .center-info,
 .video-call-active.ui-faded .call-controls-grid {
     opacity: 0.3;
     pointer-events: none;
 }
 
+/* Fade the hangup button to a slightly more visible state. */
 .video-call-active.ui-faded .hangup-wrapper {
     opacity: 0.6;
 }
 
+/* EXCEPTION: Keep the top info bar (connection status) and remote audio level fully visible and interactive. */
 .video-call-active.ui-faded .top-info,
 .video-call-active.ui-faded .remote-audio-level-container {
     opacity: 1;
     pointer-events: auto;
-}
-
-/* Split View Layout */
-#call-screen.split-view-active {
-    display: flex;
-    flex-direction: row; /* Desktop default */
-}
-
-#call-screen.split-view-active #remoteVideo,
-#call-screen.split-view-active #local-video-container {
-    position: relative;
-    width: 50%;
-    height: 100%;
-    top: 0;
-    left: 0;
-    object-fit: contain;
-    border-radius: 0;
-}
-
-#call-screen.split-view-active #local-video-container {
-    transform: none !important;
-    cursor: default;
-    background-color: #000;
-}
-
-#call-screen.split-view-active #localVideo {
-    width: 100%;
-    height: 100%;
-    border-radius: 0;
-}
-
-/* Mobile/Portrait Split View */
-@media (orientation: portrait), (max-width: 768px) {
-    #call-screen.split-view-active {
-        flex-direction: column;
-    }
-    #call-screen.split-view-active #remoteVideo,
-    #call-screen.split-view-active #local-video-container {
-        width: 100%;
-        height: 50%;
-    }
 }
 
 
