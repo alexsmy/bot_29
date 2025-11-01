@@ -16,11 +16,12 @@ import {
     cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall
 } from './call_ui_elements.js';
 
+import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
+
 const tg = window.Telegram.WebApp;
 
 const PREVENT_P2P_DOWNGRADE = true;
 
-let ws;
 let peerConnection;
 let localStream;
 let remoteStream;
@@ -235,11 +236,7 @@ function parseCandidate(candString) {
     };
 }
 
-let reconnectAttempts = 0;
-const MAX_RECONNECT_ATTEMPTS = 10;
-let reconnectTimeoutId = null;
 let iceRestartTimeoutId = null;
-let isGracefulDisconnect = false;
 
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
@@ -555,7 +552,31 @@ function proceedToCall(asSpectator = false) {
 
     showScreen('pre-call');
     showPopup('waiting');
-    connectWebSocket();
+    
+    const wsHandlers = {
+        onIdentity: (data) => {
+            currentUser.id = data.id;
+            logToScreen(`[WS] Identity assigned by server: ${currentUser.id}`);
+        },
+        onUserList: handleUserList,
+        onIncomingCall: handleIncomingCall,
+        onCallAccepted: () => startPeerConnection(targetUser.id, true),
+        onOffer: handleOffer,
+        onAnswer: handleAnswer,
+        onCandidate: handleCandidate,
+        onCallEnded: () => endCall(false, 'ended_by_peer'),
+        onCallMissed: () => {
+            alert("Абонент не отвечает.");
+            endCall(false, 'no_answer');
+        },
+        onRoomClosed: () => {
+            alert("Комната для звонков была закрыта.");
+            redirectToInvalidLink();
+        },
+        onFatalError: redirectToInvalidLink
+    };
+    initializeWebSocket(roomId, wsHandlers, logToScreen);
+
     updateRoomLifetime();
     lifetimeTimerInterval = setInterval(updateRoomLifetime, 60000);
 }
@@ -593,93 +614,6 @@ function removeVideoCallUiListeners() {
     callScreen.removeEventListener('mousemove', resetUiFade);
     callScreen.removeEventListener('click', resetUiFade);
     callScreen.removeEventListener('touchstart', resetUiFade);
-}
-
-function connectWebSocket() {
-    isGracefulDisconnect = false;
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/private/${roomId}`;
-    logToScreen(`[WS] Attempting a new connection.`);
-
-    ws = new WebSocket(wsUrl);
-
-    ws.onopen = () => {
-        logToScreen("[WS] WebSocket connection established.");
-        reconnectAttempts = 0;
-        if (reconnectTimeoutId) {
-            clearTimeout(reconnectTimeoutId);
-            reconnectTimeoutId = null;
-        }
-    };
-
-    ws.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        logToScreen(`[WS] Received message: ${message.type}`);
-        switch (message.type) {
-            case 'identity':
-                currentUser.id = message.data.id;
-                logToScreen(`[WS] Identity assigned by server: ${currentUser.id}`);
-                break;
-            case 'user_list': handleUserList(message.data); break;
-            case 'incoming_call': handleIncomingCall(message.data); break;
-            case 'call_accepted': startPeerConnection(targetUser.id, true); break;
-            case 'offer': handleOffer(message.data); break;
-            case 'answer': handleAnswer(message.data); break;
-            case 'candidate': handleCandidate(message.data); break;
-            case 'call_ended': endCall(false, 'ended_by_peer'); break;
-            case 'call_missed': alert("Абонент не отвечает."); endCall(false, 'no_answer'); break;
-            case 'room_expired':
-            case 'room_closed_by_user':
-                alert("Комната для звонков была закрыта.");
-                redirectToInvalidLink();
-                break;
-        }
-    };
-
-    ws.onclose = (event) => {
-        logToScreen(`[WS] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
-        if (isGracefulDisconnect) {
-            logToScreen("[WS] Disconnect was graceful. No reconnection needed.");
-            return;
-        }
-        
-        if (event.code === 1008) {
-             alert(`Ошибка подключения: ${event.reason}. Эта ссылка, возможно, уже недействительна.`);
-             redirectToInvalidLink();
-        } else {
-            handleWebSocketReconnect();
-        }
-    };
-
-    ws.onerror = (error) => {
-        logToScreen(`[WS] WebSocket error: ${JSON.stringify(error)}`);
-        ws.close();
-    };
-}
-
-function handleWebSocketReconnect() {
-    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        logToScreen(`[WS] Max reconnect attempts reached. Giving up.`);
-        alert("Не удалось восстановить соединение с сервером. Пожалуйста, обновите страницу.");
-        return;
-    }
-    
-    reconnectAttempts++;
-    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-    logToScreen(`[WS] Will attempt to reconnect in ${delay / 1000} seconds (Attempt ${reconnectAttempts}).`);
-    
-    reconnectTimeoutId = setTimeout(() => {
-        connectWebSocket();
-    }, delay);
-}
-
-function sendMessage(message) {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        logToScreen(`[WS] Sending message: ${message.type}`);
-        ws.send(JSON.stringify(message));
-    } else {
-        logToScreen("[WS] ERROR: Attempted to send message on a closed connection. Message will be lost.");
-    }
 }
 
 function handleUserList(users) {
@@ -761,7 +695,7 @@ async function endCall(isInitiator, reason) {
     isEndingCall = true;
 
     logToScreen(`[CALL] Ending call. Initiator: ${isInitiator}, Reason: ${reason}`);
-    isGracefulDisconnect = true;
+    setGracefulDisconnect(true);
 
     currentConnectionType = 'unknown';
 
@@ -1470,7 +1404,7 @@ async function updateRoomLifetime() {
 
 async function closeSession() {
     logToScreen("[SESSION] User clicked close session button.");
-    isGracefulDisconnect = true;
+    setGracefulDisconnect(true);
     try {
         await fetch(`/room/close/${roomId}`, { method: 'POST' });
     } catch (error) {
@@ -1480,7 +1414,7 @@ async function closeSession() {
 }
 
 function redirectToInvalidLink() {
-    isGracefulDisconnect = true;
+    setGracefulDisconnect(true);
     window.location.reload();
 }
 
