@@ -17,15 +17,13 @@ import {
 } from './call_ui_elements.js';
 
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
+import * as WebRTC from './call_webrtc.js';
 
 const tg = window.Telegram.WebApp;
 
 const PREVENT_P2P_DOWNGRADE = true;
 
-let peerConnection;
 let localStream;
-let remoteStream;
-let dataChannel;
 let previewStream;
 let micVisualizer;
 let localCallMicVisualizer;
@@ -45,7 +43,6 @@ let hasMicrophoneAccess = false;
 let hasCameraAccess = false;
 let isSpectator = false;
 let roomId = '';
-let iceCandidateQueue = [];
 let rtcConfig = null;
 let connectionStatsInterval = null;
 let lastRtcStats = null;
@@ -68,6 +65,7 @@ let remoteMuteToastTimeout = null;
 let initialConnectionToastShown = false;
 
 let currentConnectionType = 'unknown';
+let iceRestartTimeoutId = null;
 
 const connectionLogger = {
     isDataSent: false,
@@ -96,7 +94,8 @@ const connectionLogger = {
         }).catch(error => console.error('Failed to send connection log:', error));
     },
     analyzeAndSend: async function() {
-        if (this.isDataSent || !peerConnection) return;
+        const pc = WebRTC.getPeerConnection();
+        if (this.isDataSent || !pc) return;
         if (!this.data.isCallInitiator) {
             logToScreen('[LOGGER] Not the call initiator, skipping log submission.');
             return;
@@ -105,7 +104,7 @@ const connectionLogger = {
 
         logToScreen('[LOGGER] Starting final analysis of connection stats...');
         try {
-            const stats = await peerConnection.getStats();
+            const stats = await pc.getStats();
             const statsMap = new Map();
             stats.forEach(report => statsMap.set(report.id, report));
             
@@ -236,8 +235,6 @@ function parseCandidate(candString) {
     };
 }
 
-let iceRestartTimeoutId = null;
-
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
     fetch('/log', {
@@ -321,6 +318,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             ]
         };
     }
+
+    WebRTC.initWebRTC({
+        rtcConfig: rtcConfig,
+        sendMessageCallback: sendMessage,
+        onTrackCallback: (track, stream) => {
+            const remoteStream = WebRTC.getRemoteStream();
+            remoteVideo.srcObject = remoteStream;
+            remoteAudio.srcObject = remoteStream;
+            if (track.kind === 'audio') {
+                visualizeRemoteMic(remoteStream);
+            }
+        },
+        onDataChannelMessageCallback: (message) => {
+            if (message.type === 'hangup') {
+                endCall(false, 'ended_by_peer_dc');
+            } else if (message.type === 'mute_status') {
+                handleRemoteMuteStatus(message.muted);
+            }
+        },
+        onConnectionStateChangeCallback: handleConnectionStateChange,
+        logCallback: logToScreen
+    });
 
     if (path.startsWith('/call/')) {
         const parts = path.split('/');
@@ -561,9 +580,21 @@ function proceedToCall(asSpectator = false) {
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
         onCallAccepted: () => startPeerConnection(targetUser.id, true),
-        onOffer: handleOffer,
-        onAnswer: handleAnswer,
-        onCandidate: handleCandidate,
+        onOffer: async (data) => {
+            await WebRTC.handleOffer(data, localStream);
+            if (!callScreen.classList.contains('active')) {
+                showScreen('call');
+                updateCallUI();
+                startTimer();
+                connectAudio.play();
+            }
+        },
+        onAnswer: async (data) => {
+            await WebRTC.handleAnswer(data);
+            startTimer();
+            connectAudio.play();
+        },
+        onCandidate: WebRTC.handleCandidate,
         onCallEnded: () => endCall(false, 'ended_by_peer'),
         onCallMissed: () => {
             alert("Абонент не отвечает.");
@@ -677,8 +708,7 @@ async function acceptCall() {
     const hasMedia = await initializeLocalMedia(currentCallType === 'video');
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
 
-    logToScreen("[CALL] Starting WebRTC connection.");
-    await startPeerConnection(targetUser.id, false);
+    logToScreen("[CALL] Sending 'call_accepted' and waiting for offer.");
     sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
 }
 
@@ -690,6 +720,20 @@ function declineCall() {
     targetUser = {};
 }
 
+async function startPeerConnection(targetId, isCaller) {
+    logToScreen(`[WEBRTC] Starting PeerConnection. Is caller: ${isCaller}`);
+    ringOutAudio.pause(); ringOutAudio.currentTime = 0;
+    targetUser.id = targetId;
+
+    connectionLogger.reset();
+    if (isCallInitiator) {
+        const probeResults = await probeIceServers();
+        connectionLogger.setProbeResults(probeResults);
+    }
+
+    await WebRTC.startCall(localStream, targetId, isCaller, currentCallType);
+}
+
 async function endCall(isInitiator, reason) {
     if (isEndingCall) return;
     isEndingCall = true;
@@ -699,12 +743,11 @@ async function endCall(isInitiator, reason) {
 
     currentConnectionType = 'unknown';
 
-    if (isInitiator && dataChannel && dataChannel.readyState === 'open') {
-        logToScreen('[DC] Sending hangup via DataChannel.');
-        dataChannel.send(JSON.stringify({ type: 'hangup' }));
-    }
-    if (isInitiator && targetUser.id) {
-        sendMessage({ type: 'hangup', data: { target_id: targetUser.id } });
+    if (isInitiator) {
+        WebRTC.sendOnDataChannel({ type: 'hangup' });
+        if (targetUser.id) {
+            sendMessage({ type: 'hangup', data: { target_id: targetUser.id } });
+        }
     }
 
     if (isInitiator && !connectionLogger.isDataSent) {
@@ -734,23 +777,8 @@ async function endCall(isInitiator, reason) {
     remoteAudioContext = null;
     if (remoteAudioLevel) remoteAudioLevel.style.display = 'none';
 
-    if (dataChannel) {
-        dataChannel.onmessage = null;
-        dataChannel.onopen = null;
-        dataChannel.onclose = null;
-        dataChannel.close();
-        dataChannel = null;
-    }
+    WebRTC.closeConnection();
 
-    if (peerConnection) {
-        peerConnection.ontrack = null;
-        peerConnection.onicecandidate = null;
-        peerConnection.oniceconnectionstatechange = null;
-        peerConnection.onsignalingstatechange = null;
-        peerConnection.ondatachannel = null;
-        peerConnection.close();
-        peerConnection = null;
-    }
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
@@ -775,7 +803,6 @@ async function endCall(isInitiator, reason) {
     showScreen('pre-call');
 
     targetUser = {};
-    iceCandidateQueue = [];
     resetCallControls();
 }
 
@@ -935,25 +962,6 @@ async function initializeLocalMedia(isVideo) {
     }
 }
 
-function setupDataChannelEvents(channel) {
-    channel.onopen = () => logToScreen('[DC] DataChannel is open.');
-    channel.onclose = () => logToScreen('[DC] DataChannel is closed.');
-    channel.onerror = (error) => logToScreen(`[DC] DataChannel error: ${error}`);
-    channel.onmessage = (event) => {
-        try {
-            const message = JSON.parse(event.data);
-            logToScreen(`[DC] Received message: ${message.type}`);
-            if (message.type === 'hangup') {
-                endCall(false, 'ended_by_peer_dc');
-            } else if (message.type === 'mute_status') {
-                handleRemoteMuteStatus(message.muted);
-            }
-        } catch (e) {
-            logToScreen(`[DC] Received non-JSON message: ${event.data}`);
-        }
-    };
-}
-
 function handleRemoteMuteStatus(isMuted) {
     clearTimeout(remoteMuteToastTimeout);
     if (isMuted) {
@@ -968,99 +976,13 @@ function handleRemoteMuteStatus(isMuted) {
     logToScreen(`[REMOTE_STATUS] Peer is now ${isMuted ? 'muted' : 'unmuted'}.`);
 }
 
-async function createPeerConnection() {
-    logToScreen("[WEBRTC] Creating RTCPeerConnection.");
-    if (!rtcConfig) {
-        logToScreen("[CRITICAL] rtcConfig is not available.");
-        alert("Ошибка конфигурации сети. Пожалуйста, обновите страницу.");
-        return;
-    }
-
-    connectionLogger.reset();
-    if (isCallInitiator) {
-        const probeResults = await probeIceServers();
-        connectionLogger.setProbeResults(probeResults);
-    }
-
-    if (peerConnection) peerConnection.close();
-    peerConnection = new RTCPeerConnection(rtcConfig);
-    remoteStream = new MediaStream();
-    remoteVideo.srcObject = remoteStream;
-    remoteAudio.srcObject = remoteStream;
-
-    if (selectedAudioOutId && typeof remoteVideo.setSinkId === 'function') {
-        remoteVideo.setSinkId(selectedAudioOutId).catch(e => logToScreen(`[SINK] Error setting sinkId for video: ${e}`));
-        remoteAudio.setSinkId(selectedAudioOutId).catch(e => logToScreen(`[SINK] Error setting sinkId for audio: ${e}`));
-    }
-
-    peerConnection.ondatachannel = (event) => {
-        logToScreen('[DC] Received remote DataChannel.');
-        dataChannel = event.channel;
-        setupDataChannelEvents(dataChannel);
-    };
-
-    peerConnection.oniceconnectionstatechange = () => {
-        const state = peerConnection.iceConnectionState;
-        logToScreen(`[WEBRTC] ICE State: ${state}`);
-        
-        if (state === 'connected') {
-            connectionLogger.analyzeAndSend();
-            if (iceRestartTimeoutId) {
-                clearTimeout(iceRestartTimeoutId);
-                iceRestartTimeoutId = null;
-                logToScreen('[WEBRTC] Connection recovered before ICE Restart was initiated.');
-            }
-        } else if (state === 'disconnected') {
-            logToScreen('[WEBRTC] Connection is disconnected. Scheduling ICE Restart check.');
-            if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
-            iceRestartTimeoutId = setTimeout(() => {
-                if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
-                    logToScreen('[WEBRTC] Connection did not recover. Initiating ICE Restart.');
-                    initiateIceRestart();
-                }
-            }, 5000);
-        } else if (state === 'failed') {
-            logToScreen(`[WEBRTC] P2P connection failed. Ending call.`);
-            endCall(false, 'p2p_failed'); 
-        }
-    };
-
-    peerConnection.onsignalingstatechange = () => logToScreen(`[WEBRTC] Signaling State: ${peerConnection.signalingState}`);
-    
-    peerConnection.onicecandidate = event => {
-        if (event.candidate) {
-           const isRelayCandidate = event.candidate.candidate.includes(" typ relay ");
-            
-            if (PREVENT_P2P_DOWNGRADE && currentConnectionType === 'p2p' && isRelayCandidate) {
-                logToScreen(`[WEBRTC_POLICY] Blocking TURN candidate to prevent downgrade from P2P.`);
-                return; 
-            }
-
-            sendMessage({ type: 'candidate', data: { target_id: targetUser.id, candidate: event.candidate } });
-        }
-    };
-
-    peerConnection.ontrack = event => {
-        logToScreen(`[WEBRTC] Received remote track: ${event.track.kind}`);
-        remoteStream.addTrack(event.track);
-        if (event.track.kind === 'audio') {
-            visualizeRemoteMic(remoteStream);
-        }
-    };
-    if (localStream) {
-        localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-        logToScreen("[WEBRTC] Local tracks added to PeerConnection.");
-    } else {
-        logToScreen("[WEBRTC] No local stream available to add tracks.");
-    }
-}
-
 async function initiateIceRestart() {
-    if (!peerConnection) return;
+    const pc = WebRTC.getPeerConnection();
+    if (!pc) return;
     logToScreen('[WEBRTC] Creating new offer with iceRestart: true');
     try {
-        const offer = await peerConnection.createOffer({ iceRestart: true });
-        await peerConnection.setLocalDescription(offer);
+        const offer = await pc.createOffer({ iceRestart: true });
+        await pc.setLocalDescription(offer);
         sendMessage({ type: 'offer', data: { target_id: targetUser.id, offer: offer } });
     } catch (error) {
         logToScreen(`[WEBRTC] ICE Restart failed: ${error}`);
@@ -1068,77 +990,28 @@ async function initiateIceRestart() {
     }
 }
 
-async function startPeerConnection(targetId, isCaller) {
-    logToScreen(`[WEBRTC] Starting PeerConnection. Is caller: ${isCaller}`);
-    ringOutAudio.pause(); ringOutAudio.currentTime = 0;
-    targetUser.id = targetId;
-    await createPeerConnection();
-
-    if (isCaller) {
-        logToScreen('[DC] Creating DataChannel.');
-        dataChannel = peerConnection.createDataChannel('control');
-        setupDataChannelEvents(dataChannel);
-
-        const offerOptions = {
-            offerToReceiveAudio: true, 
-            offerToReceiveVideo: currentCallType === 'video' 
-        };
-        logToScreen(`[WEBRTC] Creating Offer with options: ${JSON.stringify(offerOptions)}`);
-        const offer = await peerConnection.createOffer(offerOptions);
-
-        await peerConnection.setLocalDescription(offer);
-        sendMessage({ type: 'offer', data: { target_id: targetId, offer: offer } });
-    }
-}
-
-async function handleOffer(data) {
-    logToScreen("[WEBRTC] Received Offer, creating Answer.");
-    if (!peerConnection) await startPeerConnection(data.from, false);
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    sendMessage({ type: 'answer', data: { target_id: data.from, answer: answer } });
-    
-    if (!callScreen.classList.contains('active')) {
-        showScreen('call');
-        updateCallUI();
-        startTimer();
-        connectAudio.play();
-    }
-    processIceCandidateQueue();
-}
-
-async function handleAnswer(data) {
-    logToScreen("[WEBRTC] Received Answer.");
-    if (peerConnection && !peerConnection.currentRemoteDescription) {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-        startTimer();
-        connectAudio.play();
-        processIceCandidateQueue();
-    }
-}
-
-async function handleCandidate(data) {
-    if (data.candidate) {
-        const candidate = new RTCIceCandidate(data.candidate);
-        if (peerConnection && peerConnection.remoteDescription) {
-            await peerConnection.addIceCandidate(candidate);
-        } else {
-            iceCandidateQueue.push(candidate);
-            logToScreen("[WEBRTC] Queued an ICE candidate.");
+function handleConnectionStateChange(state) {
+    logToScreen(`[WEBRTC] ICE State: ${state}`);
+    if (state === 'connected') {
+        connectionLogger.analyzeAndSend();
+        if (iceRestartTimeoutId) {
+            clearTimeout(iceRestartTimeoutId);
+            iceRestartTimeoutId = null;
+            logToScreen('[WEBRTC] Connection recovered before ICE Restart was initiated.');
         }
-    }
-}
-
-async function processIceCandidateQueue() {
-    while (iceCandidateQueue.length > 0) {
-        const candidate = iceCandidateQueue.shift();
-        try {
-            await peerConnection.addIceCandidate(candidate);
-            logToScreen("[WEBRTC] Added a queued ICE candidate.");
-        } catch (e) {
-            logToScreen(`[WEBRTC] ERROR adding queued ICE candidate: ${e}`);
-        }
+    } else if (state === 'disconnected') {
+        logToScreen('[WEBRTC] Connection is disconnected. Scheduling ICE Restart check.');
+        if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
+        iceRestartTimeoutId = setTimeout(() => {
+            const pc = WebRTC.getPeerConnection();
+            if (pc && pc.iceConnectionState === 'disconnected') {
+                logToScreen('[WEBRTC] Connection did not recover. Initiating ICE Restart.');
+                initiateIceRestart();
+            }
+        }, 5000);
+    } else if (state === 'failed') {
+        logToScreen(`[WEBRTC] P2P connection failed. Ending call.`);
+        endCall(false, 'p2p_failed');
     }
 }
 
@@ -1169,13 +1042,12 @@ function toggleMute() {
     if (localStream) localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
     muteBtn.classList.toggle('active', isMuted);
     logToScreen(`[CONTROLS] Mic ${isMuted ? 'muted' : 'unmuted'}.`);
-    if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify({ type: 'mute_status', muted: isMuted }));
-    }
+    WebRTC.sendOnDataChannel({ type: 'mute_status', muted: isMuted });
 }
 
 function toggleSpeaker() {
     isSpeakerMuted = !isSpeakerMuted;
+    const remoteStream = WebRTC.getRemoteStream();
     if (remoteStream) {
         remoteStream.getAudioTracks().forEach(track => {
             track.enabled = !isSpeakerMuted;
@@ -1232,7 +1104,7 @@ async function populateDeviceSelectorsInCall() {
 }
 
 async function switchInputDevice(kind, deviceId) {
-    if (!localStream || !peerConnection) return;
+    if (!localStream) return;
     logToScreen(`[CONTROLS] Switching ${kind} input to deviceId: ${deviceId}`);
 
     try {
@@ -1244,9 +1116,12 @@ async function switchInputDevice(kind, deviceId) {
         const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: { deviceId: { exact: deviceId } } });
         const newTrack = newStream.getTracks()[0];
 
-        const sender = peerConnection.getSenders().find(s => s.track?.kind === kind);
-        if (sender) {
-            await sender.replaceTrack(newTrack);
+        if (kind === 'video') {
+            await WebRTC.replaceVideoTrack(newTrack);
+        } else {
+            const pc = WebRTC.getPeerConnection();
+            const sender = pc?.getSenders().find(s => s.track?.kind === 'audio');
+            if (sender) await sender.replaceTrack(newTrack);
         }
 
         localStream.removeTrack(currentTrack);
@@ -1296,8 +1171,7 @@ async function toggleScreenShare() {
             screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
             const screenTrack = screenStream.getVideoTracks()[0];
             originalVideoTrack = localStream?.getVideoTracks()[0] || null;
-            const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
-            if (sender) await sender.replaceTrack(screenTrack);
+            await WebRTC.replaceVideoTrack(screenTrack);
             screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(); };
             isScreenSharing = true;
             updateScreenShareUI(true);
@@ -1308,12 +1182,9 @@ async function toggleScreenShare() {
     } else {
         if (screenStream) screenStream.getTracks().forEach(track => track.stop());
         screenStream = null;
-        const sender = peerConnection.getSenders().find(s => s.track?.kind === 'video');
-        if (sender) {
-            await sender.replaceTrack(originalVideoTrack);
-            if (originalVideoTrack) {
-                originalVideoTrack.enabled = isVideoEnabled;
-            }
+        await WebRTC.replaceVideoTrack(originalVideoTrack);
+        if (originalVideoTrack) {
+            originalVideoTrack.enabled = isVideoEnabled;
         }
         isScreenSharing = false;
         updateScreenShareUI(false);
@@ -1476,9 +1347,10 @@ function showConnectionToast(type, message) {
 }
 
 async function monitorConnectionStats() {
-    if (!peerConnection || peerConnection.iceConnectionState !== 'connected') return;
+    const pc = WebRTC.getPeerConnection();
+    if (!pc || pc.iceConnectionState !== 'connected') return;
     try {
-        const stats = await peerConnection.getStats();
+        const stats = await pc.getStats();
         let activeCandidatePair = null, remoteInboundRtp = null;
         stats.forEach(report => {
             if (report.type === 'candidate-pair' && report.state === 'succeeded') activeCandidatePair = report;
@@ -1529,7 +1401,7 @@ async function monitorConnectionStats() {
                 
                 updateConnectionIcon(connectionTypeForIcon);
 
-                if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
+                if (!initialConnectionToastShown && pc.iceConnectionState === 'connected') {
                     initialConnectionToastShown = true;
                     if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
                         showConnectionToast('good', 'Установлено прямое P2P-соединение. Качество связи будет максимальным.');
