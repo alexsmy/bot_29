@@ -1,5 +1,3 @@
-# main.py
-
 import asyncio
 import os
 import uuid
@@ -207,7 +205,7 @@ class ConnectionManager:
         await self.close_room(room_id, "Room lifetime expired")
 
     async def close_room(self, room_id: str, reason: str):
-        await database.log_room_closure(room_id, reason)
+        asyncio.create_task(database.log_room_closure(room_id, reason))
 
         if room_id in self.rooms:
             room = self.rooms[room_id]
@@ -240,10 +238,15 @@ manager = ConnectionManager()
 
 @app.on_event("startup")
 async def startup_event():
+    await database.get_pool()
     await database.init_db()
     if not os.path.exists(LOGS_DIR):
         os.makedirs(LOGS_DIR)
         logger.info(f"Создана директория для логов: {LOGS_DIR}")
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await database.close_pool()
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
@@ -271,16 +274,13 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
         
-        # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
             f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
         )
-        # Запускаем отправку файла в фоне
         asyncio.create_task(
             notifier.send_admin_notification(message_to_admin, 'send_connection_report', file_path=filepath)
         )
-        # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
         return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
@@ -345,7 +345,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    await database.log_call_start(room.room_id, room.pending_call_type)
+                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -368,7 +368,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 
                 if message_type == "hangup":
-                    await database.log_call_end(room.room_id)
+                    asyncio.create_task(database.log_call_end(room.room_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -411,10 +411,14 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     x_forwarded_for = websocket.headers.get("x-forwarded-for")
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
-    location_data = await utils.get_ip_location(ip_address)
-    ua_data = utils.parse_user_agent(user_agent)
-    parsed_data = {**location_data, **ua_data}
-    await database.log_connection(room_id, ip_address, user_agent, parsed_data)
+    
+    async def log_connection_in_background():
+        location_data = await utils.get_ip_location(ip_address)
+        ua_data = utils.parse_user_agent(user_agent)
+        parsed_data = {**location_data, **ua_data}
+        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
+
+    asyncio.create_task(log_connection_in_background())
 
     new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}

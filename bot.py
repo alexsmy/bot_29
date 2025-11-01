@@ -1,9 +1,8 @@
-# bot.py
-
 import os
 import sys
 import threading
 import uuid
+import asyncio
 from datetime import datetime, timedelta, timezone
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants, BotCommand, InputTextMessageContent, InlineQueryResultArticle
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
@@ -23,7 +22,6 @@ from config import (
 bot_app_instance = None
 
 def format_hours(hours: int) -> str:
-    """Правильно форматирует часы (1 час, 2 часа, 5 часов)."""
     if hours % 10 == 1 and hours % 100 != 11:
         return f"{hours} час"
     elif 2 <= hours % 10 <= 4 and (hours % 100 < 10 or hours % 100 >= 20):
@@ -55,8 +53,8 @@ async def post_init(application: Application) -> None:
 
 async def log_user_and_action(update: Update, action: str):
     user = update.effective_user
-    await database.log_user(user.id, user.first_name, user.last_name, user.username)
-    await database.log_bot_action(user.id, action)
+    asyncio.create_task(database.log_user(user.id, user.first_name, user.last_name, user.username))
+    asyncio.create_task(database.log_bot_action(user.id, action))
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "/start")
@@ -120,7 +118,8 @@ async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id
 
     created_at = datetime.now(timezone.utc)
     expires_at = created_at + timedelta(hours=lifetime_hours)
-    await database.log_call_session(room_id, user_id, created_at, expires_at)
+    
+    asyncio.create_task(database.log_call_session(room_id, user_id, created_at, expires_at))
 
     is_admin_room = str(user_id) == os.environ.get("ADMIN_USER_ID")
     if not is_admin_room:
@@ -252,7 +251,6 @@ async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAUL
         web_app_url += '/'
     admin_link = f"{web_app_url}admin/{token}"
 
-    # <<< НАЧАЛО ИЗМЕНЕНИЙ >>>
     message_text = (
         f"Ваша ссылка для доступа к панели администратора:\n\n"
         f"<a href=\"{admin_link}\">👨‍💻 Открыть админ-панель</a>\n\n"
@@ -264,7 +262,6 @@ async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAUL
         parse_mode=constants.ParseMode.HTML,
         disable_web_page_preview=True
     )
-    # <<< КОНЕЦ ИЗМЕНЕНИЙ >>>
 
 async def admin_create_room_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
@@ -303,12 +300,18 @@ def run_fastapi():
     port = int(os.environ.get("PORT", 8000))
     uvicorn.run(fastapi_app, host="0.0.0.0", port=port, log_config=None)
 
+async def init_app_resources():
+    await database.get_pool()
+    await database.init_db()
+
 def main() -> None:
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
         logger.critical("Токен бота (BOT_TOKEN) не найден.")
         sys.exit(1)
+
+    asyncio.run(init_app_resources())
 
     fastapi_thread = threading.Thread(target=run_fastapi)
     fastapi_thread.daemon = True
