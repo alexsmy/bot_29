@@ -2,13 +2,13 @@
 import {
 previewVideo, micLevelBars, continueToCallBtn, continueSpectatorBtn, cameraSelect,
 micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
-lifetimeTimer, instructionsModal, callScreen, localGlow, remoteGlow,
-callerName, incomingCallType, acceptBtn, declineBtn, hangupBtn,
-speakerBtn, muteBtn, videoBtn, localAudio, remoteAudio, localVideo, remoteVideo,
+lifetimeTimer, callScreen, localGlow, remoteGlow,
+callerName, incomingCallType,
+localAudio, remoteAudio, localVideo, remoteVideo,
 localVideoContainer, ringOutAudio, connectAudio, ringInAudio,
 deviceSettingsModal, cameraSelectCall, micSelectCall, speakerSelectCall,
 cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall,
-showScreen, showModal, showPopup, updateCallUI, setupVideoCallUiListeners,
+initUI, showScreen, showModal, showPopup, updateCallUI, setupVideoCallUiListeners,
 removeVideoCallUiListeners, startTimer, stopTimer, visualizeMic, visualizeLocalMicForCall,
 visualizeRemoteMic, updateStatusIndicators, displayMediaErrors, updateConnectionIcon,
 updateConnectionQualityIcon, showConnectionInfo, showConnectionToast, setupEventListeners as setupUiEventListeners
@@ -232,6 +232,7 @@ return results;
 
 function parseCandidate(candString) {
 const parts = candString.split(' ');
+if (parts.length < 8) return {};
 return {
 type: parts,
 address: parts,
@@ -268,14 +269,16 @@ sendLogToServer(logMessage);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
-const path = window.location.pathname;
-logToScreen(App loaded. Path: ${path});
+initUI(); // Initialize all DOM element variables
 
 code
 Code
 download
 content_copy
 expand_less
+const path = window.location.pathname;
+logToScreen(`App loaded. Path: ${path}`);
+
 try {
     logToScreen("Fetching ICE servers configuration from server...");
     const response = await fetch('/api/ice-servers');
@@ -483,7 +486,7 @@ function connectWebSocket() {
 isGracefulDisconnect = false;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const wsUrl = ${protocol}//${window.location.host}/ws/private/${roomId};
-logToScreen([WS] Attempting a new connection.);
+logToScreen([WS] Attempting a new connection to ${wsUrl});
 
 code
 Code
@@ -600,8 +603,12 @@ if (otherUsers.length === 0) {
 
 }
 
-async function initiateCall(userToCall, callType) {
-logToScreen([CALL] Initiating call to user ${userToCall.id}, type: ${callType});
+async function initiateCall(callType) {
+if (!targetUser || !targetUser.id) {
+logToScreen("[CALL] Error: Tried to initiate call but targetUser is not defined.");
+return;
+}
+logToScreen([CALL] Initiating call to user ${targetUser.id}, type: ${callType});
 isCallInitiator = true;
 currentCallType = callType;
 
@@ -617,7 +624,6 @@ if (currentCallType === 'video') {
 const hasMedia = await initializeLocalMedia(currentCallType === 'video');
 if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
 
-targetUser = userToCall;
 sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
 showScreen('call');
@@ -716,12 +722,12 @@ if (isScreenSharing) {
 
 if (localCallMicVisualizer) {
     cancelAnimationFrame(localCallMicVisualizer.id);
-    localCallMicVisualizer.context.close();
+    if(localCallMicVisualizer.context.state !== 'closed') localCallMicVisualizer.context.close();
     localCallMicVisualizer = null;
 }
 if (remoteMicVisualizer) {
     cancelAnimationFrame(remoteMicVisualizer.id);
-    remoteMicVisualizer.context.close();
+    if(remoteMicVisualizer.context.state !== 'closed') remoteMicVisualizer.context.close();
     remoteMicVisualizer = null;
 }
 
@@ -755,7 +761,6 @@ remoteAudio.srcObject = null;
 localVideo.srcObject = null;
 remoteVideo.srcObject = null;
 
-connectionQuality.classList.remove('active');
 updateConnectionQualityIcon('unknown');
 updateConnectionIcon('unknown');
 
@@ -802,11 +807,9 @@ try {
         originalVideoTrack = localStream.getVideoTracks();
         localVideo.srcObject = localStream;
         await localVideo.play();
-        localVideoContainer.style.display = 'flex';
         isVideoEnabled = true;
         await enumerateVideoDevices();
     } else {
-        localVideoContainer.style.display = 'none';
         isVideoEnabled = false;
         if (constraints.video) {
             logToScreen("[MEDIA] WARNING: Video requested but no video track found.");
@@ -843,6 +846,7 @@ logToScreen([DC] Received non-JSON message: ${event.data});
 function handleRemoteMuteStatus(isMuted) {
 let remoteMuteToastTimeout;
 clearTimeout(remoteMuteToastTimeout);
+const remoteMuteToast = document.getElementById('remote-mute-toast');
 if (isMuted) {
 remoteMuteToast.textContent = "Собеседник выключил микрофон. 🔇";
 remoteMuteToast.classList.add('visible');
@@ -1223,6 +1227,7 @@ logToScreen("[CONTROLS] Screen sharing stopped.");
 }
 
 function updateScreenShareUI(isSharing) {
+const { screenShareBtn } = await import('./call_ui.js');
 screenShareBtn.classList.toggle('active', isSharing);
 localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'flex' : 'none');
 }
@@ -1236,12 +1241,22 @@ speakerBtn.classList.remove('active');
 screenShareBtn.classList.remove('active');
 localVideo.classList.remove('force-cover');
 remoteVideo.classList.remove('force-cover');
+
+code
+Code
+download
+content_copy
+expand_less
+const { toggleLocalViewBtn, toggleRemoteViewBtn, audioCallVisualizer } = await import('./call_ui.js');
 toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
 toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
+
 clearTimeout(uiFadeTimeout);
 removeVideoCallUiListeners(handleUiInteraction);
 callScreen.classList.remove('ui-faded', 'ui-interactive', 'video-call-active', 'audio-call-active');
+audioCallVisualizer.style.display = 'none';
 isEndingCall = false;
+
 }
 
 async function updateRoomLifetime() {
@@ -1400,7 +1415,7 @@ toggleVideo,
 toggleScreenShare,
 acceptCall,
 declineCall,
-endCall,
+endCall: () => endCall(true, 'cancelled_by_user'),
 closeSession,
 openDeviceSettings,
 switchInputDevice,

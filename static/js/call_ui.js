@@ -1,80 +1,106 @@
 
 import { ICONS } from './icons.js';
 
-export const preCallCheckScreen = document.getElementById('pre-call-check-screen');
-export const previewVideo = document.getElementById('previewVideo');
-export const micLevelBars = document.querySelectorAll('.mic-level-bar');
-export const cameraStatus = document.getElementById('camera-status');
-export const cameraStatusText = document.getElementById('camera-status-text');
-export const micStatus = document.getElementById('mic-status');
-export const micStatusText = document.getElementById('mic-status-text');
-export const continueToCallBtn = document.getElementById('continue-to-call-btn');
-export const continueSpectatorBtn = document.getElementById('continue-spectator-btn');
-export const cameraSelect = document.getElementById('camera-select');
-export const micSelect = document.getElementById('mic-select');
-export const speakerSelect = document.getElementById('speaker-select');
-export const cameraSelectContainer = document.getElementById('camera-select-container');
-export const micSelectContainer = document.getElementById('mic-select-container');
-export const speakerSelectContainer = document.getElementById('speaker-select-container');
+// --- DOM Element Variables (to be initialized) ---
+export let preCallCheckScreen, previewVideo, micLevelBars, cameraStatus, cameraStatusText,
+micStatus, micStatusText, continueToCallBtn, continueSpectatorBtn, cameraSelect,
+micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
+preCallScreen, popupWaiting, popupActions, popupInitiating, lifetimeTimer,
+closeSessionBtn, instructionsBtn, instructionsModal, closeInstructionsBtns,
+callScreen, audioCallVisualizer, localGlow, remoteGlow, incomingCallModal,
+callerName, incomingCallType, acceptBtn, declineBtn, hangupBtn, remoteUserName,
+callTimer, speakerBtn, muteBtn, videoBtn, videoControlItem, screenShareBtn,
+screenShareControlItem, localAudio, remoteAudio, localVideo, remoteVideo,
+localVideoContainer, toggleLocalViewBtn, toggleRemoteViewBtn, ringOutAudio,
+connectAudio, ringInAudio, connectionStatus, connectionQuality, qualityGoodSvg,
+qualityMediumSvg, qualityBadSvg, remoteAudioLevel, remoteAudioLevelBars,
+connectionInfoPopup, remoteMuteToast, connectionToast, deviceSettingsBtn,
+deviceSettingsModal, closeSettingsBtns, cameraSelectCall, micSelectCall,
+speakerSelectCall, cameraSelectContainerCall, micSelectContainerCall,
+speakerSelectContainerCall;
 
-export const preCallScreen = document.getElementById('pre-call-screen');
-export const popupWaiting = document.getElementById('popup-waiting');
-export const popupActions = document.getElementById('popup-actions');
-export const popupInitiating = document.getElementById('popup-initiating');
-export const lifetimeTimer = document.getElementById('lifetime-timer');
-export const closeSessionBtn = document.getElementById('close-session-btn');
-export const instructionsBtn = document.getElementById('instructions-btn');
-export const instructionsModal = document.getElementById('instructions-modal');
-export const closeInstructionsBtns = document.querySelectorAll('.close-instructions-btn');
+// --- UI Initialization ---
+export function initUI() {
+preCallCheckScreen = document.getElementById('pre-call-check-screen');
+previewVideo = document.getElementById('previewVideo');
+micLevelBars = document.querySelectorAll('.mic-level-bar');
+cameraStatus = document.getElementById('camera-status');
+cameraStatusText = document.getElementById('camera-status-text');
+micStatus = document.getElementById('mic-status');
+micStatusText = document.getElementById('mic-status-text');
+continueToCallBtn = document.getElementById('continue-to-call-btn');
+continueSpectatorBtn = document.getElementById('continue-spectator-btn');
+cameraSelect = document.getElementById('camera-select');
+micSelect = document.getElementById('mic-select');
+speakerSelect = document.getElementById('speaker-select');
+cameraSelectContainer = document.getElementById('camera-select-container');
+micSelectContainer = document.getElementById('mic-select-container');
+speakerSelectContainer = document.getElementById('speaker-select-container');
+preCallScreen = document.getElementById('pre-call-screen');
+popupWaiting = document.getElementById('popup-waiting');
+popupActions = document.getElementById('popup-actions');
+popupInitiating = document.getElementById('popup-initiating');
+lifetimeTimer = document.getElementById('lifetime-timer');
+closeSessionBtn = document.getElementById('close-session-btn');
+instructionsBtn = document.getElementById('instructions-btn');
+instructionsModal = document.getElementById('instructions-modal');
+closeInstructionsBtns = document.querySelectorAll('.close-instructions-btn');
+callScreen = document.getElementById('call-screen');
+audioCallVisualizer = document.getElementById('audio-call-visualizer');
+localGlow = document.getElementById('local-glow');
+remoteGlow = document.getElementById('remote-glow');
+incomingCallModal = document.getElementById('incoming-call-modal');
+callerName = document.getElementById('caller-name');
+incomingCallType = document.getElementById('incoming-call-type');
+acceptBtn = document.getElementById('accept-btn');
+declineBtn = document.getElementById('decline-btn');
+hangupBtn = document.getElementById('hangup-btn');
+remoteUserName = document.getElementById('remote-user-name');
+callTimer = document.getElementById('call-timer');
+speakerBtn = document.getElementById('speaker-btn');
+muteBtn = document.getElementById('mute-btn');
+videoBtn = document.getElementById('video-btn');
+videoControlItem = document.getElementById('video-control-item');
+screenShareBtn = document.getElementById('screen-share-btn');
+screenShareControlItem = document.getElementById('screen-share-control-item');
+localAudio = document.getElementById('localAudio');
+remoteAudio = document.getElementById('remoteAudio');
+localVideo = document.getElementById('localVideo');
+remoteVideo = document.getElementById('remoteVideo');
+localVideoContainer = document.getElementById('local-video-container');
+toggleLocalViewBtn = document.getElementById('toggle-local-view-btn');
+toggleRemoteViewBtn = document.getElementById('toggle-remote-view-btn');
+ringOutAudio = document.getElementById('ringOutAudio');
+connectAudio = document.getElementById('connectAudio');
+ringInAudio = document.getElementById('ringInAudio');
+connectionStatus = document.getElementById('connection-status');
+connectionQuality = document.getElementById('connection-quality');
+qualityGoodSvg = document.getElementById('quality-good-svg');
+qualityMediumSvg = document.getElementById('quality-medium-svg');
+qualityBadSvg = document.getElementById('quality-bad-svg');
+remoteAudioLevel = document.getElementById('remote-audio-level');
+remoteAudioLevelBars = document.querySelectorAll('.remote-audio-level-bar');
+connectionInfoPopup = document.getElementById('connection-info-popup');
+remoteMuteToast = document.getElementById('remote-mute-toast');
+connectionToast = document.getElementById('connection-toast');
+deviceSettingsBtn = document.getElementById('device-settings-btn');
+deviceSettingsModal = document.getElementById('device-settings-modal');
+closeSettingsBtns = document.querySelectorAll('.close-settings-btn');
+cameraSelectCall = document.getElementById('camera-select-call');
+micSelectCall = document.getElementById('mic-select-call');
+speakerSelectCall = document.getElementById('speaker-select-call');
+cameraSelectContainerCall = document.getElementById('camera-select-container-call');
+micSelectContainerCall = document.getElementById('mic-select-container-call');
+speakerSelectContainerCall = document.getElementById('speaker-select-container-call');
 
-export const callScreen = document.getElementById('call-screen');
-export const audioCallVisualizer = document.getElementById('audio-call-visualizer');
-export const localGlow = document.getElementById('local-glow');
-export const remoteGlow = document.getElementById('remote-glow');
-export const incomingCallModal = document.getElementById('incoming-call-modal');
-export const callerName = document.getElementById('caller-name');
-export const incomingCallType = document.getElementById('incoming-call-type');
-export const acceptBtn = document.getElementById('accept-btn');
-export const declineBtn = document.getElementById('decline-btn');
-export const hangupBtn = document.getElementById('hangup-btn');
-export const remoteUserName = document.getElementById('remote-user-name');
-export const callTimer = document.getElementById('call-timer');
-export const speakerBtn = document.getElementById('speaker-btn');
-export const muteBtn = document.getElementById('mute-btn');
-export const videoBtn = document.getElementById('video-btn');
-export const videoControlItem = document.getElementById('video-control-item');
-export const screenShareBtn = document.getElementById('screen-share-btn');
-export const screenShareControlItem = document.getElementById('screen-share-control-item');
-export const localAudio = document.getElementById('localAudio');
-export const remoteAudio = document.getElementById('remoteAudio');
-export const localVideo = document.getElementById('localVideo');
-export const remoteVideo = document.getElementById('remoteVideo');
-export const localVideoContainer = document.getElementById('local-video-container');
-export const toggleLocalViewBtn = document.getElementById('toggle-local-view-btn');
-export const toggleRemoteViewBtn = document.getElementById('toggle-remote-view-btn');
-export const ringOutAudio = document.getElementById('ringOutAudio');
-export const connectAudio = document.getElementById('connectAudio');
-export const ringInAudio = document.getElementById('ringInAudio');
-export const connectionStatus = document.getElementById('connection-status');
-export const connectionQuality = document.getElementById('connection-quality');
-export const qualityGoodSvg = document.getElementById('quality-good-svg');
-export const qualityMediumSvg = document.getElementById('quality-medium-svg');
-export const qualityBadSvg = document.getElementById('quality-bad-svg');
-export const remoteAudioLevel = document.getElementById('remote-audio-level');
-export const remoteAudioLevelBars = document.querySelectorAll('.remote-audio-level-bar');
-export const connectionInfoPopup = document.getElementById('connection-info-popup');
-export const remoteMuteToast = document.getElementById('remote-mute-toast');
-export const connectionToast = document.getElementById('connection-toast');
+code
+Code
+download
+content_copy
+expand_less
+loadIcons();
 
-export const deviceSettingsBtn = document.getElementById('device-settings-btn');
-export const deviceSettingsModal = document.getElementById('device-settings-modal');
-export const closeSettingsBtns = document.querySelectorAll('.close-settings-btn');
-export const cameraSelectCall = document.getElementById('camera-select-call');
-export const micSelectCall = document.getElementById('mic-select-call');
-export const speakerSelectCall = document.getElementById('speaker-select-call');
-export const cameraSelectContainerCall = document.getElementById('camera-select-container-call');
-export const micSelectContainerCall = document.getElementById('mic-select-container-call');
-export const speakerSelectContainerCall = document.getElementById('speaker-select-container-call');
+}
 
 // --- UI Function Exports ---
 
@@ -93,7 +119,6 @@ console.warn(Icon with name "${iconName}" not found.);
 }
 });
 }
-loadIcons();
 
 export function showScreen(screenName) {
 document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -139,13 +164,6 @@ const intervalId = setInterval(() => {
     const secs = String(seconds % 60).padStart(2, '0');
     callTimer.textContent = `${mins}:${secs}`;
 }, 1000);
-
-if (currentCallType === 'video') {
-    setupVideoCallUiListeners(handleUiInteraction);
-    handleUiInteraction();
-} else {
-    audioCallVisualizer.style.display = 'flex';
-}
 
 connectionQuality.classList.add('active');
 return intervalId;
@@ -383,7 +401,7 @@ screenShareBtn.addEventListener('click', handlers.toggleScreenShare);
 acceptBtn.addEventListener('click', handlers.acceptCall);
 declineBtn.addEventListener('click', handlers.declineCall);
 
-hangupBtn.addEventListener('click', () => handlers.endCall(true, 'cancelled_by_user'));
+hangupBtn.addEventListener('click', handlers.endCall);
 
 closeSessionBtn.addEventListener('click', handlers.closeSession);
 
