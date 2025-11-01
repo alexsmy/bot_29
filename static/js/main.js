@@ -1266,6 +1266,7 @@ function stopIncomingRing() {
 function updateCallUI() {
     remoteUserName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
     const isVideoCall = currentCallType === 'video';
+    videoGridContainer.style.display = isVideoCall ? 'flex' : 'none';
     videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
     muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
     screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
@@ -1456,6 +1457,7 @@ function resetCallControls() {
     initialConnectionToastShown = false;
     currentLayout = 'pip';
     videoGridContainer.className = 'layout-pip';
+    videoGridContainer.style.display = 'none';
     localVideo.classList.remove('force-cover');
     remoteVideo.classList.remove('force-cover');
     muteBtn.classList.remove('active');
