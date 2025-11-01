@@ -1,7 +1,5 @@
 // static/js/call_media.js
 
-// static/js/call_media.js
-
 let localStream;
 let previewStream;
 let micVisualizer;

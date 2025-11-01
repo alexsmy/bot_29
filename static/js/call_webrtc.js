@@ -1,3 +1,5 @@
+// static/js/call_webrtc.js
+
 import { sendMessage } from './call_websocket.js';
 import { remoteVideo, remoteAudio, localVideo } from './call_ui_elements.js';
 
@@ -71,6 +73,14 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     if (peerConnection) peerConnection.close();
     peerConnection = new RTCPeerConnection(rtcConfig);
     remoteStream = new MediaStream();
+
+    // --- ИСПРАВЛЕНИЕ: НАВСЕГДА ВЫКЛЮЧАЕМ ЗВУК У HTML-ЭЛЕМЕНТОВ ---
+    // Весь звук теперь будет идти только через Web Audio API (GainNode),
+    // что дает нам полный контроль над его включением/выключением.
+    remoteVideo.muted = true;
+    remoteAudio.muted = true;
+    // ----------------------------------------------------------------
+
     remoteVideo.srcObject = remoteStream;
     remoteAudio.srcObject = remoteStream;
 
@@ -90,7 +100,7 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
         callbacks.log(`[WEBRTC] ICE State: ${state}`);
         
         if (state === 'connected') {
-            connectionLogger.analyzeAndSend(); // ВОССТАНОВЛЕННЫЙ ВЫЗОВ
+            connectionLogger.analyzeAndSend();
             if (iceRestartTimeoutId) {
                 clearTimeout(iceRestartTimeoutId);
                 iceRestartTimeoutId = null;
