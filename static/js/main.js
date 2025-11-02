@@ -1,4 +1,3 @@
-
 // static/js/main.js
 
 import {
@@ -49,6 +48,7 @@ let infoPopupTimeout = null;
 let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
+let connectionToastTimeout = null;
 
 // --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
 /**
@@ -619,13 +619,13 @@ function handleRemoteMuteStatus(isMuted) {
     clearTimeout(remoteMuteToastTimeout);
     if (isMuted) {
         remoteMuteToast.textContent = "Собеседник выключил микрофон. 🔇";
-        remoteMuteToast.classList.add('visible');
-        remoteMuteToastTimeout = setTimeout(() => {
-            remoteMuteToast.classList.remove('visible');
-        }, 3000);
     } else {
-        remoteMuteToast.classList.remove('visible');
+        remoteMuteToast.textContent = "Микрофон снова включён. 🎤";
     }
+    remoteMuteToast.classList.add('visible');
+    remoteMuteToastTimeout = setTimeout(() => {
+        remoteMuteToast.classList.remove('visible');
+    }, 2000);
     logToScreen(`[REMOTE_STATUS] Peer is now ${isMuted ? 'muted' : 'unmuted'}.`);
 }
 
@@ -886,11 +886,22 @@ function showConnectionInfo() {
 }
 
 function showConnectionToast(type, message) {
-    connectionToast.textContent = message;
-    connectionToast.classList.remove('toast-good', 'toast-bad');
+    clearTimeout(connectionToastTimeout);
+    
+    let finalMessage = message;
+    if (type === 'good') {
+        finalMessage += ' 🌍';
+    } else if (type === 'warning') {
+        finalMessage += ' 📡';
+    }
+    
+    connectionToast.textContent = finalMessage;
+    connectionToast.className = 'toast-notification'; // Reset classes
     connectionToast.classList.add(`toast-${type}`);
+    
     connectionToast.classList.add('visible');
-    setTimeout(() => {
+    
+    connectionToastTimeout = setTimeout(() => {
         connectionToast.classList.remove('visible');
-    }, 7000);
+    }, 2000);
 }
