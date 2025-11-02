@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ICONS = {
         sun: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5V1.5H10.5V4.5H12M18.36,7.05L20.48,4.93L19.07,3.5L16.95,5.64L18.36,7.05M19.5,13.5H22.5V12H19.5V13.5M16.95,18.36L19.07,20.48L20.48,19.07L18.36,16.95L16.95,18.36M12,19.5V22.5H13.5V19.5H12M5.64,16.95L3.5,19.07L4.93,20.48L7.05,18.36L5.64,16.95M4.5,12H1.5V13.5H4.5V12M7.05,5.64L4.93,3.5L3.5,4.93L5.64,7.05L7.05,5.64Z" /></svg>`,
         moon: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2A10 10 0 1 0 22 12A10 10 0 0 0 12 2M12 4A8 8 0 0 1 20 12A8 8 0 0 1 12 20V4Z" /></svg>`,
-        gear: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.44 12.99l.06-.58c0-.19-.01-.38-.04-.57l2.12-1.65a.5.5 0 00.13-.68l-2-3.46a.5.5 0 00-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0014 2h-4a.5.5 0 00-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 00-.61.22l-2 3.46a.5.5 0 00.13.68l2.12 1.65c-.03.19-.04.38-.04.57l.06.58c-.02.19-.03.38-.03.57s.01.38.03.57l-2.12 1.65a.5.5 0 00-.13.68l2 3.46a.5.5 0 00.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65a.5.5 0 00.49.42h4a.5.5 0 00.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1a.5.5 0 00.61-.22l2-3.46a.5.5 0 00-.13-.68l-2.12-1.65c.03-.19.04-.38.04-.57l-.06-.58c.02-.19.03-.38.03-.57s-.01-.38-.03-.57zM12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/></svg>`,
+        gear: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.44 12.99l.06-.58c0-.19-.01-.38-.04-.57l2.12-1.65a.5.5 0 00.13-.68l-2-3.46a.5.5 0 00-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0014 2h-4a.5.5 0 00-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 00-.61.22l-2 3.46a.5.5 0 00.13.68l2.12 1.65c-.03.19-.04.38-.04.57l.06.58c-.02.19-.03.38-.03.57s.01.38.03.57l-2.12 1.65a.5.5 0 00-.13.68l2 3.46a.5.5 0 00.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65a.5.5 0 00.49.42h4a.5.5 0 00.49-.42l.38-2.65c.61-.25-1.17-.59-1.69-.98l2.49 1a.5.5 0 00.61-.22l2-3.46a.5.5 0 00-.13-.68l-2.12-1.65c.03-.19.04-.38.04-.57l-.06-.58c.02-.19.03-.38.03-.57s-.01-.38-.03-.57zM12 15.5a3.5 3.5 0 110-7 3.5 3.5 0 010 7z"/></svg>`,
         menu: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2z"/></svg>`,
         stats: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,21H5V15H3V21M7,21H9V12H7V21M11,21H13V8H11V21M15,21H17V14H15V21M19,21H21V3H19V21Z" /></svg>`,
         rooms: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,10A2,2 0 0,0 10,12C10,13.11 10.9,14 12,14C13.11,14 14,13.11 14,12A2,2 0 0,0 12,10M18,16V14H16V16H18M18,12V10H16V12H18M18,8V6H16V8H18M6,16V14H4V16H6M6,12V10H4V12H6M6,8V6H4V8H6M14,20V18H10V20H14M14,6V4H10V6H14Z" /></svg>`,
@@ -26,6 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(url, options);
             if (!response.ok) {
+                // --- ИЗМЕНЕНИЕ: Теперь мы пытаемся прочитать текст ошибки от сервера ---
+                const errorText = await response.text();
+                console.error(`API Error for ${endpoint}: ${response.status} ${response.statusText}`, errorText);
                 throw new Error(`API Error: ${response.statusText}`);
             }
             const contentType = response.headers.get("content-type");
@@ -443,7 +446,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // --- БЛОК РАБОТЫ С ЛОГАМИ ИЗМЕНЕН ---
     const logsContent = document.getElementById('logs-content').querySelector('code');
 
     const highlightLogs = (text) => {
@@ -452,29 +454,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const escapeHtml = (str) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
         return text.split('\n').map(line => {
-            if (!line.trim()) return ''; // Пропускаем пустые строки
+            if (!line.trim()) return ''; 
 
             let processedLine = escapeHtml(line);
 
-            // Подсветка уровня лога
             processedLine = processedLine.replace(
                 /(CRITICAL|ERROR|WARNING|INFO)/g,
                 (match) => `<span class="log-level log-level-${match.toLowerCase()}">${match}</span>`
             );
 
-            // Подсветка временной метки
             processedLine = processedLine.replace(
                 /^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3})/,
                 '<span class="log-timestamp">$1</span>'
             );
 
-            // Подсветка HTTP методов
             processedLine = processedLine.replace(
                 /\b(GET|POST|DELETE|PUT|PATCH)\b/g,
                 '<span class="log-http-method">$1</span>'
             );
 
-            // Подсветка HTTP статусов
             processedLine = processedLine.replace(/\b(2\d{2})\b/g, '<span class="log-http-success">$1</span>');
             processedLine = processedLine.replace(/\b(3\d{2})\b/g, '<span class="log-http-redirect">$1</span>');
             processedLine = processedLine.replace(/\b(4\d{2})\b/g, '<span class="log-http-client-error">$1</span>');
@@ -484,8 +482,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }).join('');
     };
 
+    // --- БЛОК РАБОТЫ С ЛОГАМИ ИЗМЕНЕН ---
     const loadLogs = async () => {
         const logs = await fetchData('logs');
+        // --- НОВАЯ ПРОВЕРКА НА ОШИБКУ ---
+        if (logs === null) {
+            logsContent.innerHTML = `<span class="log-line" style="color: var(--error-color);">Ошибка: Не удалось загрузить логи. Проверьте консоль браузера (F12) для деталей.</span>`;
+            return;
+        }
         logsContent.innerHTML = highlightLogs(logs);
     };
     // --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
