@@ -1,4 +1,3 @@
-/* admin.css */
 :root {
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -23,16 +22,6 @@
     --danger-action-hover: #b91c1c;
 
     --skeleton-bg: #e2e8f0;
-
-    /* --- NEW: Log Colors --- */
-    --log-info: #0ea5e9;
-    --log-warning: #f59e0b;
-    --log-error: #ef4444;
-    --log-critical-bg: #b91c1c;
-    --log-critical-text: #ffffff;
-    --log-success: #22c55e;
-    --log-http: #8b5cf6;
-    --log-meta: #64748b;
 }
 
 html.dark {
@@ -48,16 +37,6 @@ html.dark {
     --danger-text: #fca5a5;
 
     --skeleton-bg: #3f3f46;
-
-    /* --- NEW: Dark Theme Log Colors --- */
-    --log-info: #38bdf8;
-    --log-warning: #facc15;
-    --log-error: #f87171;
-    --log-critical-bg: #ef4444;
-    --log-critical-text: #ffffff;
-    --log-success: #4ade80;
-    --log-http: #a78bfa;
-    --log-meta: #71717a;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -479,33 +458,23 @@ details summary span {
     padding: 1rem;
     max-height: 500px;
     overflow-y: auto;
-    white-space: pre-wrap;
+    white-space: pre;
     font-family: monospace;
     font-size: 0.85em;
-    line-height: 1.5;
 }
-/* --- NEW: Log Highlighting Styles --- */
-.logs-panel .log-line {
-    padding: 0.1rem 0.5rem;
-    margin: 0 -0.5rem;
-    border-radius: 4px;
-    word-break: break-all;
+
+/* --- НОВЫЕ СТИЛИ ДЛЯ ЛОГОВ --- */
+.log-line {
+    display: block;
+    padding: 0.1em 0;
 }
-.logs-panel .log-line-CRITICAL {
-    background-color: var(--log-critical-bg);
-    color: var(--log-critical-text);
-    font-weight: bold;
-}
-.logs-panel .log-level-INFO { color: var(--log-info); font-weight: 600; }
-.logs-panel .log-level-WARNING { color: var(--log-warning); font-weight: 600; }
-.logs-panel .log-level-ERROR { color: var(--log-error); font-weight: 600; }
-.logs-panel .log-level-CRITICAL { font-weight: 600; }
-.logs-panel .log-http-method { color: var(--log-http); font-weight: 600; }
-.logs-panel .log-http-2xx { color: var(--log-success); font-weight: 600; }
-.logs-panel .log-http-3xx { color: var(--log-info); font-weight: 600; }
-.logs-panel .log-http-4xx { color: var(--log-warning); font-weight: 600; }
-.logs-panel .log-http-5xx { color: var(--log-error); font-weight: 600; }
-.logs-panel .log-meta { color: var(--log-meta); }
+.log-info { color: var(--text-secondary); }
+.log-warning, .log-http-4xx { color: var(--pending-color); }
+.log-error, .log-http-5xx { color: var(--error-color); }
+.log-critical { color: var(--danger-action); font-weight: bold; }
+.log-http-2xx { color: var(--success-color); }
+.log-http-3xx { color: var(--accent-color); }
+/* -------------------------------- */
 
 .danger-zone {
     background-color: var(--danger-bg);
