@@ -1,5 +1,4 @@
-### static/js/call_ui_elements.js
-``````javascript
+
 export const preCallCheckScreen = document.getElementById('pre-call-check-screen');
 export const previewVideo = document.getElementById('previewVideo');
 export const micLevelBars = document.querySelectorAll('.mic-level-bar');

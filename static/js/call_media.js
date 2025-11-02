@@ -1,5 +1,4 @@
-### static/js/call_media.js
-``````javascript
+
 // static/js/call_media.js
 
 let localStream;

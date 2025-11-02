@@ -1,5 +1,4 @@
-### static/js/main.js
-``````javascript
+
 // static/js/main.js
 
 import {

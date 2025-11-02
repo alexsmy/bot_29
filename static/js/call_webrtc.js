@@ -1,5 +1,4 @@
-### static/js/call_webrtc.js
-``````javascript
+
 // static/js/call_webrtc.js
 
 import { sendMessage } from './call_websocket.js';
