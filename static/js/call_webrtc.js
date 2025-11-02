@@ -1,3 +1,5 @@
+### static/js/call_webrtc.js
+``````javascript
 // static/js/call_webrtc.js
 
 import { sendMessage } from './call_websocket.js';
@@ -75,8 +77,8 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     remoteStream = new MediaStream();
 
     // --- ИСПРАВЛЕНИЕ: НАВСЕГДА ВЫКЛЮЧАЕМ ЗВУК У HTML-ЭЛЕМЕНТОВ ---
-    // Весь звук теперь будет идти только через Web Audio API (GainNode),
-    // что дает нам полный контроль над его включением/выключением.
+    // Весь звук теперь будет идти только через Web Audio API (GainNode) в call_media.js,
+    // что дает нам полный контроль над его включением/выключением и предотвращает "двойной" звук.
     remoteVideo.muted = true;
     remoteAudio.muted = true;
     // ----------------------------------------------------------------
@@ -85,6 +87,7 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     remoteAudio.srcObject = remoteStream;
 
     if (selectedAudioOutId && typeof remoteVideo.setSinkId === 'function') {
+        callbacks.log(`[SINK] Applying initial sinkId: ${selectedAudioOutId}`);
         remoteVideo.setSinkId(selectedAudioOutId).catch(e => callbacks.log(`[SINK] Error setting sinkId for video: ${e}`));
         remoteAudio.setSinkId(selectedAudioOutId).catch(e => callbacks.log(`[SINK] Error setting sinkId for audio: ${e}`));
     }

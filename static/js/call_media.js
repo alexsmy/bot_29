@@ -1,3 +1,5 @@
+### static/js/call_media.js
+``````javascript
 // static/js/call_media.js
 
 let localStream;
@@ -100,13 +102,17 @@ export async function initializePreview(videoElement, micLevelBars) {
 }
 
 export async function populateDeviceSelectors(cameraSelect, micSelect, speakerSelect, cameraContainer, micContainer, speakerContainer) {
+    // Запрашиваем устройства еще раз, т.к. после getUserMedia список может обновиться
     const devices = await navigator.mediaDevices.enumerateDevices();
     videoDevices = devices.filter(d => d.kind === 'videoinput');
     audioInDevices = devices.filter(d => d.kind === 'audioinput');
     audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
 
     const populate = (select, devicesList, container) => {
+        // Показываем контейнер, если есть хотя бы одно устройство
+        container.style.display = devicesList.length > 0 ? 'flex' : 'none';
         if (devicesList.length === 0) return;
+
         select.innerHTML = '';
         devicesList.forEach(device => {
             const option = document.createElement('option');
@@ -114,11 +120,11 @@ export async function populateDeviceSelectors(cameraSelect, micSelect, speakerSe
             option.textContent = device.label || `${select.id} ${select.options.length + 1}`;
             select.appendChild(option);
         });
-        container.style.display = 'flex';
     };
 
     populate(cameraSelect, videoDevices, cameraContainer);
     populate(micSelect, audioInDevices, micContainer);
+    // Особенно важно для мобильных: этот список часто пуст до getUserMedia
     populate(speakerSelect, audioOutDevices, speakerContainer);
     
     return {

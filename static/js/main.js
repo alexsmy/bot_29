@@ -1,3 +1,5 @@
+### static/js/main.js
+``````javascript
 // static/js/main.js
 
 import {
@@ -194,6 +196,8 @@ async function runPreCallCheck() {
     updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
     if (hasCameraAccess || hasMicrophoneAccess) {
+        // Важно: populateDeviceSelectors вызывается ПОСЛЕ initializePreview,
+        // чтобы получить полный список устройств на мобильных.
         const selectedIds = await media.populateDeviceSelectors(
             cameraSelect, micSelect, speakerSelect,
             cameraSelectContainer, micSelectContainer, speakerSelectContainer
@@ -659,10 +663,10 @@ async function populateDeviceSelectorsInCall() {
     audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
 
     const populate = (select, devicesList, container, currentId) => {
-        if (devicesList.length < 2) {
-            container.style.display = 'none';
-            return;
-        }
+        // Показываем контейнер, если есть хотя бы одно устройство для выбора
+        container.style.display = devicesList.length > 0 ? 'flex' : 'none';
+        if (devicesList.length === 0) return;
+        
         select.innerHTML = '';
         devicesList.forEach(device => {
             const option = document.createElement('option');
@@ -673,7 +677,6 @@ async function populateDeviceSelectorsInCall() {
             }
             select.appendChild(option);
         });
-        container.style.display = 'flex';
     };
 
     const localStream = media.getLocalStream();
@@ -682,7 +685,7 @@ async function populateDeviceSelectorsInCall() {
     
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
-    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, remoteVideo.sinkId);
+    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, selectedAudioOutId);
 }
 
 async function switchInputDevice(kind, deviceId) {
@@ -701,15 +704,18 @@ async function switchInputDevice(kind, deviceId) {
 async function switchAudioOutput(deviceId) {
     if (typeof remoteVideo.setSinkId !== 'function') {
         logToScreen('[SINK] setSinkId() is not supported by this browser.');
+        alert('Ваш браузер не поддерживает переключение динамиков.');
         return;
     }
     try {
+        // Применяем один и тот же ID к обоим элементам
         await remoteVideo.setSinkId(deviceId);
         await remoteAudio.setSinkId(deviceId);
         selectedAudioOutId = deviceId;
         logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
         logToScreen(`[SINK] Error switching audio output: ${error}`);
+        alert(`Не удалось переключить динамик: ${error.message}`);
     }
 }
 
