@@ -1,3 +1,4 @@
+/* admin.css */
 :root {
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -23,9 +24,15 @@
 
     --skeleton-bg: #e2e8f0;
 
-    /* --- НОВЫЕ ЦВЕТА ДЛЯ ЛОГОВ --- */
-    --log-color-purple: #8b5cf6;
-    --log-color-cyan: #06b6d4;
+    /* --- NEW: Log Colors --- */
+    --log-info: #0ea5e9;
+    --log-warning: #f59e0b;
+    --log-error: #ef4444;
+    --log-critical-bg: #b91c1c;
+    --log-critical-text: #ffffff;
+    --log-success: #22c55e;
+    --log-http: #8b5cf6;
+    --log-meta: #64748b;
 }
 
 html.dark {
@@ -42,9 +49,15 @@ html.dark {
 
     --skeleton-bg: #3f3f46;
 
-    /* --- НОВЫЕ ЦВЕТА ДЛЯ ЛОГОВ (ТЕМНАЯ ТЕМА) --- */
-    --log-color-purple: #a78bfa;
-    --log-color-cyan: #22d3ee;
+    /* --- NEW: Dark Theme Log Colors --- */
+    --log-info: #38bdf8;
+    --log-warning: #facc15;
+    --log-error: #f87171;
+    --log-critical-bg: #ef4444;
+    --log-critical-text: #ffffff;
+    --log-success: #4ade80;
+    --log-http: #a78bfa;
+    --log-meta: #71717a;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -469,50 +482,30 @@ details summary span {
     white-space: pre-wrap;
     font-family: monospace;
     font-size: 0.85em;
-    line-height: 1.5; /* --- НОВАЯ СТРОКА --- */
+    line-height: 1.5;
 }
-
-/* --- НОВЫЙ БЛОК СТИЛЕЙ ДЛЯ ПОДСВЕТКИ ЛОГОВ --- */
+/* --- NEW: Log Highlighting Styles --- */
 .logs-panel .log-line {
-    display: block;
+    padding: 0.1rem 0.5rem;
+    margin: 0 -0.5rem;
+    border-radius: 4px;
+    word-break: break-all;
 }
-.logs-panel .log-timestamp {
-    color: var(--text-secondary);
+.logs-panel .log-line-CRITICAL {
+    background-color: var(--log-critical-bg);
+    color: var(--log-critical-text);
+    font-weight: bold;
 }
-.logs-panel .log-level {
-    font-weight: 600;
-}
-.logs-panel .log-level-info {
-    color: var(--accent-color);
-}
-.logs-panel .log-level-warning {
-    color: var(--pending-color);
-}
-.logs-panel .log-level-error,
-.logs-panel .log-level-critical {
-    color: var(--error-color);
-}
-.logs-panel .log-http-method {
-    color: var(--log-color-purple);
-    font-weight: 600;
-}
-.logs-panel .log-http-success {
-    color: var(--success-color);
-    font-weight: 600;
-}
-.logs-panel .log-http-redirect {
-    color: var(--log-color-cyan);
-    font-weight: 600;
-}
-.logs-panel .log-http-client-error {
-    color: var(--pending-color);
-    font-weight: 600;
-}
-.logs-panel .log-http-server-error {
-    color: var(--error-color);
-    font-weight: 600;
-}
-/* --- КОНЕЦ НОВОГО БЛОКА --- */
+.logs-panel .log-level-INFO { color: var(--log-info); font-weight: 600; }
+.logs-panel .log-level-WARNING { color: var(--log-warning); font-weight: 600; }
+.logs-panel .log-level-ERROR { color: var(--log-error); font-weight: 600; }
+.logs-panel .log-level-CRITICAL { font-weight: 600; }
+.logs-panel .log-http-method { color: var(--log-http); font-weight: 600; }
+.logs-panel .log-http-2xx { color: var(--log-success); font-weight: 600; }
+.logs-panel .log-http-3xx { color: var(--log-info); font-weight: 600; }
+.logs-panel .log-http-4xx { color: var(--log-warning); font-weight: 600; }
+.logs-panel .log-http-5xx { color: var(--log-error); font-weight: 600; }
+.logs-panel .log-meta { color: var(--log-meta); }
 
 .danger-zone {
     background-color: var(--danger-bg);

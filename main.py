@@ -561,7 +561,6 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
 
-# --- БЛОК РАБОТЫ С ЛОГАМИ ИЗМЕНЕН ---
 @app.get("/api/admin/logs", response_class=PlainTextResponse)
 async def get_app_logs(token: str = Depends(verify_admin_token)):
     try:
@@ -571,9 +570,7 @@ async def get_app_logs(token: str = Depends(verify_admin_token)):
             return f.read()
     except Exception as e:
         logger.error(f"Ошибка чтения файла логов: {e}")
-        # Возвращаем PlainTextResponse даже в случае ошибки, чтобы клиент мог это обработать
-        return PlainTextResponse(f"Ошибка на сервере при чтении файла логов: {e}", status_code=500)
-# --- КОНЕЦ ИЗМЕНЕННОГО БЛОКА ---
+        raise HTTPException(status_code=500, detail="Could not read log file.")
 
 @app.get("/api/admin/logs/download")
 async def download_app_logs(token: str = Depends(verify_admin_token)):
