@@ -1,6 +1,16 @@
 // static/js/main.js
 
-import * as uiElements from './call_ui_elements.js';
+import {
+    previewVideo, micLevelBars, continueToCallBtn, continueSpectatorBtn, cameraSelect,
+    micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
+    preCallScreen, lifetimeTimer, closeSessionBtn, instructionsBtn, instructionsModal,
+    closeInstructionsBtns, acceptBtn, declineBtn, hangupBtn, speakerBtn, muteBtn, videoBtn,
+    screenShareBtn, localAudio, remoteVideo, localVideoContainer, ringOutAudio, connectAudio,
+    ringInAudio, connectionStatus, deviceSettingsBtn, deviceSettingsModal, closeSettingsBtns,
+    cameraSelectCall, micSelectCall, speakerSelectCall, popupActions, toggleLocalViewBtn,
+    toggleRemoteViewBtn
+} from './call_ui_elements.js';
+
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
 import * as webrtc from './call_webrtc.js';
 import * as media from './call_media.js';
@@ -48,37 +58,55 @@ function logToScreen(message) {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+    ui.loadIcons();
     const path = window.location.pathname;
     logToScreen(`App loaded. Path: ${path}`);
 
     try {
         logToScreen("Fetching ICE servers configuration from server...");
         const response = await fetch('/api/ice-servers');
-        if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
+        if (!response.ok) {
+            throw new Error(`Server responded with status ${response.status}`);
+        }
         const servers = await response.json();
         
-        rtcConfig = { iceServers: servers.map(s => ({
+        const peerConnectionConfig = servers.map(s => ({
             urls: s.urls,
             username: s.username,
             credential: s.credential
-        })), iceCandidatePoolSize: 10 };
+        }));
+        rtcConfig = { iceServers: peerConnectionConfig, iceCandidatePoolSize: 10 };
 
         servers.forEach(s => {
             let provider = 'Unknown';
             if (s.source) {
-                try { provider = new URL(s.source).hostname.replace(/^www\./, ''); } catch (e) { provider = s.source; }
-            } else if (s.provider) { provider = s.provider; }
-            iceServerDetails[s.urls] = { region: s.region || 'global', provider: provider };
+                try {
+                    provider = new URL(s.source).hostname.replace(/^www\./, '');
+                } catch (e) { provider = s.source; }
+            } else if (s.provider) {
+                provider = s.provider;
+            }
+            iceServerDetails[s.urls] = {
+                region: s.region || 'global',
+                provider: provider
+            };
         });
+
         logToScreen("ICE servers configuration and details loaded successfully.");
     } catch (error) {
         logToScreen(`[CRITICAL] Failed to fetch ICE servers: ${error.message}. Falling back to public STUN.`);
         alert("Не удалось загрузить конфигурацию сети. Качество звонка может быть низким.");
-        rtcConfig = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
+        rtcConfig = {
+            iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+            ]
+        };
     }
 
     if (path.startsWith('/call/')) {
-        roomId = path.split('/')[2];
+        const parts = path.split('/');
+        roomId = parts[2];
         initializePrivateCallMode();
     } else {
         document.body.innerHTML = "<h1>Неверный URL</h1>";
@@ -100,15 +128,15 @@ function initializePrivateCallMode() {
         getRtcConfig: () => rtcConfig
     });
 
-    webrtc.init({
+    const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
-            if (!uiElements.callScreen.classList.contains('active')) {
+            if (!callScreen.classList.contains('active')) {
                 ui.showScreen('call');
-                updateCallUI();
+                ui.updateCallUI(targetUser, currentCallType, media.getMediaAccessStatus(), isMobileDevice());
             }
-            ui.startTimer();
-            uiElements.connectAudio.play();
+            ui.startTimer(currentCallType);
+            connectAudio.play();
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
@@ -117,66 +145,51 @@ function initializePrivateCallMode() {
         getSelectedAudioOutId: () => selectedAudioOutId,
         getCurrentConnectionType: monitor.getCurrentConnectionType,
         isVideoEnabled: () => isVideoEnabled,
-    });
-
-    const uiHandlers = {
-        onProceedToCall: proceedToCall,
-        onUpdatePreviewStream: updatePreviewStream,
-        onToggleSpeaker: toggleSpeaker,
-        onToggleMute: toggleMute,
-        onToggleVideo: toggleVideo,
-        onToggleScreenShare: () => webrtc.toggleScreenShare(media.getLocalStream(), updateScreenShareUI),
-        onAcceptCall: acceptCall,
-        onDeclineCall: declineCall,
-        onEndCall: endCall,
-        onCloseSession: closeSession,
-        onOpenDeviceSettings: openDeviceSettings,
-        onSwitchInputDevice: switchInputDevice,
-        onSwitchAudioOutput: switchAudioOutput,
-        onInitiateCall: (callType) => initiateCall(targetUser, callType),
-        onShowConnectionInfo: () => ui.showConnectionInfo(monitor.getCurrentConnectionDetails()),
     };
-    ui.init(uiHandlers);
+    webrtc.init(webrtcCallbacks);
 
+    setupEventListeners();
     runPreCallCheck();
 }
 
 async function runPreCallCheck() {
     ui.showScreen('pre-call-check');
     
-    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(uiElements.previewVideo, uiElements.micLevelBars);
+    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
     if (!hasCameraAccess || !hasMicrophoneAccess) {
-        uiElements.continueSpectatorBtn.style.display = 'block';
+        ui.displayMediaErrors({ name: 'NotFoundError' });
     }
 
     ui.updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
     if (hasCameraAccess || hasMicrophoneAccess) {
         const selectedIds = await media.populateDeviceSelectors(
-            uiElements.cameraSelect, uiElements.micSelect, uiElements.speakerSelect,
-            uiElements.cameraSelectContainer, uiElements.micSelectContainer, uiElements.speakerSelectContainer
+            cameraSelect, micSelect, speakerSelect,
+            cameraSelectContainer, micSelectContainer, speakerSelectContainer
         );
         selectedVideoId = selectedIds.videoId;
         selectedAudioInId = selectedIds.audioInId;
         selectedAudioOutId = selectedIds.audioOutId;
-        uiElements.continueToCallBtn.disabled = false;
+        continueToCallBtn.disabled = false;
     } else {
         logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
     }
 }
 
 async function updatePreviewStream() {
-    selectedVideoId = uiElements.cameraSelect.value;
-    selectedAudioInId = uiElements.micSelect.value;
-    selectedAudioOutId = uiElements.speakerSelect.value;
+    selectedVideoId = cameraSelect.value;
+    selectedAudioInId = micSelect.value;
+    selectedAudioOutId = speakerSelect.value;
     
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
+
     const constraints = {
         audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
         video: hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
-    await media.updatePreviewStream(constraints, uiElements.previewVideo, uiElements.micLevelBars);
+
+    await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
 }
 
 function proceedToCall(asSpectator = false) {
@@ -195,8 +208,8 @@ function proceedToCall(asSpectator = false) {
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
         onCallAccepted: () => {
-            uiElements.ringOutAudio.pause(); 
-            uiElements.ringOutAudio.currentTime = 0;
+            ringOutAudio.pause(); 
+            ringOutAudio.currentTime = 0;
             const localStream = media.getLocalStream();
             webrtc.startPeerConnection(targetUser.id, true, currentCallType, localStream, rtcConfig, monitor.connectionLogger);
         },
@@ -245,7 +258,7 @@ async function initiateCall(userToCall, callType) {
     currentCallType = callType;
     
     if (currentCallType === 'video') {
-        uiElements.remoteVideo.play().catch(() => {});
+        remoteVideo.play().catch(() => {});
     }
 
     const hasMedia = await initializeLocalMedia(currentCallType === 'video');
@@ -260,9 +273,9 @@ async function initiateCall(userToCall, callType) {
     sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
     ui.showScreen('call');
-    updateCallUI();
-    ui.setCallStatusRinging();
-    uiElements.ringOutAudio.play();
+    ui.updateCallUI(targetUser, currentCallType, media.getMediaAccessStatus(), isMobileDevice());
+    callTimer.textContent = "Вызов...";
+    ringOutAudio.play();
 }
 
 function handleIncomingCall(data) {
@@ -272,8 +285,7 @@ function handleIncomingCall(data) {
     currentCallType = data.call_type;
 
     ui.updateIncomingCallModal(targetUser, currentCallType);
-    ui.showModal('incoming-call', true);
-    uiElements.ringInAudio.play();
+    ringInAudio.play();
 }
 
 async function acceptCall() {
@@ -282,7 +294,7 @@ async function acceptCall() {
     ui.showModal('incoming-call', false);
 
     if (currentCallType === 'video') {
-        uiElements.remoteVideo.play().catch(() => {});
+        remoteVideo.play().catch(() => {});
     }
 
     const hasMedia = await initializeLocalMedia(currentCallType === 'video');
@@ -320,27 +332,127 @@ async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
-    uiElements.connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
-
     webrtc.endPeerConnection();
     media.stopAllStreams();
 
-    uiElements.ringOutAudio.pause(); uiElements.ringOutAudio.currentTime = 0;
+    ringOutAudio.pause(); ringOutAudio.currentTime = 0;
     stopIncomingRing();
 
-    uiElements.localAudio.srcObject = null;
-    uiElements.localVideo.srcObject = null;
-    uiElements.localVideoContainer.style.display = 'none';
-    uiElements.remoteVideo.style.display = 'none';
+    localAudio.srcObject = null;
+    localVideo.srcObject = null;
     
-    ui.stopTimer();
-    ui.showModal('incoming-call', false);
-    ui.showScreen('pre-call');
+    ui.cleanupCallUI();
 
     targetUser = {};
-    ui.resetCallControls();
+    resetCallState();
     isEndingCall = false;
+}
+
+function setupEventListeners() {
+    continueToCallBtn.addEventListener('click', () => proceedToCall(false));
+    continueSpectatorBtn.addEventListener('click', () => proceedToCall(true));
+    cameraSelect.addEventListener('change', updatePreviewStream);
+    micSelect.addEventListener('change', updatePreviewStream);
+    speakerSelect.addEventListener('change', updatePreviewStream);
+
+    speakerBtn.addEventListener('click', toggleSpeaker);
+    muteBtn.addEventListener('click', toggleMute);
+    videoBtn.addEventListener('click', toggleVideo);
+    screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(media.getLocalStream(), (isSharing) => ui.updateScreenShareUI(isSharing, isVideoEnabled, currentCallType)));
+    acceptBtn.addEventListener('click', acceptCall);
+    declineBtn.addEventListener('click', declineCall);
+    
+    hangupBtn.addEventListener('click', () => endCall(true, 'cancelled_by_user'));
+    
+    closeSessionBtn.addEventListener('click', closeSession);
+
+    instructionsBtn.addEventListener('click', () => instructionsModal.classList.add('active'));
+    closeInstructionsBtns.forEach(btn => btn.addEventListener('click', () => instructionsModal.classList.remove('active')));
+
+    deviceSettingsBtn.addEventListener('click', openDeviceSettings);
+    closeSettingsBtns.forEach(btn => btn.addEventListener('click', () => deviceSettingsModal.classList.remove('active')));
+    cameraSelectCall.addEventListener('change', (e) => switchInputDevice('video', e.target.value));
+    micSelectCall.addEventListener('change', (e) => switchInputDevice('audio', e.target.value));
+    speakerSelectCall.addEventListener('change', (e) => switchAudioOutput(e.target.value));
+
+    popupActions.addEventListener('click', (e) => {
+        const button = e.target.closest('.action-call-btn');
+        if (button && targetUser.id) {
+            initiateCall(targetUser, button.dataset.callType);
+        }
+    });
+
+    toggleLocalViewBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ui.toggleLocalVideoView();
+    });
+
+    toggleRemoteViewBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        ui.toggleRemoteVideoView();
+    });
+
+    connectionStatus.addEventListener('click', () => ui.showConnectionInfo(monitor.getCurrentConnectionDetails()));
+
+    setupLocalVideoInteraction();
+}
+
+function setupLocalVideoInteraction() {
+    let isDragging = false, hasMoved = false, dragStartX, offsetX, longPressTimer;
+
+    const onDragStart = (e) => {
+        if (e.type === 'touchstart' && e.touches.length > 1) return;
+        hasMoved = false;
+        const rect = localVideoContainer.getBoundingClientRect();
+        const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
+        dragStartX = clientX;
+        offsetX = clientX - rect.left;
+        longPressTimer = setTimeout(() => {
+            isDragging = true;
+            localVideoContainer.classList.add('dragging');
+        }, 200);
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('touchmove', onDragMove, { passive: false });
+        document.addEventListener('mouseup', onDragEnd);
+        document.addEventListener('touchend', onDragEnd);
+    };
+
+    const onDragMove = (e) => {
+        const clientX = e.type === 'touchmove' ? e.touches[0].clientX : e.clientX;
+        if (!hasMoved && Math.abs(clientX - dragStartX) > 5) {
+            hasMoved = true;
+            clearTimeout(longPressTimer);
+            if (!isDragging) {
+                isDragging = true;
+                localVideoContainer.classList.add('dragging');
+            }
+        }
+        if (isDragging) {
+            if (e.type === 'touchmove') e.preventDefault();
+            let newLeft = clientX - offsetX;
+            const parentWidth = localVideoContainer.parentElement.clientWidth;
+            const videoWidth = localVideoContainer.getBoundingClientRect().width;
+            newLeft = Math.max(0, Math.min(newLeft, parentWidth - videoWidth));
+            localVideoContainer.style.left = `${newLeft}px`;
+        }
+    };
+
+    const onDragEnd = (e) => {
+        clearTimeout(longPressTimer);
+        if (!hasMoved && !e.target.closest('button')) {
+            localVideoContainer.classList.toggle('small');
+        }
+        isDragging = false;
+        localVideoContainer.classList.remove('dragging');
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('touchmove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
+        document.removeEventListener('touchend', onDragEnd);
+    };
+
+    localVideoContainer.addEventListener('mousedown', onDragStart);
+    localVideoContainer.addEventListener('touchstart', onDragStart, { passive: true });
 }
 
 async function initializeLocalMedia(isVideo) {
@@ -356,13 +468,19 @@ async function initializeLocalMedia(isVideo) {
         video: isVideo && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
-    const result = await media.getStreamForCall(constraints, uiElements.localVideo, uiElements.localAudio);
+    const result = await media.getStreamForCall(constraints, localVideo, localAudio);
     
     if (result.stream) {
-        isVideoEnabled = result.isVideo;
-        if (!result.isVideo && constraints.video) {
-            logToScreen("[MEDIA] WARNING: Video requested but no video track found.");
-            currentCallType = 'audio';
+        if (result.isVideo) {
+            localVideoContainer.style.display = 'flex';
+            isVideoEnabled = true;
+        } else {
+            localVideoContainer.style.display = 'none';
+            isVideoEnabled = false;
+            if (constraints.video) {
+                logToScreen("[MEDIA] WARNING: Video requested but no video track found.");
+                currentCallType = 'audio';
+            }
         }
         return true;
     }
@@ -374,26 +492,21 @@ function isMobileDevice() {
 }
 
 function stopIncomingRing() {
-    uiElements.ringInAudio.pause();
-    uiElements.ringInAudio.currentTime = 0;
-}
-
-function updateCallUI() {
-    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
-    ui.updateCallUI(targetUser, currentCallType, hasCameraAccess, hasMicrophoneAccess, isMobileDevice());
+    ringInAudio.pause();
+    ringInAudio.currentTime = 0;
 }
 
 function toggleMute() {
     if (!media.getMediaAccessStatus().hasMicrophoneAccess) return;
     isMuted = !isMuted;
     webrtc.toggleMute(isMuted, media.getLocalStream());
-    ui.updateMuteButton(isMuted);
+    muteBtn.classList.toggle('active', isMuted);
     logToScreen(`[CONTROLS] Mic ${isMuted ? 'muted' : 'unmuted'}.`);
 }
 
 function toggleSpeaker() {
     isSpeakerMuted = media.toggleRemoteSpeakerMute();
-    ui.updateSpeakerButton(isSpeakerMuted);
+    speakerBtn.classList.toggle('active', isSpeakerMuted);
     logToScreen(`[CONTROLS] Remote audio (speaker) ${isSpeakerMuted ? 'muted' : 'unmuted'}.`);
 }
 
@@ -401,34 +514,20 @@ function toggleVideo() {
     if (!media.getMediaAccessStatus().hasCameraAccess) return;
     isVideoEnabled = !isVideoEnabled;
     webrtc.toggleVideo(isVideoEnabled, media.getLocalStream());
-    ui.updateVideoButton(isVideoEnabled);
+    videoBtn.classList.toggle('active', !isVideoEnabled);
+    localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
 }
 
 async function openDeviceSettings() {
-    await populateDeviceSelectorsInCall();
-    ui.openDeviceSettingsModal();
-}
-
-async function populateDeviceSelectorsInCall() {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(d => d.kind === 'videoinput');
-    const audioInDevices = devices.filter(d => d.kind === 'audioinput');
-    const audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
-
     const localStream = media.getLocalStream();
     const currentAudioTrack = localStream?.getAudioTracks()[0];
     const currentVideoTrack = localStream?.getVideoTracks()[0];
     
-    const currentIds = {
-        currentAudioTrackId: currentAudioTrack?.getSettings().deviceId,
-        currentVideoTrackId: currentVideoTrack?.getSettings().deviceId
-    };
-
-    ui.populateDeviceSelectorsInCall(
-        { videoDevices, audioInDevices, audioOutDevices },
-        currentIds,
-        uiElements.remoteVideo.sinkId
+    await ui.populateDeviceSelectorsInCall(
+        currentAudioTrack?.getSettings().deviceId,
+        currentVideoTrack?.getSettings().deviceId,
+        remoteVideo.sinkId
     );
 }
 
@@ -446,13 +545,13 @@ async function switchInputDevice(kind, deviceId) {
 }
 
 async function switchAudioOutput(deviceId) {
-    if (typeof uiElements.remoteVideo.setSinkId !== 'function') {
+    if (typeof remoteVideo.setSinkId !== 'function') {
         logToScreen('[SINK] setSinkId() is not supported by this browser.');
         return;
     }
     try {
-        await uiElements.remoteVideo.setSinkId(deviceId);
-        await uiElements.remoteAudio.setSinkId(deviceId);
+        await remoteVideo.setSinkId(deviceId);
+        await localAudio.setSinkId(deviceId); // Note: localAudio is muted, but good practice
         selectedAudioOutId = deviceId;
         logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
@@ -460,8 +559,10 @@ async function switchAudioOutput(deviceId) {
     }
 }
 
-function updateScreenShareUI(isSharing) {
-    ui.updateScreenShareButton(isSharing, isVideoEnabled, currentCallType);
+function resetCallState() {
+    isMuted = false;
+    isVideoEnabled = true;
+    isSpeakerMuted = false;
 }
 
 async function updateRoomLifetime() {
@@ -469,15 +570,20 @@ async function updateRoomLifetime() {
         const response = await fetch(`/room/lifetime/${roomId}`);
         if (!response.ok) throw new Error('Room not found or expired on server.');
         const data = await response.json();
-        const isTimeRemaining = ui.updateLifetimeTimer(data.remaining_seconds);
-        if (!isTimeRemaining) {
+        const remainingSeconds = data.remaining_seconds;
+        if (remainingSeconds <= 0) {
+            lifetimeTimer.textContent = "00:00";
             clearInterval(lifetimeTimerInterval);
             alert("Время жизни ссылки истекло.");
             redirectToInvalidLink();
+        } else {
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
+            lifetimeTimer.textContent = `${String(hours).padStart(2, '0')} ч. ${String(minutes).padStart(2, '0')} м.`;
         }
     } catch (error) {
         logToScreen(`[LIFETIME] Error fetching lifetime: ${error.message}`);
-        ui.setLifetimeTimerError();
+        lifetimeTimer.textContent = "Ошибка";
         clearInterval(lifetimeTimerInterval);
     }
 }

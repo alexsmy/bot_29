@@ -255,7 +255,7 @@ async function monitorConnectionStats() {
                     if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
                         showConnectionToast('good', 'Установлено прямое P2P-соединение.');
                     } else if (connectionTypeForIcon === 'relay') {
-                        showConnectionToast('bad', 'Cоединение через сервер.');
+                        showConnectionToast('bad', 'Соединение через сервер.');
                     }
                 }
 
