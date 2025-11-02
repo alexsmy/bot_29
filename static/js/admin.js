@@ -1,3 +1,6 @@
+import { initApi, fetchData } from './admin_api.js';
+import { formatDate, formatRemainingTime, highlightLogs } from './admin_utils.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     const API_TOKEN = document.body.dataset.token;
     const TOKEN_EXPIRES_AT_ISO = document.body.dataset.tokenExpiresAt;
@@ -5,41 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let allRoomsData = [];
     let autoUpdateInterval = null;
 
-    const fetchData = async (endpoint, options = {}) => {
-        const separator = endpoint.includes('?') ? '&' : '?';
-        const url = `/api/admin/${endpoint}${separator}token=${API_TOKEN}`;
-        try {
-            const response = await fetch(url, options);
-            if (!response.ok) {
-                throw new Error(`API Error: ${response.statusText}`);
-            }
-            const contentType = response.headers.get("content-type");
-            if (contentType?.includes("application/json")) {
-                return response.json();
-            }
-            return response.text();
-        } catch (error) {
-            console.error(`Fetch error for ${endpoint}:`, error);
-            return null;
-        }
-    };
-
-    const formatDate = (isoString) => {
-        if (!isoString) return 'N/A';
-        return new Date(isoString).toLocaleString('ru-RU', {
-            timeZone: 'UTC',
-            dateStyle: 'short',
-            timeStyle: 'medium'
-        });
-    };
-
-    const formatRemainingTime = (seconds) => {
-        if (seconds <= 0) return '00:00:00';
-        const h = Math.floor(seconds / 3600).toString().padStart(2, '0');
-        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, '0');
-        const s = Math.floor(seconds % 60).toString().padStart(2, '0');
-        return `${h}:${m}:${s}`;
-    };
+    // Инициализируем модуль API с нашим токеном
+    initApi(API_TOKEN);
 
     const populateIcons = () => {
         document.getElementById('sidebar-header-icon-placeholder').innerHTML = ICONS.gear;
@@ -429,34 +399,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     const logsContent = document.getElementById('logs-content');
-    
-    const escapeHtml = (unsafe) => {
-        return unsafe
-             .replace(/&/g, "&amp;")
-             .replace(/</g, "&lt;")
-             .replace(/>/g, "&gt;")
-             .replace(/"/g, "&quot;")
-             .replace(/'/g, "&#039;");
-    };
-
-    const highlightLogs = (logText) => {
-        return logText.split('\n').map(line => {
-            const escapedLine = escapeHtml(line);
-            let className = 'log-default';
-
-            if (line.includes('CRITICAL')) className = 'log-critical';
-            else if (line.includes('ERROR')) className = 'log-error';
-            else if (line.includes('WARNING')) className = 'log-warning';
-            else if (line.includes('INFO')) className = 'log-info';
-
-            if (line.match(/\s(2\d{2})\s/)) className = 'log-http-2xx';
-            else if (line.match(/\s(3\d{2})\s/)) className = 'log-http-3xx';
-            else if (line.match(/\s(4\d{2})\s/)) className = 'log-http-4xx';
-            else if (line.match(/\s(5\d{2})\s/)) className = 'log-http-5xx';
-
-            return `<span class="log-line ${className}">${escapedLine}</span>`;
-        }).join('');
-    };
 
     const loadLogs = async () => {
         const logs = await fetchData('logs');
