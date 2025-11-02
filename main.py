@@ -1,621 +1,442 @@
-import asyncio
+
 import os
-import uuid
 import json
-import glob
-from datetime import datetime, timedelta, date, timezone
-from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends, status
-from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
-from fastapi.exception_handlers import http_exception_handler
+import uuid
+import asyncio
+from datetime import datetime, timedelta, timezone
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends
+from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
-from config import ADMIN_TOKEN_LIFETIME_MINUTES
+from typing import List, Dict, Optional
+
 import database
-import utils
-import ice_provider
 import notifier
-from logger_config import logger, LOG_FILE_PATH
-from config import PRIVATE_ROOM_LIFETIME_HOURS
-
-LOGS_DIR = "connection_logs"
-
-class CustomJSONResponse(Response):
-    media_type = "application/json"
-
-    def render(self, content: Any) -> bytes:
-        return json.dumps(
-            content,
-            ensure_ascii=False,
-            allow_nan=False,
-            indent=None,
-            separators=(",", ":"),
-            default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
-        ).encode("utf-8")
-
-app = FastAPI()
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-@app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
-        logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
-        bot_username = os.environ.get("BOT_USERNAME", "")
-        return templates.TemplateResponse(
-            "invalid_link.html",
-            {"request": request, "bot_username": bot_username},
-            status_code=exc.status_code
-        )
-    return await http_exception_handler(request, exc)
-
-class ClientLog(BaseModel):
-    user_id: str
-    room_id: str
-    message: str
-
-class ConnectionLog(BaseModel):
-    roomId: str
-    userId: str
-    isCallInitiator: bool
-    probeResults: List[Dict[str, Any]]
-    selectedConnection: Optional[Dict[str, Any]] = None
-
-class NotificationSettings(BaseModel):
-    notify_on_room_creation: bool
-    notify_on_call_start: bool
-    notify_on_call_end: bool
-    send_connection_report: bool
-
-class RoomManager:
-    def __init__(self, room_id: str, lifetime_hours: int):
-        self.room_id = room_id
-        self.lifetime_hours = lifetime_hours
-        self.max_users = 2
-        self.active_connections: Dict[Any, WebSocket] = {}
-        self.users: Dict[Any, dict] = {}
-        self.call_timeouts: Dict[tuple, asyncio.Task] = {}
-        self.creation_time = datetime.now(timezone.utc)
-        self.pending_call_type: Optional[str] = None
-
-    async def connect(self, websocket: WebSocket, user_data: dict):
-        if len(self.users) >= self.max_users:
-            await websocket.close(code=1008, reason="Room is full")
-            return None
-
-        await websocket.accept()
-        server_user_id = user_data.get("id", str(uuid.uuid4()))
-        await websocket.send_json({"type": "identity", "data": {"id": server_user_id}})
-
-        self.active_connections[server_user_id] = websocket
-        self.users[server_user_id] = {**user_data, "id": server_user_id, "status": "available"}
-
-        await self.broadcast_user_list()
-        return server_user_id
-
-    async def disconnect(self, user_id: Any):
-        if user_id in self.active_connections:
-            del self.active_connections[user_id]
-        
-        if user_id in self.users:
-            del self.users[user_id]
-            await self.broadcast_user_list()
-
-    async def broadcast_user_list(self):
-        user_list = list(self.users.values())
-        message = {"type": "user_list", "data": user_list}
-        await self.broadcast_message(message)
-
-    async def broadcast_message(self, message: dict, exclude_user_id: Any = None):
-        for user_id, connection in self.active_connections.items():
-            if user_id == exclude_user_id:
-                continue
-            try:
-                await connection.send_json(message)
-            except Exception:
-                pass
-
-    async def send_personal_message(self, message: dict, user_id: Any):
-        if user_id in self.active_connections:
-            try:
-                await self.active_connections[user_id].send_json(message)
-            except Exception:
-                pass
-
-    async def set_user_status(self, user_id: Any, status: str):
-        if user_id in self.users:
-            self.users[user_id]["status"] = status
-            await self.broadcast_user_list()
-
-    async def _call_timeout_task(self, caller_id: Any, target_id: Any):
-        await asyncio.sleep(60)
-        call_key = tuple(sorted((caller_id, target_id)))
-        if call_key in self.call_timeouts:
-            del self.call_timeouts[call_key]
-            await self.send_personal_message({"type": "call_missed"}, caller_id)
-            await self.send_personal_message({"type": "call_ended"}, target_id)
-            await self.set_user_status(caller_id, "available")
-            await self.set_user_status(target_id, "available")
-
-    def start_call_timeout(self, caller_id: Any, target_id: Any):
-        call_key = tuple(sorted((caller_id, target_id)))
-        self.cancel_call_timeout(caller_id, target_id)
-        task = asyncio.create_task(self._call_timeout_task(caller_id, target_id))
-        self.call_timeouts[call_key] = task
-
-    def cancel_call_timeout(self, user1_id: Any, user2_id: Any):
-        call_key = tuple(sorted((user1_id, user2_id)))
-        if call_key in self.call_timeouts:
-            self.call_timeouts[call_key].cancel()
-            del self.call_timeouts[call_key]
+import utils
+from logger_config import logger
+from config import BOT_USERNAME, PRIVATE_ROOM_LIFETIME_HOURS
+from ice_provider import get_ice_servers
 
 class ConnectionManager:
     def __init__(self):
-        self.rooms: Dict[str, RoomManager] = {}
-        self.private_room_cleanup_tasks: Dict[str, asyncio.Task] = {}
+        self.rooms: Dict[str, Dict[str, WebSocket]] = {}
+        self.user_status: Dict[str, str] = {}
 
-    async def get_or_restore_room(self, room_id: str) -> Optional[RoomManager]:
-        if room_id in self.rooms:
-            return self.rooms[room_id]
-
-        session_details = await database.get_call_session_details(room_id)
-
-        if not session_details:
-            logger.warning(f"Попытка доступа к несуществующей или истекшей комнате: {room_id}")
-            return None
-
-        logger.info(f"Восстанавливаем комнату {room_id} из базы данных...")
-        created_at = session_details['created_at']
-        expires_at = session_details['expires_at']
-        
-        lifetime_seconds = (expires_at - created_at).total_seconds()
-        lifetime_hours = round(lifetime_seconds / 3600)
-
-        room = RoomManager(room_id, lifetime_hours=lifetime_hours)
-        room.creation_time = created_at
-        
-        self.rooms[room_id] = room
-        
-        remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
-        if remaining_seconds > 0:
-            cleanup_task = asyncio.create_task(self._cleanup_room_after_delay_seconds(room_id, remaining_seconds))
-            self.private_room_cleanup_tasks[room_id] = cleanup_task
-        else:
-            await self.close_room(room_id, "Room lifetime expired on restore")
-
-        return room
-
-    async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS) -> RoomManager:
+    async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS):
         if room_id not in self.rooms:
-            self.rooms[room_id] = RoomManager(room_id, lifetime_hours)
-            await self.schedule_private_room_cleanup(room_id, lifetime_hours * 3600)
+            self.rooms[room_id] = {}
+            logger.info(f"Комната {room_id} создана в менеджере соединений.")
+            
+            async def close_room_after_delay():
+                await asyncio.sleep(lifetime_hours * 3600)
+                if room_id in self.rooms:
+                    await self.close_room(room_id, "expired")
+                    logger.info(f"Комната {room_id} автоматически закрыта по истечении времени.")
+
+            asyncio.create_task(close_room_after_delay())
         return self.rooms[room_id]
 
-    async def schedule_private_room_cleanup(self, room_id: str, delay_seconds: int):
-        if room_id in self.private_room_cleanup_tasks:
-            self.private_room_cleanup_tasks[room_id].cancel()
+    async def connect(self, websocket: WebSocket, room_id: str, user_id: str):
+        if room_id not in self.rooms:
+            logger.warning(f"Попытка подключения к несуществующей или истекшей комнате: {room_id}")
+            await websocket.close(code=1008, reason="Room not found or expired")
+            return False
         
-        cleanup_task = asyncio.create_task(self._cleanup_room_after_delay_seconds(room_id, delay_seconds))
-        self.private_room_cleanup_tasks[room_id] = cleanup_task
+        room = self.rooms[room_id]
+        if len(room) >= 2:
+            logger.warning(f"Попытка подключения к полной комнате: {room_id}")
+            await websocket.close(code=1008, reason="Room is full")
+            return False
 
-    async def _cleanup_room_after_delay_seconds(self, room_id: str, delay_seconds: int):
-        await asyncio.sleep(delay_seconds)
-        await self.close_room(room_id, "Room lifetime expired")
+        await websocket.accept()
+        room[user_id] = websocket
+        self.user_status[user_id] = 'online'
+        logger.info(f"Пользователь {user_id} подключился к комнате {room_id}.")
+        return True
 
-    async def close_room(self, room_id: str, reason: str):
-        asyncio.create_task(database.log_room_closure(room_id, reason))
+    async def disconnect(self, room_id: str, user_id: str):
+        if room_id in self.rooms and user_id in self.rooms[room_id]:
+            del self.rooms[room_id][user_id]
+            logger.info(f"Пользователь {user_id} отключился от комнаты {room_id}.")
+            if not self.rooms[room_id]:
+                del self.rooms[room_id]
+                logger.info(f"Комната {room_id} пуста и удалена из менеджера.")
+        if user_id in self.user_status:
+            del self.user_status[user_id]
 
+    async def broadcast_user_list(self, room_id: str):
         if room_id in self.rooms:
             room = self.rooms[room_id]
-            
-            if reason == "Room lifetime expired":
-                await room.broadcast_message({"type": "room_expired"})
-            else:
-                await room.broadcast_message({"type": "room_closed_by_user"})
+            user_list = [{"id": uid, "status": self.user_status.get(uid, 'offline')} for uid in room.keys()]
+            message = {"type": "user_list", "data": user_list}
+            for user_id, websocket in room.items():
+                try:
+                    await websocket.send_json(message)
+                except Exception as e:
+                    logger.error(f"Ошибка при отправке списка пользователей {user_id} в комнате {room_id}: {e}")
 
-            user_ids = list(room.active_connections.keys())
-            for user_id in user_ids:
-                websocket = room.active_connections.get(user_id)
-                if websocket:
+    async def send_personal_message(self, message: dict, recipient_id: str):
+        if recipient_id in self.user_status:
+            for room in self.rooms.values():
+                if recipient_id in room:
+                    websocket = room[recipient_id]
                     try:
-                        await websocket.close(code=1000, reason=reason)
-                    except Exception:
-                        pass
-                await room.disconnect(user_id)
-            
+                        await websocket.send_json(message)
+                        return True
+                    except Exception as e:
+                        logger.error(f"Ошибка при отправке личного сообщения пользователю {recipient_id}: {e}")
+                        return False
+        return False
+
+    async def close_room(self, room_id: str, reason: str = "closed_by_user"):
+        if room_id in self.rooms:
+            message = {"type": f"room_{reason}", "data": {"message": f"Room closed: {reason}"}}
+            for ws in self.rooms[room_id].values():
+                try:
+                    await ws.send_json(message)
+                    await ws.close()
+                except Exception:
+                    pass
             del self.rooms[room_id]
-        
-        if room_id in self.private_room_cleanup_tasks:
-            self.private_room_cleanup_tasks[room_id].cancel()
-            del self.private_room_cleanup_tasks[room_id]
-        
-        logger.info(f"Комната {room_id} была закрыта по причине: {reason}")
+            logger.info(f"Комната {room_id} принудительно закрыта. Причина: {reason}")
+            await database.log_room_closure(room_id, reason)
 
 
+app = FastAPI()
 manager = ConnectionManager()
+templates = Jinja2Templates(directory="templates")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
-@app.post("/log")
-async def receive_log(log: ClientLog):
-    logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
-    return CustomJSONResponse(content={"status": "logged"}, status_code=200)
+@app.on_event("startup")
+async def startup_event():
+    await database.get_pool()
+    logger.info("Приложение FastAPI запущено, пул соединений с БД доступен.")
 
-@app.post("/api/log/connection-details")
-async def save_connection_log(log_data: ConnectionLog, request: Request):
-    try:
-        os.makedirs(LOGS_DIR, exist_ok=True)
-        
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
-        filename = f"conn_log_{timestamp}_room_{log_data.roomId[:8]}.html"
-        filepath = os.path.join(LOGS_DIR, filename)
-
-        rendered_html = templates.TemplateResponse(
-            "connection_log_template.html",
-            {
-                "request": request,
-                "log": log_data.dict(),
-                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-            }
-        ).body.decode("utf-8")
-
-        with open(filepath, "w", encoding="utf-8") as f:
-            f.write(rendered_html)
-
-        logger.info(f"Лог соединения сохранен в файл: {filepath}")
-        
-        message_to_admin = (
-            f"📄 <b>Сформирован отчет о соединении</b>\n\n"
-            f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
-        )
-        asyncio.create_task(
-            notifier.send_admin_notification(message_to_admin, 'send_connection_report', file_path=filepath)
-        )
-
-        return CustomJSONResponse(content={"status": "log saved", "filename": filename})
-    except Exception as e:
-        logger.error(f"Ошибка при сохранении лога соединения: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save connection log")
-
-@app.get("/room/lifetime/{room_id}")
-async def get_room_lifetime(room_id: str):
-    room = await manager.get_or_restore_room(room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    
-    expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
-    remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
-    return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
+@app.on_event("shutdown")
+async def shutdown_event():
+    await database.close_pool()
+    logger.info("Приложение FastAPI остановлено, пул соединений с БД закрыт.")
 
 @app.get("/", response_class=HTMLResponse)
-async def get_welcome(request: Request):
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
-
-@app.get("/api/ice-servers")
-async def get_ice_servers_endpoint():
-    servers = ice_provider.get_ice_servers()
-    return CustomJSONResponse(content=servers)
+async def read_root(request: Request):
+    return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": BOT_USERNAME})
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
 async def get_call_page(request: Request, room_id: str):
-    room = await manager.get_or_restore_room(room_id)
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username})
+    session_details = await database.get_call_session_details(room_id)
+    if not session_details:
+        logger.warning(f"Попытка доступа к недействительной или истекшей комнате: {room_id}")
+        return templates.TemplateResponse("invalid_link.html", {"request": request, "bot_username": BOT_USERNAME})
+
+    user_agent_str = request.headers.get("User-Agent", "")
+    parsed_ua = utils.parse_user_agent(user_agent_str)
+    is_ios = 'iOS' in parsed_ua.get('os', '')
+    
+    logger.info(f"Запрос страницы для комнаты {room_id}. User-Agent: {user_agent_str}. Is iOS: {is_ios}")
+
+    return templates.TemplateResponse("call.html", {
+        "request": request,
+        "room_id": room_id,
+        "bot_username": BOT_USERNAME,
+        "is_ios": is_ios
+    })
+
+@app.post("/log")
+async def log_message(request: Request):
+    data = await request.json()
+    logger.info(f"[Client Log] User: {data.get('user_id', 'N/A')}, Room: {data.get('room_id', 'N/A')} - {data.get('message', '')}")
+    return {"status": "ok"}
+
+@app.get("/room/lifetime/{room_id}")
+async def get_room_lifetime(room_id: str):
+    session = await database.get_call_session_details(room_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Room not found or expired")
+    
+    remaining = session['expires_at'] - datetime.now(timezone.utc)
+    return {"remaining_seconds": max(0, int(remaining.total_seconds()))}
 
 @app.post("/room/close/{room_id}")
 async def close_room_endpoint(room_id: str):
-    room = await manager.get_or_restore_room(room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    await manager.close_room(room_id, "Closed by user")
-    return CustomJSONResponse(content={"status": "closing"})
+    await manager.close_room(room_id, "closed_by_user")
+    return {"status": "Room closure initiated"}
 
-async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_id: Any):
-    try:
-        while True:
-            message = await websocket.receive_json()
-            message_type = message.get("type")
+@app.get("/api/ice-servers")
+async def api_get_ice_servers():
+    servers = get_ice_servers()
+    return servers
 
-            if message_type == "call_user":
-                target_id = message["data"]["target_id"]
-                call_type = message["data"]["call_type"]
-                room.pending_call_type = call_type
-                await room.set_user_status(user_id, "busy")
-                await room.set_user_status(target_id, "busy")
-                await room.send_personal_message(
-                    {"type": "incoming_call", "data": {"from": user_id, "from_user": room.users.get(user_id), "call_type": call_type}},
-                    target_id
-                )
-                room.start_call_timeout(user_id, target_id)
-
-            elif message_type == "call_accepted":
-                target_id = message["data"]["target_id"]
-                room.cancel_call_timeout(user_id, target_id)
-                if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
-                    message_to_admin = (
-                        f"📞 <b>Звонок начался</b>\n\n"
-                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-                        f"<b>Тип:</b> {room.pending_call_type}\n"
-                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-                    )
-                    asyncio.create_task(
-                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
-                    )
-                    room.pending_call_type = None
-                await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
-
-            elif message_type in ["offer", "answer", "candidate"]:
-                target_id = message["data"]["target_id"]
-                message["data"]["from"] = user_id
-                await room.send_personal_message(message, target_id)
-
-            elif message_type in ["hangup", "call_declined"]:
-                target_id = message["data"]["target_id"]
-                room.cancel_call_timeout(user_id, target_id)
-                
-                if message_type == "hangup":
-                    asyncio.create_task(database.log_call_end(room.room_id))
-                    message_to_admin = (
-                        f"🔚 <b>Звонок завершен</b>\n\n"
-                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-                    )
-                    asyncio.create_task(
-                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
-                    )
-                    
-                await room.send_personal_message({"type": "call_ended"}, target_id)
-                await room.set_user_status(user_id, "available")
-                await room.set_user_status(target_id, "available")
-
-    except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
-    finally:
-        is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
-        
-        if is_in_call:
-            other_user_id = None
-            for key in list(room.call_timeouts.keys()):
-                if user_id in key:
-                    other_user_id = key[0] if key[1] == user_id else key[1]
-                    room.cancel_call_timeout(user_id, other_user_id)
-                    break
-            
-            if other_user_id and other_user_id in room.users:
-                await room.send_personal_message({"type": "call_ended"}, other_user_id)
-                await room.set_user_status(other_user_id, "available")
-
-        await room.disconnect(user_id)
-
-@app.websocket("/ws/private/{room_id}")
-async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
-    room = await manager.get_or_restore_room(room_id)
-    if not room:
-        await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
-        return
-
-    x_forwarded_for = websocket.headers.get("x-forwarded-for")
-    ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
-    user_agent = websocket.headers.get("user-agent", "Unknown")
+@app.post("/api/log/connection-details")
+async def log_connection_details(request: Request):
+    data = await request.json()
+    room_id = data.get("roomId")
+    user_id = data.get("userId")
     
-    async def log_connection_in_background():
-        location_data = await utils.get_ip_location(ip_address)
-        ua_data = utils.parse_user_agent(user_agent)
-        parsed_data = {**location_data, **ua_data}
-        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
+    if not room_id or not user_id:
+        raise HTTPException(status_code=400, detail="Missing roomId or userId")
 
-    asyncio.create_task(log_connection_in_background())
-
-    new_user_id = str(uuid.uuid4())
-    user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
+    report_dir = "connection_reports"
+    os.makedirs(report_dir, exist_ok=True)
     
-    actual_user_id = await room.connect(websocket, user_data)
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    filename = f"report_{room_id[:8]}_{user_id}_{timestamp}.html"
+    file_path = os.path.join(report_dir, filename)
 
-    if actual_user_id:
-        await handle_websocket_logic(websocket, room, actual_user_id)
-    else:
-        logger.warning(f"Connection attempt to full room {room_id} was rejected.")
+    report_html = templates.get_template("connection_log_template.html").render({
+        "log": data,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    })
 
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(report_html)
+    
+    logger.info(f"Отчет о соединении для комнаты {room_id} сохранен в {file_path}")
 
-async def verify_admin_token(request: Request, token: str):
-    expires_at = await database.get_admin_token_expiry(token)
-    if not expires_at:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token")
-    request.state.token_expires_at = expires_at
-    return token
+    is_admin_room = str(user_id) == os.environ.get("ADMIN_USER_ID")
+    if not is_admin_room:
+        message = (
+            f"📄 <b>Отчет о качестве соединения</b>\n\n"
+            f"<b>User ID:</b> <code>{user_id}</code>\n"
+            f"<b>Room ID:</b> <code>{room_id}</code>\n"
+            f"<i>Файл с детальным отчетом прикреплен к сообщению.</i>"
+        )
+        notifier.schedule_notification(message, 'send_connection_report', file_path=file_path)
+
+    return {"status": "ok", "filename": filename}
+
+async def get_admin_token(token: str) -> Optional[str]:
+    expiry = await database.get_admin_token_expiry(token)
+    if expiry and expiry > datetime.now(timezone.utc):
+        return token
+    raise HTTPException(status_code=403, detail="Invalid or expired token")
 
 @app.get("/admin/{token}", response_class=HTMLResponse)
-async def get_admin_page(request: Request, token: str = Depends(verify_admin_token)):
-    expires_at_iso = request.state.token_expires_at.isoformat()
-    return templates.TemplateResponse("admin.html", {"request": request, "token": token, "expires_at": expires_at_iso})
+async def get_admin_panel(request: Request, token: str = Depends(get_admin_token)):
+    expires_at = await database.get_admin_token_expiry(token)
+    return templates.TemplateResponse("admin.html", {
+        "request": request,
+        "token": token,
+        "expires_at": expires_at.isoformat()
+    })
 
-@app.get("/api/admin/stats")
-async def get_admin_stats(period: str = "all", token: str = Depends(verify_admin_token)):
-    stats = await database.get_stats(period)
-    return CustomJSONResponse(content=stats)
-
-@app.get("/api/admin/users")
-async def get_admin_users(token: str = Depends(verify_admin_token)):
-    users = await database.get_users_info()
-    return CustomJSONResponse(content=users)
-
-@app.get("/api/admin/user_actions/{user_id}")
-async def get_admin_user_actions(user_id: int, token: str = Depends(verify_admin_token)):
-    actions = await database.get_user_actions(user_id)
-    return CustomJSONResponse(content=actions)
-
-@app.get("/api/admin/connections")
-async def get_admin_connections(date: str, token: str = Depends(verify_admin_token)):
-    try:
-        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
-    
-    connections = await database.get_connections_info(date_obj)
-    return CustomJSONResponse(content=connections)
-
-@app.get("/api/admin/active_rooms")
-async def get_active_rooms(token: str = Depends(verify_admin_token)):
-    active_sessions_from_db = await database.get_all_active_sessions()
-    
-    active_rooms_info = []
-    for session in active_sessions_from_db:
-        created_at = session['created_at']
-        expires_at = session['expires_at']
-        room_id = session['room_id']
-
-        lifetime_seconds = (expires_at - created_at).total_seconds()
-        lifetime_hours = round(lifetime_seconds / 3600)
-        
-        remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
-        
-        is_admin_room = lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
-        
-        user_count = 0
-        if room_id in manager.rooms:
-            user_count = len(manager.rooms[room_id].users)
-
-        active_rooms_info.append({
-            "room_id": room_id,
-            "lifetime_hours": lifetime_hours,
-            "remaining_seconds": max(0, remaining_seconds),
-            "is_admin_room": is_admin_room,
-            "user_count": user_count,
-            "call_status": session.get('status'),
-            "call_type": session.get('call_type')
-        })
-        
-    return CustomJSONResponse(content=active_rooms_info)
-
-@app.delete("/api/admin/room/{room_id}")
-async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_token)):
-    if room_id in manager.rooms:
-        logger.info(f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
-        await manager.close_room(room_id, "Closed by admin")
-    else:
-        logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
-        await database.log_room_closure(room_id, "Closed by admin")
-        
-    return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
-
-@app.get("/api/admin/notification_settings")
-async def get_notification_settings_endpoint(token: str = Depends(verify_admin_token)):
-    settings = await database.get_notification_settings()
-    return CustomJSONResponse(content=settings)
-
-@app.post("/api/admin/notification_settings")
-async def update_notification_settings_endpoint(settings: NotificationSettings, token: str = Depends(verify_admin_token)):
-    await database.update_notification_settings(settings.dict())
-    return CustomJSONResponse(content={"status": "ok"})
-
-def sanitize_filename(filename: str):
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename.")
-    return filename
-
-@app.get("/api/admin/reports")
-async def list_reports(token: str = Depends(verify_admin_token)):
-    try:
-        files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
-        filenames = sorted([os.path.basename(f) for f in files], reverse=True)
-        return CustomJSONResponse(content=filenames)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list reports: {e}")
-
+# ... (остальные эндпоинты админ-панели без изменений) ...
 @app.get("/admin/reports/{filename}")
-async def get_report(filename: str, download: bool = False, token: str = Depends(verify_admin_token)):
-    safe_filename = sanitize_filename(filename)
-    filepath = os.path.join(LOGS_DIR, safe_filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Report not found.")
+async def get_report(filename: str, download: bool = False, token: str = Depends(get_admin_token)):
+    report_path = os.path.join("connection_reports", filename)
+    if not os.path.exists(report_path):
+        raise HTTPException(status_code=404, detail="Report not found")
     
+    media_type = "text/html"
     headers = {}
     if download:
-        headers["Content-Disposition"] = f"attachment; filename={safe_filename}"
+        media_type = "application/octet-stream"
+        headers["Content-Disposition"] = f"attachment; filename={filename}"
+
+    return FileResponse(report_path, media_type=media_type, headers=headers)
+
+@app.get("/api/admin/stats")
+async def get_stats(period: str = "all", token: str = Depends(get_admin_token)):
+    stats = await database.get_stats(period)
+    return stats
+
+@app.get("/api/admin/active_rooms")
+async def get_active_rooms(token: str = Depends(get_admin_token)):
+    sessions = await database.get_all_active_sessions()
+    now = datetime.now(timezone.utc)
+    results = []
+    for s in sessions:
+        room_id = s['room_id']
+        room_users = manager.rooms.get(room_id, {})
+        user_count = len(room_users)
         
-    return FileResponse(path=filepath, headers=headers, media_type='text/html')
+        call_status = 'pending'
+        if user_count == 2:
+            user_ids = list(room_users.keys())
+            if manager.user_status.get(user_ids[0]) == 'busy' and manager.user_status.get(user_ids[1]) == 'busy':
+                call_status = 'active'
+
+        results.append({
+            "room_id": room_id,
+            "created_at": s['created_at'],
+            "remaining_seconds": int((s['expires_at'] - now).total_seconds()),
+            "user_count": user_count,
+            "call_status": call_status,
+            "call_type": s.get('call_type'),
+            "is_admin_room": s['expires_at'] - s['created_at'] > timedelta(hours=PRIVATE_ROOM_LIFETIME_HOURS)
+        })
+    return results
+
+@app.delete("/api/admin/room/{room_id}")
+async def close_room_admin(room_id: str, token: str = Depends(get_admin_token)):
+    await manager.close_room(room_id, "closed_by_admin")
+    return {"status": "ok"}
+
+@app.get("/api/admin/users")
+async def get_all_users(token: str = Depends(get_admin_token)):
+    users = await database.get_users_info()
+    return users
+
+@app.get("/api/admin/user_actions/{user_id}")
+async def get_user_actions(user_id: int, token: str = Depends(get_admin_token)):
+    actions = await database.get_user_actions(user_id)
+    return actions
+
+@app.get("/api/admin/connections")
+async def get_connections(date: str, token: str = Depends(get_admin_token)):
+    try:
+        date_obj = datetime.strptime(date, "%Y-%m-%d").date()
+        connections = await database.get_connections_info(date_obj)
+        return connections
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
+
+@app.get("/api/admin/notification_settings")
+async def get_notification_settings(token: str = Depends(get_admin_token)):
+    settings = await database.get_notification_settings()
+    return settings
+
+@app.post("/api/admin/notification_settings")
+async def post_notification_settings(request: Request, token: str = Depends(get_admin_token)):
+    settings = await request.json()
+    await database.update_notification_settings(settings)
+    return {"status": "ok"}
+
+@app.get("/api/admin/reports")
+async def list_reports(token: str = Depends(get_admin_token)):
+    report_dir = "connection_reports"
+    if not os.path.exists(report_dir):
+        return []
+    files = sorted(os.listdir(report_dir), reverse=True)
+    return [f for f in files if f.endswith(".html")]
 
 @app.delete("/api/admin/reports/{filename}")
-async def delete_report(filename: str, token: str = Depends(verify_admin_token)):
-    safe_filename = sanitize_filename(filename)
-    filepath = os.path.join(LOGS_DIR, safe_filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Report not found.")
-    try:
-        os.remove(filepath)
-        return CustomJSONResponse(content={"status": "deleted", "filename": safe_filename})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete report: {e}")
+async def delete_report(filename: str, token: str = Depends(get_admin_token)):
+    report_path = os.path.join("connection_reports", filename)
+    if os.path.exists(report_path):
+        os.remove(report_path)
+        return {"status": "ok"}
+    raise HTTPException(status_code=404, detail="File not found")
 
 @app.delete("/api/admin/reports")
-async def delete_all_reports(token: str = Depends(verify_admin_token)):
-    try:
-        files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
-        for f in files:
-            os.remove(f)
-        return CustomJSONResponse(content={"status": "all deleted", "count": len(files)})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
+async def delete_all_reports(token: str = Depends(get_admin_token)):
+    report_dir = "connection_reports"
+    for filename in os.listdir(report_dir):
+        os.remove(os.path.join(report_dir, filename))
+    return {"status": "ok"}
 
-@app.get("/api/admin/logs", response_class=PlainTextResponse)
-async def get_app_logs(token: str = Depends(verify_admin_token)):
+@app.get("/api/admin/logs")
+async def get_logs(token: str = Depends(get_admin_token)):
     try:
-        if not os.path.exists(LOG_FILE_PATH):
-            return "Файл логов еще не создан."
-        with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
+        with open("app.log", "r", encoding="utf-8") as f:
             return f.read()
-    except Exception as e:
-        logger.error(f"Ошибка чтения файла логов: {e}")
-        raise HTTPException(status_code=500, detail="Could not read log file.")
+    except FileNotFoundError:
+        return "Log file not found."
 
 @app.get("/api/admin/logs/download")
-async def download_app_logs(token: str = Depends(verify_admin_token)):
-    if not os.path.exists(LOG_FILE_PATH):
-        raise HTTPException(status_code=404, detail="Log file not found.")
-    try:
-        with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return Response(
-            content=content,
-            media_type='text/plain',
-            headers={"Content-Disposition": "attachment; filename=app.log"}
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при чтении файла логов для скачивания: {e}")
-        raise HTTPException(status_code=500, detail="Could not read log file for download.")
+async def download_logs(token: str = Depends(get_admin_token)):
+    return FileResponse("app.log", media_type="text/plain", filename="app.log")
 
 @app.delete("/api/admin/logs")
-async def clear_app_logs(token: str = Depends(verify_admin_token)):
-    try:
-        if os.path.exists(LOG_FILE_PATH):
-            with open(LOG_FILE_PATH, 'w') as f:
-                f.truncate(0)
-            logger.info("Файл логов был очищен администратором.")
-            return CustomJSONResponse(content={"status": "log file cleared"})
-        return CustomJSONResponse(content={"status": "log file not found"})
-    except Exception as e:
-        logger.error(f"Ошибка при очистке файла логов: {e}")
-        raise HTTPException(status_code=500, detail="Could not clear log file.")
+async def clear_logs(token: str = Depends(get_admin_token)):
+    with open("app.log", "w") as f:
+        f.write("")
+    return {"status": "ok"}
 
 @app.delete("/api/admin/database")
-async def clear_database(token: str = Depends(verify_admin_token)):
-    try:
-        await database.clear_all_data()
-        return CustomJSONResponse(content={"status": "database cleared successfully"})
-    except Exception as e:
-        logger.error(f"Ошибка при очистке базы данных: {e}")
-        raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
+async def wipe_database(token: str = Depends(get_admin_token)):
+    await database.clear_all_data()
+    await database.init_db() # Re-initialize settings
+    return {"status": "ok"}
 
-@app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
-async def catch_all_invalid_paths(request: Request, full_path: str):
-    logger.warning(f"Обработан невалидный путь (catch-all): /{full_path}")
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse(
-        "invalid_link.html",
-        {"request": request, "bot_username": bot_username},
-        status_code=status.HTTP_404_NOT_FOUND
-    )
+@app.websocket("/ws/private/{room_id}")
+async def websocket_endpoint(websocket: WebSocket, room_id: str):
+    user_id = str(uuid.uuid4())
+    
+    if not await manager.connect(websocket, room_id, user_id):
+        return
+
+    ip_address = websocket.headers.get("x-forwarded-for") or websocket.client.host
+    user_agent_str = websocket.headers.get("user-agent", "")
+    
+    location_data = await utils.get_ip_location(ip_address)
+    ua_data = utils.parse_user_agent(user_agent_str)
+    
+    full_ua_data = {**ua_data, **location_data}
+    
+    asyncio.create_task(database.log_connection(room_id, ip_address, user_agent_str, full_ua_data))
+
+    await websocket.send_json({"type": "identity", "data": {"id": user_id}})
+    await manager.broadcast_user_list(room_id)
+
+    try:
+        while True:
+            data = await websocket.receive_json()
+            target_id = data.get("data", {}).get("target_id")
+            
+            if data['type'] == 'call_user':
+                manager.user_status[user_id] = 'busy'
+                manager.user_status[target_id] = 'busy'
+                await manager.broadcast_user_list(room_id)
+                
+                message = {
+                    "type": "incoming_call",
+                    "data": {
+                        "from_user": {"id": user_id},
+                        "call_type": data['data']['call_type']
+                    }
+                }
+                await manager.send_personal_message(message, target_id)
+                
+                is_admin_room = await database.get_room_lifetime_hours(room_id) > PRIVATE_ROOM_LIFETIME_HOURS
+                if not is_admin_room:
+                    message_to_admin = (
+                        f"📞 <b>Начало вызова ({data['data']['call_type']})</b>\n\n"
+                        f"<b>Room ID:</b> <code>{room_id}</code>\n"
+                        f"<b>Инициатор:</b> <code>{user_id}</code>"
+                    )
+                    notifier.schedule_notification(message_to_admin, 'notify_on_call_start')
+                
+                asyncio.create_task(database.log_call_start(room_id, data['data']['call_type']))
+
+            elif data['type'] == 'call_accepted':
+                await manager.send_personal_message({"type": "call_accepted", "data": {}}, target_id)
+
+            elif data['type'] == 'call_declined' or data['type'] == 'hangup':
+                manager.user_status[user_id] = 'online'
+                if target_id in manager.user_status:
+                    manager.user_status[target_id] = 'online'
+                
+                if data['type'] == 'hangup':
+                    await manager.send_personal_message({"type": "call_ended", "data": {}}, target_id)
+                    asyncio.create_task(database.log_call_end(room_id))
+                else: # declined
+                    await manager.send_personal_message({"type": "call_missed", "data": {}}, target_id)
+
+                await manager.broadcast_user_list(room_id)
+
+            elif data['type'] in ['offer', 'answer', 'candidate']:
+                message = {
+                    "type": data['type'],
+                    "data": {
+                        "from": user_id,
+                        **data['data']
+                    }
+                }
+                await manager.send_personal_message(message, target_id)
+
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket соединение разорвано для пользователя {user_id} в комнате {room_id}.")
+    except Exception as e:
+        logger.error(f"Произошла ошибка в WebSocket для пользователя {user_id}: {e}")
+    finally:
+        # Если пользователь был в звонке, завершаем его для другого участника
+        if manager.user_status.get(user_id) == 'busy':
+            room = manager.rooms.get(room_id, {})
+            other_user_id = next((uid for uid in room if uid != user_id), None)
+            if other_user_id:
+                await manager.send_personal_message({"type": "call_ended", "data": {}}, other_user_id)
+                manager.user_status[other_user_id] = 'online'
+                asyncio.create_task(database.log_call_end(room_id))
+
+        await manager.disconnect(room_id, user_id)
+        await manager.broadcast_user_list(room_id)

@@ -26,9 +26,12 @@ import * as monitor from './call_connection_monitor.js';
 
 const tg = window.Telegram.WebApp;
 
+// НОВЫЙ ФЛАГ ДЛЯ ОПРЕДЕЛЕНИЯ iOS
+const IS_IOS = document.body.dataset.isIos === 'True';
+
 let currentUser = {};
 let targetUser = {};
-let currentCallType = 'audio';
+let currentCallType = 'audio'; // Хранит НАМЕРЕНИЕ пользователя (audio или video)
 let callTimerInterval;
 let lifetimeTimerInterval;
 let uiFadeTimeout = null;
@@ -87,7 +90,6 @@ function loadIcons() {
     });
 }
 
-// НОВОЕ: Функция для проверки поддержки смены аудиовыхода
 function isSetSinkIdSupported() {
     return 'setSinkId' in HTMLMediaElement.prototype;
 }
@@ -95,7 +97,7 @@ function isSetSinkIdSupported() {
 document.addEventListener('DOMContentLoaded', async () => {
     loadIcons();
     const path = window.location.pathname;
-    logToScreen(`App loaded. Path: ${path}`);
+    logToScreen(`App loaded. Path: ${path}. Is iOS: ${IS_IOS}`);
 
     try {
         logToScreen("Fetching ICE servers configuration from server...");
@@ -189,19 +191,23 @@ function initializePrivateCallMode() {
 
 async function runPreCallCheck() {
     showScreen('pre-call-check');
+
+    // ИЗМЕНЕНИЕ: Адаптивный текст для iOS
+    if (IS_IOS) {
+        const subtitle = document.querySelector('#pre-call-check-screen .check-subtitle');
+        subtitle.textContent = "Для аудиозвонков по громкой связи может потребоваться доступ к камере. Это особенность iOS.";
+    }
     
     const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
     if (!hasCameraAccess || !hasMicrophoneAccess) {
-        displayMediaErrors({ name: 'NotFoundError' }); // Simplified error display
+        displayMediaErrors({ name: 'NotFoundError' });
         continueSpectatorBtn.style.display = 'block';
     }
 
     updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
     if (hasCameraAccess || hasMicrophoneAccess) {
-        // Важно: populateDeviceSelectors вызывается ПОСЛЕ initializePreview,
-        // чтобы получить полный список устройств на мобильных.
         const selectedIds = await media.populateDeviceSelectors(
             cameraSelect, micSelect, speakerSelect,
             cameraSelectContainer, micSelectContainer, speakerSelectContainer
@@ -234,7 +240,6 @@ function displayMediaErrors(error) {
     } else {
         message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
     }
-    // Placeholder for a more elegant error display
     console.error(message);
 }
 
@@ -252,7 +257,6 @@ async function updatePreviewStream() {
 
     await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
     
-    // ИЗМЕНЕНИЕ: После смены устройства ввода, переключаем и вывод звука, если это возможно
     if (isSetSinkIdSupported()) {
         await switchAudioOutput(selectedAudioOutId);
     }
@@ -277,7 +281,9 @@ function proceedToCall(asSpectator = false) {
             ringOutAudio.pause(); 
             ringOutAudio.currentTime = 0;
             const localStream = media.getLocalStream();
-            webrtc.startPeerConnection(targetUser.id, true, currentCallType, localStream, rtcConfig, monitor.connectionLogger);
+            // ИЗМЕНЕНИЕ: Определяем реальный тип звонка для WebRTC
+            const effectiveCallType = (IS_IOS && currentCallType === 'audio') ? 'video' : currentCallType;
+            webrtc.startPeerConnection(targetUser.id, true, effectiveCallType, localStream, rtcConfig, monitor.connectionLogger);
         },
         onOffer: (data) => {
             const localStream = media.getLocalStream();
@@ -354,16 +360,34 @@ function handleUserList(users) {
 }
 
 async function initiateCall(userToCall, callType) {
-    logToScreen(`[CALL] Initiating call to user ${userToCall.id}, type: ${callType}`);
+    logToScreen(`[CALL] User wants to initiate ${callType} call to ${userToCall.id}`);
     isCallInitiator = true;
-    currentCallType = callType;
+    currentCallType = callType; // Сохраняем намерение пользователя
     
-    if (currentCallType === 'video') {
+    // ИЗМЕНЕНИЕ: Логика "апгрейда" аудиозвонка до видео для iOS
+    let effectiveCallType = callType;
+    const isVideoForAudio = IS_IOS && callType === 'audio';
+    if (isVideoForAudio) {
+        logToScreen("[iOS WORKAROUND] Upgrading audio call to video call to force speakerphone.");
+        effectiveCallType = 'video';
+    }
+
+    if (effectiveCallType === 'video') {
         remoteVideo.play().catch(() => {});
     }
 
-    const hasMedia = await initializeLocalMedia(currentCallType === 'video');
+    const hasMedia = await initializeLocalMedia(effectiveCallType === 'video');
     if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
+
+    // ИЗМЕНЕНИЕ: Если это "фейковый" видеозвонок, сразу отключаем видео
+    if (isVideoForAudio) {
+        const localStream = media.getLocalStream();
+        if (localStream && localStream.getVideoTracks().length > 0) {
+            localStream.getVideoTracks().forEach(track => track.enabled = false);
+            isVideoEnabled = false; // Обновляем состояние
+            logToScreen("[iOS WORKAROUND] Video track disabled immediately after getting stream.");
+        }
+    }
 
     targetUser = userToCall;
 
@@ -371,10 +395,10 @@ async function initiateCall(userToCall, callType) {
     const probeResults = await monitor.probeIceServers();
     monitor.connectionLogger.setProbeResults(probeResults);
 
-    sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
+    sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: effectiveCallType } });
 
     showScreen('call');
-    updateCallUI();
+    updateCallUI(); // UI будет настроен на основе `currentCallType`, а не `effectiveCallType`
     callTimer.textContent = "Вызов...";
     ringOutAudio.play();
 }
@@ -383,6 +407,7 @@ function handleIncomingCall(data) {
     logToScreen(`[CALL] Incoming call from ${data.from_user?.id}, type: ${data.call_type}`);
     isCallInitiator = false;
     targetUser = data.from_user;
+    // ИЗМЕНЕНИЕ: Сохраняем реальный тип звонка от собеседника
     currentCallType = data.call_type;
 
     callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
@@ -396,12 +421,30 @@ async function acceptCall() {
     stopIncomingRing();
     showModal('incoming-call', false);
 
-    if (currentCallType === 'video') {
+    // ИЗМЕНЕНИЕ: Логика "апгрейда" для iOS при приеме аудиозвонка
+    let effectiveCallTypeForMedia = currentCallType;
+    const isVideoForAudio = IS_IOS && currentCallType === 'audio';
+    if (isVideoForAudio) {
+        logToScreen("[iOS WORKAROUND] Receiving audio call, getting video stream to force speakerphone.");
+        effectiveCallTypeForMedia = 'video';
+    }
+
+    if (effectiveCallTypeForMedia === 'video') {
         remoteVideo.play().catch(() => {});
     }
 
-    const hasMedia = await initializeLocalMedia(currentCallType === 'video');
+    const hasMedia = await initializeLocalMedia(effectiveCallTypeForMedia === 'video');
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
+
+    // ИЗМЕНЕНИЕ: Отключаем видео, если это "фейковый" видеозвонок
+    if (isVideoForAudio) {
+        const localStream = media.getLocalStream();
+        if (localStream && localStream.getVideoTracks().length > 0) {
+            localStream.getVideoTracks().forEach(track => track.enabled = false);
+            isVideoEnabled = false;
+            logToScreen("[iOS WORKAROUND] Video track disabled for incoming call.");
+        }
+    }
 
     logToScreen("[CALL] Starting WebRTC connection.");
     
@@ -625,6 +668,7 @@ function stopIncomingRing() {
 
 function updateCallUI() {
     remoteUserName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
+    // ИЗМЕНЕНИЕ: UI всегда зависит от НАМЕРЕНИЯ пользователя (`currentCallType`)
     const isVideoCall = currentCallType === 'video';
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     
@@ -666,14 +710,12 @@ async function openDeviceSettings() {
 }
 
 async function populateDeviceSelectorsInCall() {
-    // ИЗМЕНЕНИЕ: Запрашиваем устройства заново, чтобы получить актуальный список
     const devices = await navigator.mediaDevices.enumerateDevices();
     videoDevices = devices.filter(d => d.kind === 'videoinput');
     audioInDevices = devices.filter(d => d.kind === 'audioinput');
     audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
 
     const populate = (select, devicesList, container, currentId) => {
-        // Показываем контейнер, если есть хотя бы одно устройство для выбора
         container.style.display = devicesList.length > 0 ? 'flex' : 'none';
         if (devicesList.length === 0) return;
         
@@ -696,7 +738,6 @@ async function populateDeviceSelectorsInCall() {
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
     
-    // НОВОЕ: Адаптивное отображение выбора динамиков
     if (isSetSinkIdSupported()) {
         logToScreen("[SINK] setSinkId is supported. Populating speaker list.");
         populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, selectedAudioOutId);
@@ -720,13 +761,11 @@ async function switchInputDevice(kind, deviceId) {
 }
 
 async function switchAudioOutput(deviceId) {
-    // НОВОЕ: Дополнительная проверка перед вызовом
     if (!isSetSinkIdSupported()) {
         logToScreen('[SINK] Attempted to switch audio output, but setSinkId() is not supported.');
         return;
     }
     try {
-        // Применяем один и тот же ID к обоим элементам для надежности
         await remoteVideo.setSinkId(deviceId);
         await remoteAudio.setSinkId(deviceId);
         selectedAudioOutId = deviceId;
