@@ -458,12 +458,13 @@ details summary span {
     padding: 1rem;
     max-height: 500px;
     overflow-y: auto;
-    white-space: pre;
+    white-space: pre-wrap; /* ИЗМЕНЕНО */
+    overflow-wrap: break-word; /* ДОБАВЛЕНО */
     font-family: monospace;
     font-size: 0.85em;
 }
 
-/* --- НОВЫЕ СТИЛИ ДЛЯ ЛОГОВ --- */
+/* --- СТИЛИ ДЛЯ ЛОГОВ --- */
 .log-line {
     display: block;
     padding: 0.1em 0;
