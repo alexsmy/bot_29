@@ -561,13 +561,14 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
 
-@app.get("/api/admin/logs", response_class=PlainTextResponse)
+@app.get("/api/admin/logs")
 async def get_app_logs(token: str = Depends(verify_admin_token)):
     try:
         if not os.path.exists(LOG_FILE_PATH):
-            return "Файл логов еще не создан."
+            return PlainTextResponse("Файл логов еще не создан.")
         with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
-            return f.read()
+            content = f.read()
+        return PlainTextResponse(content)
     except Exception as e:
         logger.error(f"Ошибка чтения файла логов: {e}")
         raise HTTPException(status_code=500, detail="Could not read log file.")
