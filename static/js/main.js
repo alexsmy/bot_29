@@ -1,4 +1,5 @@
-
+### static/js/main.js
+``````javascript
 // static/js/main.js
 
 import {
@@ -85,6 +86,11 @@ function loadIcons() {
             console.warn(`Icon with name "${iconName}" not found.`);
         }
     });
+}
+
+// НОВОЕ: Функция для проверки поддержки смены аудиовыхода
+function isSetSinkIdSupported() {
+    return 'setSinkId' in HTMLMediaElement.prototype;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -246,6 +252,11 @@ async function updatePreviewStream() {
     };
 
     await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
+    
+    // ИЗМЕНЕНИЕ: После смены устройства ввода, переключаем и вывод звука, если это возможно
+    if (isSetSinkIdSupported()) {
+        await switchAudioOutput(selectedAudioOutId);
+    }
 }
 
 function proceedToCall(asSpectator = false) {
@@ -656,6 +667,7 @@ async function openDeviceSettings() {
 }
 
 async function populateDeviceSelectorsInCall() {
+    // ИЗМЕНЕНИЕ: Запрашиваем устройства заново, чтобы получить актуальный список
     const devices = await navigator.mediaDevices.enumerateDevices();
     videoDevices = devices.filter(d => d.kind === 'videoinput');
     audioInDevices = devices.filter(d => d.kind === 'audioinput');
@@ -684,7 +696,15 @@ async function populateDeviceSelectorsInCall() {
     
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
-    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, selectedAudioOutId);
+    
+    // НОВОЕ: Адаптивное отображение выбора динамиков
+    if (isSetSinkIdSupported()) {
+        logToScreen("[SINK] setSinkId is supported. Populating speaker list.");
+        populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, selectedAudioOutId);
+    } else {
+        logToScreen("[SINK] setSinkId is NOT supported. Hiding speaker selection.");
+        speakerSelectContainerCall.style.display = 'none';
+    }
 }
 
 async function switchInputDevice(kind, deviceId) {
@@ -701,13 +721,13 @@ async function switchInputDevice(kind, deviceId) {
 }
 
 async function switchAudioOutput(deviceId) {
-    if (typeof remoteVideo.setSinkId !== 'function') {
-        logToScreen('[SINK] setSinkId() is not supported by this browser.');
-        alert('Ваш браузер не поддерживает переключение динамиков.');
+    // НОВОЕ: Дополнительная проверка перед вызовом
+    if (!isSetSinkIdSupported()) {
+        logToScreen('[SINK] Attempted to switch audio output, but setSinkId() is not supported.');
         return;
     }
     try {
-        // Применяем один и тот же ID к обоим элементам
+        // Применяем один и тот же ID к обоим элементам для надежности
         await remoteVideo.setSinkId(deviceId);
         await remoteAudio.setSinkId(deviceId);
         selectedAudioOutId = deviceId;
