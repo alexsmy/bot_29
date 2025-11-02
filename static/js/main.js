@@ -1,21 +1,14 @@
 // static/js/main.js
 
 import {
-    preCallCheckScreen, previewVideo, micLevelBars, cameraStatus, cameraStatusText,
-    micStatus, micStatusText, continueToCallBtn, continueSpectatorBtn, cameraSelect,
+    previewVideo, micLevelBars, continueToCallBtn, continueSpectatorBtn, cameraSelect,
     micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
-    preCallScreen, popupWaiting, popupActions, popupInitiating, lifetimeTimer,
-    closeSessionBtn, instructionsBtn, instructionsModal, closeInstructionsBtns, callScreen,
-    audioCallVisualizer, localGlow, remoteGlow, incomingCallModal, callerName,
-    incomingCallType, acceptBtn, declineBtn, hangupBtn, remoteUserName, callTimer,
-    speakerBtn, muteBtn, videoBtn, videoControlItem, switchCameraBtn, switchCameraControlItem,
-    screenShareBtn, screenShareControlItem, localAudio, remoteAudio, localVideo, remoteVideo,
-    localVideoContainer, toggleLocalViewBtn, toggleRemoteViewBtn, ringOutAudio, connectAudio,
-    ringInAudio, connectionStatus, connectionQuality, qualityGoodSvg, qualityMediumSvg,
-    qualityBadSvg, remoteAudioLevel, remoteAudioLevelBars, connectionInfoPopup,
-    remoteMuteToast, connectionToast, deviceSettingsBtn, deviceSettingsModal,
-    closeSettingsBtns, cameraSelectCall, micSelectCall, speakerSelectCall,
-    cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall
+    lifetimeTimer, closeSessionBtn, instructionsBtn, instructionsModal, closeInstructionsBtns,
+    acceptBtn, declineBtn, hangupBtn, speakerBtn, muteBtn, videoBtn, screenShareBtn,
+    localAudio, remoteVideo, localVideoContainer, toggleLocalViewBtn, toggleRemoteViewBtn,
+    ringOutAudio, connectAudio, ringInAudio, connectionStatus, deviceSettingsBtn,
+    deviceSettingsModal, closeSettingsBtns, cameraSelectCall, micSelectCall, speakerSelectCall,
+    popupActions, callScreen
 } from './call_ui_elements.js';
 
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
@@ -36,9 +29,6 @@ let isVideoEnabled = true;
 let isSpectator = false;
 let roomId = '';
 let rtcConfig = null;
-let videoDevices = [];
-let audioInDevices = [];
-let audioOutDevices = [];
 let selectedVideoId = null;
 let selectedAudioInId = null;
 let selectedAudioOutId = null;
@@ -183,13 +173,13 @@ function initializePrivateCallMode() {
 }
 
 async function runPreCallCheck() {
-    ui.showScreen('pre-call-check');
+    // ui.showScreen('pre-call-check'); // No longer needed, set by default in HTML
     
     const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
     if (!hasCameraAccess || !hasMicrophoneAccess) {
-        ui.displayMediaErrors({ name: 'NotFoundError' }); // Simplified error display
-        continueSpectatorBtn.style.display = 'block';
+        ui.displayMediaErrors({ name: 'NotFoundError' });
+        ui.showSpectatorButton(true);
     }
 
     ui.updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
@@ -202,7 +192,7 @@ async function runPreCallCheck() {
         selectedVideoId = selectedIds.videoId;
         selectedAudioInId = selectedIds.audioInId;
         selectedAudioOutId = selectedIds.audioOutId;
-        continueToCallBtn.disabled = false;
+        ui.setPreCallReadyState(true);
     } else {
         logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
     }
@@ -305,7 +295,7 @@ async function initiateCall(userToCall, callType) {
 
     ui.showScreen('call');
     ui.updateCallUI(currentCallType, targetUser, media.getMediaAccessStatus(), isMobileDevice());
-    callTimer.textContent = "Вызов...";
+    ui.setCallStatusText("Вызов...");
     ringOutAudio.play();
 }
 
@@ -315,9 +305,7 @@ function handleIncomingCall(data) {
     targetUser = data.from_user;
     currentCallType = data.call_type;
 
-    callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
-    incomingCallType.textContent = currentCallType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
-    ui.showModal('incoming-call', true);
+    ui.showIncomingCallUI(`${targetUser?.first_name || 'Собеседник'}`, currentCallType);
     ringInAudio.play();
 }
 
@@ -365,27 +353,19 @@ async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
-    connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
-
     webrtc.endPeerConnection();
     media.stopAllStreams();
-    if (remoteAudioLevel) remoteAudioLevel.style.display = 'none';
 
     ringOutAudio.pause(); ringOutAudio.currentTime = 0;
     ui.stopIncomingRing();
-
-    localAudio.srcObject = null;
-    localVideo.srcObject = null;
-    localVideoContainer.style.display = 'none';
-    remoteVideo.style.display = 'none';
     
     ui.stopTimer();
     ui.showModal('incoming-call', false);
     ui.showScreen('pre-call');
+    ui.resetCallControls();
 
     targetUser = {};
-    ui.resetCallControls();
     isEndingCall = false;
 }
 
@@ -407,11 +387,12 @@ function setupEventListeners() {
     
     closeSessionBtn.addEventListener('click', closeSession);
 
-    instructionsBtn.addEventListener('click', () => instructionsModal.classList.add('active'));
-    closeInstructionsBtns.forEach(btn => btn.addEventListener('click', () => instructionsModal.classList.remove('active')));
+    instructionsBtn.addEventListener('click', () => ui.showModal('instructions', true));
+    closeInstructionsBtns.forEach(btn => btn.addEventListener('click', () => ui.showModal('instructions', false)));
 
-    deviceSettingsBtn.addEventListener('click', openDeviceSettings);
-    closeSettingsBtns.forEach(btn => btn.addEventListener('click', () => deviceSettingsModal.classList.remove('active')));
+    deviceSettingsBtn.addEventListener('click', () => ui.openDeviceSettings(media.getLocalStream()));
+    closeSettingsBtns.forEach(btn => btn.addEventListener('click', () => ui.showModal('device-settings', false)));
+    
     cameraSelectCall.addEventListener('change', (e) => switchInputDevice('video', e.target.value));
     micSelectCall.addEventListener('change', (e) => switchInputDevice('audio', e.target.value));
     speakerSelectCall.addEventListener('change', (e) => switchAudioOutput(e.target.value));
@@ -556,44 +537,6 @@ function toggleVideo() {
     videoBtn.classList.toggle('active', !isVideoEnabled);
     localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
-}
-
-async function openDeviceSettings() {
-    await populateDeviceSelectorsInCall();
-    deviceSettingsModal.classList.add('active');
-}
-
-async function populateDeviceSelectorsInCall() {
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    videoDevices = devices.filter(d => d.kind === 'videoinput');
-    audioInDevices = devices.filter(d => d.kind === 'audioinput');
-    audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
-
-    const populate = (select, devicesList, container, currentId) => {
-        if (devicesList.length < 2) {
-            container.style.display = 'none';
-            return;
-        }
-        select.innerHTML = '';
-        devicesList.forEach(device => {
-            const option = document.createElement('option');
-            option.value = device.deviceId;
-            option.textContent = device.label || `${select.id} ${select.options.length + 1}`;
-            if (device.deviceId === currentId) {
-                option.selected = true;
-            }
-            select.appendChild(option);
-        });
-        container.style.display = 'flex';
-    };
-
-    const localStream = media.getLocalStream();
-    const currentAudioTrack = localStream?.getAudioTracks()[0];
-    const currentVideoTrack = localStream?.getVideoTracks()[0];
-    
-    populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
-    populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
-    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, remoteVideo.sinkId);
 }
 
 async function switchInputDevice(kind, deviceId) {

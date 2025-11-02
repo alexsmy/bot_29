@@ -7,12 +7,17 @@ import {
     remoteVideo, audioCallVisualizer, connectionQuality, qualityGoodSvg, qualityMediumSvg,
     qualityBadSvg, connectionStatus, connectionInfoPopup, remoteMuteToast, connectionToast,
     ringInAudio, screenShareBtn, localVideoContainer, remoteMuteToastTimeout,
-    ICONS, toggleLocalViewBtn, toggleRemoteViewBtn,
+    ICONS, toggleLocalViewBtn, toggleRemoteViewBtn, continueToCallBtn, continueSpectatorBtn,
+    cameraStatus, cameraStatusText, micStatus, micStatusText, callerName, incomingCallType,
+    localAudio, localVideo, speakerBtn, videoBtn,
+    cameraSelectCall, micSelectCall, speakerSelectCall,
+    cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall
 } from './call_ui_elements.js';
 
 let callTimerInterval;
 let uiFadeTimeout;
 let infoPopupTimeout;
+let localRemoteMuteToastTimeout;
 
 // --- Управление видимостью экранов и окон ---
 
@@ -29,6 +34,39 @@ export function showModal(modalName, show) {
 export function showPopup(popupName) {
     document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
     if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
+}
+
+// --- Экран проверки оборудования ---
+
+export function setPreCallReadyState(isReady) {
+    continueToCallBtn.disabled = !isReady;
+}
+
+export function showSpectatorButton(show) {
+    continueSpectatorBtn.style.display = show ? 'block' : 'none';
+}
+
+export function updateStatusIndicators(hasCamera, hasMic) {
+    cameraStatus.classList.toggle('status-ok', hasCamera);
+    cameraStatus.classList.toggle('status-error', !hasCamera);
+    cameraStatusText.textContent = `Камера: ${hasCamera ? 'OK' : 'Нет доступа'}`;
+
+    micStatus.classList.toggle('status-ok', hasMic);
+    micStatus.classList.toggle('status-error', !hasMic);
+    micStatusText.textContent = `Микрофон: ${hasMic ? 'OK' : 'Нет доступа'}`;
+}
+
+export function displayMediaErrors(error) {
+    let message = 'Не удалось получить доступ к камере и/или микрофону. ';
+    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        message += 'Вы заблокировали доступ. Пожалуйста, измените разрешения в настройках браузера.';
+    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        message += 'Устройства не найдены. Убедитесь, что они подключены и работают.';
+    } else {
+        message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
+    }
+    console.error(message);
+    // Здесь можно будет добавить вывод ошибки в красивом модальном окне
 }
 
 // --- Управление UI во время звонка ---
@@ -67,24 +105,45 @@ export function updateCallUI(currentCallType, targetUser, mediaAccess, isMobile)
 }
 
 export function resetCallControls() {
+    // Сброс состояния кнопок
     muteBtn.classList.remove('active');
     videoBtn.classList.remove('active');
     speakerBtn.classList.remove('active');
     screenShareBtn.classList.remove('active');
+
+    // Сброс вида видео
     localVideo.classList.remove('force-cover');
     remoteVideo.classList.remove('force-cover');
     toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
     toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
+
+    // Сброс UI-эффектов
     clearTimeout(uiFadeTimeout);
     removeVideoCallUiListeners();
     callScreen.classList.remove('ui-faded', 'ui-interactive', 'video-call-active', 'audio-call-active');
+    
+    // Скрытие/очистка элементов
     audioCallVisualizer.style.display = 'none';
     remoteUserName.style.display = 'block';
+    localAudio.srcObject = null;
+    localVideo.srcObject = null;
+    localVideoContainer.style.display = 'none';
+    remoteVideo.style.display = 'none';
 }
 
 export function updateScreenShareUI(isSharing, isVideoEnabled, currentCallType) {
     screenShareBtn.classList.toggle('active', isSharing);
     localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'flex' : 'none');
+}
+
+export function setCallStatusText(text) {
+    callTimer.textContent = text;
+}
+
+export function showIncomingCallUI(caller, callType) {
+    callerName.textContent = caller;
+    incomingCallType.textContent = callType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
+    showModal('incoming-call', true);
 }
 
 // --- Управление таймером ---
@@ -182,11 +241,11 @@ export function showConnectionToast(type, message) {
 }
 
 export function handleRemoteMuteStatus(isMuted) {
-    clearTimeout(remoteMuteToastTimeout);
+    clearTimeout(localRemoteMuteToastTimeout);
     if (isMuted) {
         remoteMuteToast.textContent = "Собеседник выключил микрофон. 🔇";
         remoteMuteToast.classList.add('visible');
-        remoteMuteToastTimeout = setTimeout(() => {
+        localRemoteMuteToastTimeout = setTimeout(() => {
             remoteMuteToast.classList.remove('visible');
         }, 3000);
     } else {
@@ -201,25 +260,41 @@ export function stopIncomingRing() {
     ringInAudio.currentTime = 0;
 }
 
-export function updateStatusIndicators(hasCamera, hasMic) {
-    cameraStatus.classList.toggle('status-ok', hasCamera);
-    cameraStatus.classList.toggle('status-error', !hasCamera);
-    cameraStatusText.textContent = `Камера: ${hasCamera ? 'OK' : 'Нет доступа'}`;
+// --- Настройки устройств во время звонка ---
 
-    micStatus.classList.toggle('status-ok', hasMic);
-    micStatus.classList.toggle('status-error', !hasMic);
-    micStatusText.textContent = `Микрофон: ${hasMic ? 'OK' : 'Нет доступа'}`;
+async function populateDeviceSelectorsInCall(localStream) {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const videoDevices = devices.filter(d => d.kind === 'videoinput');
+    const audioInDevices = devices.filter(d => d.kind === 'audioinput');
+    const audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
+
+    const populate = (select, devicesList, container, currentId) => {
+        if (devicesList.length < 2) {
+            container.style.display = 'none';
+            return;
+        }
+        select.innerHTML = '';
+        devicesList.forEach(device => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.textContent = device.label || `${select.id} ${select.options.length + 1}`;
+            if (device.deviceId === currentId) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+        container.style.display = 'flex';
+    };
+
+    const currentAudioTrack = localStream?.getAudioTracks()[0];
+    const currentVideoTrack = localStream?.getVideoTracks()[0];
+    
+    populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
+    populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
+    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, remoteVideo.sinkId);
 }
 
-export function displayMediaErrors(error) {
-    let message = 'Не удалось получить доступ к камере и/или микрофону. ';
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        message += 'Вы заблокировали доступ. Пожалуйста, измените разрешения в настройках браузера.';
-    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        message += 'Устройства не найдены. Убедитесь, что они подключены и работают.';
-    } else {
-        message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
-    }
-    // Placeholder for a more elegant error display
-    console.error(message);
+export async function openDeviceSettings(localStream) {
+    await populateDeviceSelectorsInCall(localStream);
+    showModal('device-settings', true);
 }
