@@ -50,6 +50,15 @@ let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
 
+// --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
+/**
+ * Проверяет, является ли текущее устройство устройством на базе iOS.
+ * @returns {boolean}
+ */
+function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
+
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
     fetch('/log', {
@@ -184,6 +193,12 @@ function initializePrivateCallMode() {
 
 async function runPreCallCheck() {
     showScreen('pre-call-check');
+
+    // --- ИЗМЕНЕНИЕ: Показываем уведомление для iOS ---
+    const iosNote = document.getElementById('ios-audio-permission-note');
+    if (isIOS()) {
+        iosNote.style.display = 'block';
+    }
     
     const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
@@ -195,8 +210,6 @@ async function runPreCallCheck() {
     updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
     if (hasCameraAccess || hasMicrophoneAccess) {
-        // Важно: populateDeviceSelectors вызывается ПОСЛЕ initializePreview,
-        // чтобы получить полный список устройств на мобильных.
         const selectedIds = await media.populateDeviceSelectors(
             cameraSelect, micSelect, speakerSelect,
             cameraSelectContainer, micSelectContainer, speakerSelectContainer
@@ -352,7 +365,7 @@ async function initiateCall(userToCall, callType) {
         remoteVideo.play().catch(() => {});
     }
 
-    const hasMedia = await initializeLocalMedia(currentCallType === 'video');
+    const hasMedia = await initializeLocalMedia(currentCallType);
     if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
 
     targetUser = userToCall;
@@ -390,7 +403,7 @@ async function acceptCall() {
         remoteVideo.play().catch(() => {});
     }
 
-    const hasMedia = await initializeLocalMedia(currentCallType === 'video');
+    const hasMedia = await initializeLocalMedia(currentCallType);
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
 
     logToScreen("[CALL] Starting WebRTC connection.");
@@ -558,32 +571,44 @@ function setupLocalVideoInteraction() {
     localVideoContainer.addEventListener('touchstart', onDragStart, { passive: true });
 }
 
-async function initializeLocalMedia(isVideo) {
+// --- ОСНОВНЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ ---
+async function initializeLocalMedia(callType) {
     if (isSpectator) {
         logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
         return false;
     }
-    logToScreen(`[MEDIA] Requesting media. Video requested: ${isVideo}`);
+    logToScreen(`[MEDIA] Requesting media for call type: ${callType}`);
     
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
+    let isVideoCall = callType === 'video';
+    
+    // Наш "умный" режим для iOS
+    const isIOSAudioCall = isIOS() && callType === 'audio';
+    if (isIOSAudioCall) {
+        logToScreen("[MEDIA_IOS] Audio call on iOS detected. Requesting video to force speakerphone.");
+        isVideoCall = true; // Технически запрашиваем видео
+    }
+
     const constraints = {
         audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
-        video: isVideo && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
+        video: isVideoCall && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
     const result = await media.getStreamForCall(constraints, localVideo, localAudio);
     
     if (result.stream) {
-        if (result.isVideo) {
+        // Если это был "фейковый" видео-запрос для аудиозвонка на iOS
+        if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
+            logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
+            result.stream.getVideoTracks()[0].enabled = false;
+            localVideoContainer.style.display = 'none';
+            isVideoEnabled = false;
+        } else if (result.isVideo) {
             localVideoContainer.style.display = 'flex';
             isVideoEnabled = true;
         } else {
             localVideoContainer.style.display = 'none';
             isVideoEnabled = false;
-            if (constraints.video) {
-                logToScreen("[MEDIA] WARNING: Video requested but no video track found.");
-                currentCallType = 'audio';
-            }
         }
         return true;
     }
@@ -618,9 +643,12 @@ function updateCallUI() {
     const isVideoCall = currentCallType === 'video';
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     
+    // Показываем кнопку управления видео только если это НАСТОЯЩИЙ видеозвонок
     videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
     muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
     screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
+    
+    // Показываем видео элементы только для НАСТОЯЩИХ видеозвонков
     remoteVideo.style.display = isVideoCall ? 'block' : 'none';
     
     callScreen.classList.toggle('video-call-active', isVideoCall);
@@ -662,7 +690,6 @@ async function populateDeviceSelectorsInCall() {
     audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
 
     const populate = (select, devicesList, container, currentId) => {
-        // Показываем контейнер, если есть хотя бы одно устройство для выбора
         container.style.display = devicesList.length > 0 ? 'flex' : 'none';
         if (devicesList.length === 0) return;
         
@@ -707,7 +734,6 @@ async function switchAudioOutput(deviceId) {
         return;
     }
     try {
-        // Применяем один и тот же ID к обоим элементам
         await remoteVideo.setSinkId(deviceId);
         await remoteAudio.setSinkId(deviceId);
         selectedAudioOutId = deviceId;

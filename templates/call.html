@@ -1,4 +1,4 @@
-<!-- templates/call.html -->
+
 
 <!DOCTYPE html>
 <html lang="ru">
@@ -18,6 +18,11 @@
         <div id="pre-call-check-screen" class="screen">
             <div class="check-container">
                 <p class="check-subtitle">Пожалуйста, предоставьте доступ к камере и микрофону.</p>
+                
+                <!-- НОВЫЙ БЛОК ДЛЯ УВЕДОМЛЕНИЯ НА IOS -->
+                <p id="ios-audio-permission-note" class="ios-note">
+                    На устройствах iOS для использования громкой связи в аудиозвонке может потребоваться разрешение на доступ к камере. Камера не будет использоваться.
+                </p>
 
                 <div class="media-preview-area">
                     <video id="previewVideo" autoplay muted playsinline></video>

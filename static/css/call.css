@@ -1,3 +1,4 @@
+
 #app-container {
   position: relative;
   width: 100%;
@@ -188,6 +189,18 @@
 }
 .continue-btn.spectator:hover {
     background: #444;
+}
+
+/* СТИЛИ ДЛЯ НОВОГО УВЕДОМЛЕНИЯ */
+.ios-note {
+    display: none; /* Скрыто по умолчанию */
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 8px;
+    border-radius: 8px;
+    margin: 0;
+    line-height: 1.4;
 }
 
 
