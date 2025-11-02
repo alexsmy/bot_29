@@ -422,6 +422,7 @@ async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
+    connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
 
     webrtc.endPeerConnection();
@@ -755,6 +756,7 @@ function startTimer() {
         audioCallVisualizer.style.display = 'flex';
     }
 
+    connectionQuality.classList.add('active');
     monitor.startConnectionMonitoring();
 }
 

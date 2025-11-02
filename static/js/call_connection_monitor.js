@@ -253,9 +253,9 @@ async function monitorConnectionStats() {
                 if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
                     initialConnectionToastShown = true;
                     if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
-                        showConnectionToast('good', 'Установлено прямое P2P-соединение. Качество связи будет максимальным.');
+                        showConnectionToast('good', 'Установлено прямое P2P-соединение.');
                     } else if (connectionTypeForIcon === 'relay') {
-                        showConnectionToast('bad', 'Прямое соединение не удалось. Звонок идет через сервер, возможны задержки.');
+                        showConnectionToast('bad', 'Cоединение через сервер.');
                     }
                 }
 
@@ -298,7 +298,6 @@ export function startConnectionMonitoring() {
     initialConnectionToastShown = false;
     updateConnectionIcon('unknown');
     updateConnectionQualityIcon('unknown');
-    connectionQuality.classList.add('active');
 }
 
 export function stopConnectionMonitoring() {
@@ -308,7 +307,6 @@ export function stopConnectionMonitoring() {
     currentConnectionDetails = null;
     currentConnectionType = 'unknown';
     initialConnectionToastShown = false;
-    connectionQuality.classList.remove('active');
     updateConnectionQualityIcon('unknown');
     updateConnectionIcon('unknown');
 }
