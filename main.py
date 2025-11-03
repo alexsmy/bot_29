@@ -1,5 +1,3 @@
-# main.py
-
 import asyncio
 import os
 import uuid
@@ -70,10 +68,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
-
-class ConnectionTypeUpdate(BaseModel):
-    room_id: str
-    connection_type: str
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -246,14 +240,6 @@ manager = ConnectionManager()
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
     return CustomJSONResponse(content={"status": "logged"}, status_code=200)
-
-@app.post("/api/connection-type")
-async def update_connection_type(data: ConnectionTypeUpdate, request: Request):
-    x_forwarded_for = request.headers.get("x-forwarded-for")
-    ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (request.headers.get("x-real-ip") or request.client.host)
-    
-    await database.update_connection_type(data.room_id, ip_address, data.connection_type)
-    return CustomJSONResponse(content={"status": "ok"})
 
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
@@ -469,17 +455,8 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
     
-    sessions = await database.get_connections_info(date_obj)
-    
-    # Переносим данные о звонке в первую группу звонков для удобства фронтенда
-    for session in sessions:
-        if session.get('call_groups'):
-            first_group = session['call_groups'][0]
-            first_group['call_type'] = session.pop('call_type', None)
-            first_group['duration_seconds'] = session.pop('duration_seconds', None)
-            first_group['close_reason'] = session.pop('close_reason', None)
-
-    return CustomJSONResponse(content=sessions)
+    connections = await database.get_connections_info(date_obj)
+    return CustomJSONResponse(content=connections)
 
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):

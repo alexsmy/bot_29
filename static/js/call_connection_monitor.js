@@ -1,7 +1,5 @@
 // static/js/call_connection_monitor.js
 
-// static/js/call_connection_monitor.js
-
 let log = () => {};
 let getPeerConnection = () => null;
 let updateConnectionIcon = () => {};
@@ -15,7 +13,6 @@ let currentConnectionDetails = null;
 let connectionStatsInterval = null;
 let initialConnectionToastShown = false;
 let currentConnectionType = 'unknown';
-let connectionTypeSent = false; // Флаг для предотвращения повторной отправки
 
 export function init(callbacks) {
     log = callbacks.log;
@@ -26,26 +23,6 @@ export function init(callbacks) {
     getIceServerDetails = callbacks.getIceServerDetails;
     getRtcConfig = callbacks.getRtcConfig;
 }
-
-async function sendConnectionTypeToServer(type) {
-    const roomId = window.location.pathname.split('/')[2];
-    if (!roomId || !type) return;
-
-    try {
-        await fetch('/api/connection-type', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                room_id: roomId,
-                connection_type: type
-            })
-        });
-        log(`[MONITOR] Successfully sent connection type '${type}' to server.`);
-    } catch (error) {
-        log(`[MONITOR] Failed to send connection type to server: ${error}`);
-    }
-}
-
 
 export const connectionLogger = {
     isDataSent: false,
@@ -273,11 +250,6 @@ async function monitorConnectionStats() {
                 
                 updateConnectionIcon(connectionTypeForIcon);
 
-                if (connectionTypeForIcon !== 'unknown' && !connectionTypeSent) {
-                    sendConnectionTypeToServer(connectionTypeForIcon);
-                    connectionTypeSent = true;
-                }
-
                 if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
                     initialConnectionToastShown = true;
                     if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
@@ -324,7 +296,6 @@ export function startConnectionMonitoring() {
     if (connectionStatsInterval) clearInterval(connectionStatsInterval);
     connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
     initialConnectionToastShown = false;
-    connectionTypeSent = false; // Сбрасываем флаг при старте
     updateConnectionIcon('unknown');
     updateConnectionQualityIcon('unknown');
 }
@@ -336,7 +307,6 @@ export function stopConnectionMonitoring() {
     currentConnectionDetails = null;
     currentConnectionType = 'unknown';
     initialConnectionToastShown = false;
-    connectionTypeSent = false;
     updateConnectionQualityIcon('unknown');
     updateConnectionIcon('unknown');
 }

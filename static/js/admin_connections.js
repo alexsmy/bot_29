@@ -1,3 +1,4 @@
+
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -27,19 +28,24 @@ async function loadConnections() {
                         <strong>Участник ${pIndex + 1}</strong>
                         <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
                         <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-                        <p><strong>Тип соединения:</strong> ${p.connection_type || 'N/A'}</p>
                     </div>
                 `).join('');
 
-                const durationText = group.duration_seconds !== null ? `Длительность: ${group.duration_seconds} сек` : '';
-                const typeText = group.call_type ? `Тип: ${group.call_type}` : '';
-                const reasonText = group.close_reason ? `Причина: ${group.close_reason}` : '';
-                const metaText = [typeText, durationText, reasonText].filter(Boolean).join(' | ');
+                let callMetaHtml = '';
+                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
+                if (session.status === 'completed' && group.participants.length >= 2) {
+                    callMetaHtml = `
+                        <div class="call-group-meta">
+                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
+                        </div>
+                    `;
+                }
 
                 return `
                     <div class="call-group">
                         <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
-                        ${metaText ? `<div class="call-group-meta">${metaText}</div>` : ''}
+                        ${callMetaHtml}
                         ${participantsHtml}
                     </div>
                 `;
@@ -59,6 +65,7 @@ async function loadConnections() {
                     <h4>Детали сессии</h4>
                     <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
                     ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
+                    ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
                 </div>
                 <div class="details-section">
                     <h4>Звонки в рамках сессии</h4>
@@ -74,6 +81,7 @@ export function initConnections() {
     searchConnectionsBtn = document.getElementById('search-connections-btn');
     connectionsListContainer = document.getElementById('connections-list');
     
+    // Устанавливаем сегодняшнюю дату по умолчанию
     connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
     searchConnectionsBtn.addEventListener('click', loadConnections);
@@ -85,6 +93,7 @@ export function initConnections() {
         const details = summary.nextElementSibling;
         const item = summary.parentElement;
 
+        // Закрываем все остальные открытые карточки
         document.querySelectorAll('.connection-item.open').forEach(openItem => {
             if (openItem !== item) {
                 openItem.classList.remove('open');
@@ -92,6 +101,7 @@ export function initConnections() {
             }
         });
 
+        // Открываем или закрываем текущую
         if (item.classList.contains('open')) {
             details.style.maxHeight = null;
             item.classList.remove('open');
@@ -101,5 +111,6 @@ export function initConnections() {
         }
     });
     
+    // Загружаем данные за сегодняшний день при инициализации
     loadConnections();
 }
