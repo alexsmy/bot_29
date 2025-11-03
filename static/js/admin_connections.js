@@ -1,4 +1,3 @@
-
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -21,36 +20,34 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const callGroupsHtml = session.call_groups.length > 0
+        const participantsHtml = session.call_groups.length > 0
             ? session.call_groups.map((group, groupIndex) => {
-                const participantsHtml = group.participants.map((p, pIndex) => `
+                return group.participants.map((p, pIndex) => `
                     <div class="participant-card">
-                        <strong>Участник ${pIndex + 1}</strong>
+                        <strong>Участник ${pIndex + 1} (подключился в ${formatDate(group.start_time)})</strong>
                         <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
                         <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
                     </div>
                 `).join('');
-
-                let callMetaHtml = '';
-                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
-                if (session.status === 'completed' && group.participants.length >= 2) {
-                    callMetaHtml = `
-                        <div class="call-group-meta">
-                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
-                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div class="call-group">
-                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
-                        ${callMetaHtml}
-                        ${participantsHtml}
-                    </div>
-                `;
             }).join('')
-            : '<p>В этой сессии не было зафиксировано звонков.</p>';
+            : '<p>В этой сессии не было зафиксировано подключений участников.</p>';
+
+        // --- НОВАЯ ЛОГИКА ОТОБРАЖЕНИЯ ДЕТАЛЕЙ ЗВОНКА ---
+        let callDetailsHtml = '<p>Звонок не состоялся или не был завершен.</p>';
+        if (session.status === 'completed' || session.status === 'active') {
+            const durationText = session.duration_seconds ? `<strong>${session.duration_seconds} сек</strong>` : '<i>(в процессе)</i>';
+            const connectionTypeClass = session.connection_type || 'unknown';
+            
+            callDetailsHtml = `
+                <div class="call-group-meta">
+                    <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                    <span>Начало: <strong>${formatDate(session.call_started_at)}</strong></span>
+                    <span>Длительность: ${durationText}</span>
+                    <span>Соединение: <span class="conn-type ${connectionTypeClass}">${session.connection_type || 'N/A'}</span></span>
+                </div>
+            `;
+        }
+        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
         return `
         <div class="connection-item">
@@ -62,14 +59,15 @@ async function loadConnections() {
             </div>
             <div class="connection-details">
                 <div class="details-section">
-                    <h4>Детали сессии</h4>
-                    <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
-                    ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
-                    ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
+                    <h4>Детали звонка</h4>
+                    ${callDetailsHtml}
                 </div>
                 <div class="details-section">
-                    <h4>Звонки в рамках сессии</h4>
-                    ${callGroupsHtml}
+                    <h4>Детали сессии и участники</h4>
+                    <p><strong>Сессия создана:</strong> ${formatDate(session.created_at)}</p>
+                    ${session.closed_at ? `<p><strong>Сессия закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
+                    ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
+                    ${participantsHtml}
                 </div>
             </div>
         </div>`;

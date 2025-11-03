@@ -176,6 +176,21 @@ function initializePrivateCallMode() {
             }
             startTimer();
             connectAudio.play();
+
+            // --- НОВАЯ ЛОГИКА ---
+            // Отправляем на сервер информацию о том, что соединение установлено
+            const connectionType = monitor.getCurrentConnectionType();
+            logToScreen(`[CONNECTION] Call connected. Type: ${connectionType}. Notifying server.`);
+            fetch('/api/call/connected', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    room_id: roomId,
+                    call_type: currentCallType,
+                    connection_type: connectionType
+                })
+            }).catch(err => logToScreen(`[ERROR] Failed to notify server about connection: ${err}`));
+            // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
