@@ -20,23 +20,22 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        // Сначала готовим HTML для всех участников сессии
-        const participantsHtml = session.participants.map((p, pIndex) => `
-            <div class="participant-card">
-                <strong>Участник ${pIndex + 1}</strong>
-                <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-            </div>
-        `).join('');
-
-        // Теперь для каждого звонка используем этот общий список участников
         const callGroupsHtml = session.call_groups.length > 0
             ? session.call_groups.map((call, groupIndex) => {
+                // Теперь участники находятся внутри каждого объекта 'call'
+                const participantsHtml = call.participants.map((p, pIndex) => `
+                    <div class="participant-card">
+                        <strong>Участник ${pIndex + 1}</strong>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>
+                `).join('');
+
                 const callMetaHtml = `
                     <div class="call-group-meta">
                         <span>Тип: <strong>${call.call_type || 'N/A'}</strong></span>
                         <span>Длительность: <strong>${call.duration_seconds === null ? 'активен' : `${call.duration_seconds} сек`}</strong></span>
-                        ${call.connection_type ? `<span>Соединение: <strong class="conn-type conn-type-${call.connection_type}">${call.connection_type.toUpperCase()}</strong></span>` : ''}
+                        ${call.connection_type ? `<span>Соединение: <strong class="conn-type conn-type-${call.connection_type.toLowerCase()}">${call.connection_type.toUpperCase()}</strong></span>` : ''}
                     </div>
                 `;
 

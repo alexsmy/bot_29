@@ -7,6 +7,7 @@ let updateConnectionQualityIcon = () => {};
 let showConnectionToast = () => {};
 let getIceServerDetails = () => ({});
 let getRtcConfig = () => ({});
+let getCurrentUserId = () => null; // Новая функция для получения ID
 
 let lastRtcStats = null;
 let currentConnectionDetails = null;
@@ -23,6 +24,7 @@ export function init(callbacks) {
     showConnectionToast = callbacks.showConnectionToast;
     getIceServerDetails = callbacks.getIceServerDetails;
     getRtcConfig = callbacks.getRtcConfig;
+    getCurrentUserId = callbacks.getCurrentUserId; // Сохраняем новую функцию
 }
 
 export const connectionLogger = {
@@ -251,21 +253,25 @@ async function monitorConnectionStats() {
                 
                 updateConnectionIcon(connectionTypeForIcon);
 
-                // --- НАЧАЛО НОВОГО БЛОКА ---
                 if (!connectionDetailsSent && currentConnectionType !== 'unknown') {
-                    connectionDetailsSent = true; // Устанавливаем флаг
+                    connectionDetailsSent = true;
                     const roomId = window.location.pathname.split('/')[2];
+                    const userId = getCurrentUserId(); // Получаем ID текущего пользователя
+                    if (!userId) {
+                        log('[MONITOR] Ошибка: не удалось получить ID пользователя для отправки на сервер.');
+                        return;
+                    }
                     log(`[MONITOR] Соединение установлено. Тип: ${currentConnectionType}. Отправка на сервер.`);
                     fetch('/api/call/connection-established', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             room_id: roomId,
-                            connection_type: currentConnectionType
+                            connection_type: currentConnectionType,
+                            user_id: userId // Отправляем ID на сервер
                         })
                     }).catch(err => log(`[MONITOR] Ошибка отправки данных о соединении: ${err}`));
                 }
-                // --- КОНЕЦ НОВОГО БЛОКА ---
 
                 if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
                     initialConnectionToastShown = true;
@@ -311,7 +317,7 @@ async function monitorConnectionStats() {
 
 export function startConnectionMonitoring() {
     if (connectionStatsInterval) clearInterval(connectionStatsInterval);
-    connectionDetailsSent = false; // Сбрасываем флаг при каждом новом звонке
+    connectionDetailsSent = false;
     connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
     initialConnectionToastShown = false;
     updateConnectionIcon('unknown');
@@ -325,7 +331,7 @@ export function stopConnectionMonitoring() {
     currentConnectionDetails = null;
     currentConnectionType = 'unknown';
     initialConnectionToastShown = false;
-    connectionDetailsSent = false; // Сбрасываем флаг при завершении
+    connectionDetailsSent = false;
     updateConnectionQualityIcon('unknown');
     updateConnectionIcon('unknown');
 }
