@@ -1,3 +1,5 @@
+# database.py
+
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
@@ -224,14 +226,14 @@ async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
         sessions = await conn.fetch(
-            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
+            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []
         for session in sessions:
             session_dict = dict(session)
             connections = await conn.fetch(
-                "SELECT ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1",
+                "SELECT ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
                 session_dict['room_id']
             )
             session_dict['participants'] = [dict(conn) for conn in connections]
