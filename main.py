@@ -348,7 +348,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 call_type = message["data"]["call_type"]
                 room.pending_call_type = call_type
-                # Записываем в БД, что звонок инициирован
+                # Создаем запись о событии звонка
                 asyncio.create_task(database.log_call_initiated(room.room_id, call_type))
                 await room.set_user_status(user_id, "busy")
                 await room.set_user_status(target_id, "busy")
@@ -361,6 +361,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
+                # Уведомление о начале звонка теперь отправляется из connection_established,
+                # поэтому здесь больше ничего не делаем с БД.
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:
@@ -373,6 +375,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 
                 if message_type == "hangup":
+                    # Логируем окончание последнего активного звонка
                     asyncio.create_task(database.log_call_end(room.room_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
@@ -393,6 +396,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
+            # При дисконнекте во время звонка, также логируем его завершение
+            asyncio.create_task(database.log_call_end(room.room_id))
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:
