@@ -73,7 +73,8 @@ async def init_db():
                 os_info TEXT,
                 browser_info TEXT,
                 country TEXT,
-                city TEXT
+                city TEXT,
+                connection_type TEXT
             )
         ''')
         await conn.execute('''
@@ -140,6 +141,27 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['device'], parsed_data['os'], parsed_data['browser'],
             parsed_data['country'], parsed_data['city']
         )
+
+async def update_connection_type(room_id: str, ip_address: str, connection_type: str):
+    """Updates the connection_type for the latest connection from a given IP in a room."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Find the most recent connection_id for this room_id and ip_address
+        # and update its connection_type. This is safer than just updating all.
+        await conn.execute(
+            """
+            UPDATE connections SET connection_type = $1
+            WHERE connection_id = (
+                SELECT connection_id FROM connections
+                WHERE room_id = $2 AND ip_address = $3
+                ORDER BY connected_at DESC
+                LIMIT 1
+            )
+            """,
+            connection_type, room_id, ip_address
+        )
+        logger.info(f"Updated connection type to '{connection_type}' for IP {ip_address} in room {room_id}")
+
 
 async def log_call_start(room_id, call_type):
     pool = await get_pool()
@@ -231,19 +253,15 @@ def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_
 
     for p in participants:
         if current_group is None:
-            # Start the first group
             current_group = {'start_time': p['connected_at'], 'participants': [p]}
         else:
-            # Check if the current participant belongs to the current group
             time_diff = (p['connected_at'] - current_group['start_time']).total_seconds()
             if time_diff <= threshold_seconds:
                 current_group['participants'].append(p)
             else:
-                # Finalize the old group and start a new one
                 call_groups.append(current_group)
                 current_group = {'start_time': p['connected_at'], 'participants': [p]}
     
-    # Add the last group
     if current_group:
         call_groups.append(current_group)
 
@@ -260,7 +278,7 @@ async def get_connections_info(date_obj: date):
         for session in sessions:
             session_dict = dict(session)
             connections = await conn.fetch(
-                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
+                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city, connection_type FROM connections WHERE room_id = $1 ORDER BY connected_at",
                 session_dict['room_id']
             )
             
