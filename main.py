@@ -286,18 +286,19 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 @app.post("/api/call/connection-established")
 async def connection_established(payload: ConnectionEstablishedPayload):
     """Вызывается клиентом, когда WebRTC соединение успешно установлено."""
-    await database.log_connection_established(payload.room_id, payload.connection_type)
+    was_updated = await database.log_connection_established(payload.room_id, payload.connection_type)
     
-    # Отправляем уведомление администратору
-    message_to_admin = (
-        f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
-        f"<b>Room ID:</b> <code>{payload.room_id}</code>\n"
-        f"<b>Тип соединения:</b> {payload.connection_type.upper()}\n"
-        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-    )
-    asyncio.create_task(
-        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
-    )
+    # Отправляем уведомление администратору только если это первая фиксация соединения
+    if was_updated:
+        message_to_admin = (
+            f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
+            f"<b>Room ID:</b> <code>{payload.room_id}</code>\n"
+            f"<b>Тип соединения:</b> {payload.connection_type.upper()}\n"
+            f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        )
+        asyncio.create_task(
+            notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
+        )
     
     return CustomJSONResponse(content={"status": "ok"})
 

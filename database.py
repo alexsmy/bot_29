@@ -150,22 +150,31 @@ async def log_call_initiated(room_id, call_type):
             call_type, room_id
         )
 
-async def log_connection_established(room_id: str, connection_type: str):
-    """Записывает фактическое время начала звонка и тип соединения."""
+async def log_connection_established(room_id: str, connection_type: str) -> bool:
+    """
+    Записывает фактическое время начала звонка и тип соединения.
+    Возвращает True, если запись была обновлена (т.е. это первая фиксация), иначе False.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Обновляем только если звонок еще не помечен как активный, чтобы избежать двойной записи
-        await conn.execute(
+        # Используем RETURNING, чтобы проверить, была ли строка действительно обновлена
+        result = await conn.fetchval(
             """
             UPDATE call_sessions
             SET call_started_at = $1,
                 connection_type = $2,
                 status = 'active'
             WHERE room_id = $3 AND status != 'active'
+            RETURNING session_id
             """,
             datetime.now(timezone.utc), connection_type, room_id
         )
-        logger.info(f"Для комнаты {room_id} зафиксировано соединение типа '{connection_type}'.")
+        if result:
+            logger.info(f"Для комнаты {room_id} зафиксировано соединение типа '{connection_type}'.")
+            return True
+        else:
+            logger.info(f"Повторная попытка зафиксировать соединение для комнаты {room_id} (уже 'active'). Игнорируется.")
+            return False
 
 
 async def log_call_end(room_id):
