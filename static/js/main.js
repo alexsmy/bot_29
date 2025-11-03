@@ -1,3 +1,4 @@
+
 // static/js/main.js
 
 import {
@@ -22,6 +23,7 @@ import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_
 import * as webrtc from './call_webrtc.js';
 import * as media from './call_media.js';
 import * as monitor from './call_connection_monitor.js';
+import * as setup from './call_setup.js';
 
 const tg = window.Telegram.WebApp;
 
@@ -49,15 +51,6 @@ let isCallInitiator = false;
 let isEndingCall = false;
 let remoteMuteToastTimeout = null;
 let connectionToastTimeout = null;
-
-
-/**
- * Проверяет, является ли текущее устройство устройством на базе iOS.
- * @returns {boolean}
- */
-function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
 
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
@@ -152,10 +145,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
-function initializePrivateCallMode() {
+async function initializePrivateCallMode() {
     logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
     
     media.init(logToScreen);
+    setup.init(logToScreen);
 
     monitor.init({
         log: logToScreen,
@@ -188,76 +182,12 @@ function initializePrivateCallMode() {
     webrtc.init(webrtcCallbacks);
 
     setupEventListeners();
-    runPreCallCheck();
-}
-
-async function runPreCallCheck() {
+    
     showScreen('pre-call-check');
-
-    const iosNote = document.getElementById('ios-audio-permission-note');
-    if (isIOS()) {
-        iosNote.style.display = 'block';
-    }
-    
-    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
-
-    if (!hasCameraAccess || !hasMicrophoneAccess) {
-        displayMediaErrors({ name: 'NotFoundError' }); // Simplified error display
-        continueSpectatorBtn.style.display = 'block';
-    }
-
-    updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
-
-    if (hasCameraAccess || hasMicrophoneAccess) {
-        const selectedIds = await media.populateDeviceSelectors(
-            cameraSelect, micSelect, speakerSelect,
-            cameraSelectContainer, micSelectContainer, speakerSelectContainer
-        );
-        selectedVideoId = selectedIds.videoId;
-        selectedAudioInId = selectedIds.audioInId;
-        selectedAudioOutId = selectedIds.audioOutId;
-        continueToCallBtn.disabled = false;
-    } else {
-        logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
-    }
-}
-
-function updateStatusIndicators(hasCamera, hasMic) {
-    cameraStatus.classList.toggle('status-ok', hasCamera);
-    cameraStatus.classList.toggle('status-error', !hasCamera);
-    cameraStatusText.textContent = `Камера: ${hasCamera ? 'OK' : 'Нет доступа'}`;
-
-    micStatus.classList.toggle('status-ok', hasMic);
-    micStatus.classList.toggle('status-error', !hasMic);
-    micStatusText.textContent = `Микрофон: ${hasMic ? 'OK' : 'Нет доступа'}`;
-}
-
-function displayMediaErrors(error) {
-    let message = 'Не удалось получить доступ к камере и/или микрофону. ';
-    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        message += 'Вы заблокировали доступ. Пожалуйста, измените разрешения в настройках браузера.';
-    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        message += 'Устройства не найдены. Убедитесь, что они подключены и работают.';
-    } else {
-        message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
-    }
-
-    console.error(message);
-}
-
-async function updatePreviewStream() {
-    selectedVideoId = cameraSelect.value;
-    selectedAudioInId = micSelect.value;
-    selectedAudioOutId = speakerSelect.value;
-    
-    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
-
-    const constraints = {
-        audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
-        video: hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
-    };
-
-    await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
+    const selectedIds = await setup.performPreCallChecks();
+    selectedVideoId = selectedIds.videoId;
+    selectedAudioInId = selectedIds.audioInId;
+    selectedAudioOutId = selectedIds.audioOutId;
 }
 
 function proceedToCall(asSpectator = false) {
@@ -463,9 +393,11 @@ async function endCall(isInitiator, reason) {
 function setupEventListeners() {
     continueToCallBtn.addEventListener('click', () => proceedToCall(false));
     continueSpectatorBtn.addEventListener('click', () => proceedToCall(true));
-    cameraSelect.addEventListener('change', updatePreviewStream);
-    micSelect.addEventListener('change', updatePreviewStream);
-    speakerSelect.addEventListener('change', updatePreviewStream);
+    cameraSelect.addEventListener('change', setup.updatePreviewStream);
+    micSelect.addEventListener('change', setup.updatePreviewStream);
+    speakerSelect.addEventListener('change', () => {
+        selectedAudioOutId = speakerSelect.value;
+    });
 
     speakerBtn.addEventListener('click', toggleSpeaker);
     muteBtn.addEventListener('click', toggleMute);
@@ -580,7 +512,7 @@ async function initializeLocalMedia(callType) {
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     let isVideoCall = callType === 'video';
     
-    const isIOSAudioCall = isIOS() && callType === 'audio';
+    const isIOSAudioCall = setup.isIOS() && callType === 'audio';
     if (isIOSAudioCall) {
         logToScreen("[MEDIA_IOS] Audio call on iOS detected. Requesting video to force speakerphone.");
         isVideoCall = true; 
