@@ -86,7 +86,7 @@ class RoomManager:
         self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
 
-    async def connect(self, websocket: WebSocket, user_data: dict, connection_id: int):
+    async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:
             await websocket.close(code=1008, reason="Room is full")
             return None
@@ -96,12 +96,7 @@ class RoomManager:
         await websocket.send_json({"type": "identity", "data": {"id": server_user_id}})
 
         self.active_connections[server_user_id] = websocket
-        self.users[server_user_id] = {
-            **user_data,
-            "id": server_user_id,
-            "status": "available",
-            "connection_id": connection_id
-        }
+        self.users[server_user_id] = {**user_data, "id": server_user_id, "status": "available"}
 
         await self.broadcast_user_list()
         return server_user_id
@@ -353,17 +348,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 call_type = message["data"]["call_type"]
                 room.pending_call_type = call_type
-                
-                caller_conn_id = room.users.get(user_id, {}).get("connection_id")
-                target_conn_id = room.users.get(target_id, {}).get("connection_id")
-
-                if caller_conn_id and target_conn_id:
-                    asyncio.create_task(database.log_call_initiated(
-                        room.room_id, call_type, caller_conn_id, target_conn_id
-                    ))
-                else:
-                    logger.error(f"Не удалось найти connection_id для участников звонка в комнате {room.room_id}")
-
+                # Создаем запись о событии звонка
+                asyncio.create_task(database.log_call_initiated(room.room_id, call_type))
                 await room.set_user_status(user_id, "busy")
                 await room.set_user_status(target_id, "busy")
                 await room.send_personal_message(
@@ -375,6 +361,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
+                # Уведомление о начале звонка теперь отправляется из connection_established,
+                # поэтому здесь больше ничего не делаем с БД.
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:
@@ -387,6 +375,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 
                 if message_type == "hangup":
+                    # Логируем окончание последнего активного звонка
                     asyncio.create_task(database.log_call_end(room.room_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
@@ -407,6 +396,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
+            # При дисконнекте во время звонка, также логируем его завершение
             asyncio.create_task(database.log_call_end(room.room_id))
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
@@ -428,25 +418,22 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
         return
 
-    new_user_id = str(uuid.uuid4())
-    
     x_forwarded_for = websocket.headers.get("x-forwarded-for")
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
-    location_data = await utils.get_ip_location(ip_address)
-    ua_data = utils.parse_user_agent(user_agent)
-    parsed_data = {**location_data, **ua_data}
-    
-    connection_id = await database.log_connection(room_id, new_user_id, ip_address, user_agent, parsed_data)
-    if not connection_id:
-        logger.error(f"Не удалось создать запись о подключении для комнаты {room_id}. Отклоняем соединение.")
-        await websocket.close(code=1011, reason="Internal server error: could not log connection")
-        return
+    async def log_connection_in_background():
+        location_data = await utils.get_ip_location(ip_address)
+        ua_data = utils.parse_user_agent(user_agent)
+        parsed_data = {**location_data, **ua_data}
+        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
 
+    asyncio.create_task(log_connection_in_background())
+
+    new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
     
-    actual_user_id = await room.connect(websocket, user_data, connection_id)
+    actual_user_id = await room.connect(websocket, user_data)
 
     if actual_user_id:
         await handle_websocket_logic(websocket, room, actual_user_id)
