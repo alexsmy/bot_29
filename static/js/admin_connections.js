@@ -20,14 +20,24 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const participantsHtml = session.participants.length > 0 
-            ? session.participants.map((p, index) => `
-                <div class="participant-card">
-                    <strong>Участник ${index + 1}</strong>
-                    <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                    <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-                </div>`).join('')
-            : '<p>Нет информации об участниках.</p>';
+        const callGroupsHtml = session.call_groups.length > 0
+            ? session.call_groups.map((group, groupIndex) => {
+                const participantsHtml = group.participants.map((p, pIndex) => `
+                    <div class="participant-card">
+                        <strong>Участник ${pIndex + 1}</strong>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="call-group">
+                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
+                        ${participantsHtml}
+                    </div>
+                `;
+            }).join('')
+            : '<p>В этой сессии не было зафиксировано звонков.</p>';
 
         return `
         <div class="connection-item">
@@ -41,13 +51,16 @@ async function loadConnections() {
                 <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
-                <h4>Детали сессии</h4>
-                <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
-                ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
-                ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
-                <hr>
-                <h4>Участники</h4>
-                ${participantsHtml}
+                <div class="details-section">
+                    <h4>Детали сессии</h4>
+                    <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
+                    ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
+                    ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
+                </div>
+                <div class="details-section">
+                    <h4>Участники</h4>
+                    ${callGroupsHtml}
+                </div>
             </div>
         </div>`;
     }).join('');
@@ -58,6 +71,7 @@ export function initConnections() {
     searchConnectionsBtn = document.getElementById('search-connections-btn');
     connectionsListContainer = document.getElementById('connections-list');
     
+    // Устанавливаем сегодняшнюю дату по умолчанию
     connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
     searchConnectionsBtn.addEventListener('click', loadConnections);
@@ -69,7 +83,16 @@ export function initConnections() {
         const details = summary.nextElementSibling;
         const item = summary.parentElement;
 
-        if (details.style.maxHeight) {
+        // Закрываем все остальные открытые карточки
+        document.querySelectorAll('.connection-item.open').forEach(openItem => {
+            if (openItem !== item) {
+                openItem.classList.remove('open');
+                openItem.querySelector('.connection-details').style.maxHeight = null;
+            }
+        });
+
+        // Открываем или закрываем текущую
+        if (item.classList.contains('open')) {
             details.style.maxHeight = null;
             item.classList.remove('open');
         } else {
@@ -77,4 +100,7 @@ export function initConnections() {
             item.classList.add('open');
         }
     });
+    
+    // Загружаем данные за сегодняшний день при инициализации
+    loadConnections();
 }

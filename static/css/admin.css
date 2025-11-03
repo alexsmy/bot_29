@@ -357,23 +357,27 @@ details summary span {
     height: 16px;
 }
 
+/* --- ОБНОВЛЕННЫЕ СТИЛИ ДЛЯ ИСТОРИИ СОЕДИНЕНИЙ --- */
 .connections-list .connection-item {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    overflow: hidden;
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+    transition: box-shadow 0.2s ease-in-out;
+}
+html.dark .connection-item {
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.4);
+}
+.connection-item:hover {
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
 }
 .connection-summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem 1rem;
+    padding: 1rem 1.5rem;
     cursor: pointer;
-    transition: background-color 0.2s;
-}
-.connection-summary:hover {
-    background-color: var(--base-bg);
 }
 .connection-item.open .connection-summary {
     border-bottom: 1px solid var(--border-color);
@@ -381,53 +385,80 @@ details summary span {
 .summary-info {
     display: flex;
     flex-direction: column;
-    gap: 0.1rem;
+    gap: 0.25rem;
 }
 .summary-info code {
     font-weight: 600;
     font-family: monospace;
+    font-size: 1.1em;
     word-break: break-all;
+    color: var(--text-primary);
 }
 .summary-info .meta {
     font-size: 0.9em;
     color: var(--text-secondary);
 }
 .connection-details {
-    padding: 1rem;
-    background-color: var(--base-bg);
+    padding: 0;
+    background-color: transparent;
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+    transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
 }
-.connection-item:not(.open) .connection-details {
-    padding-top: 0;
-    padding-bottom: 0;
+.connection-item.open .connection-details {
+    padding: 1.5rem;
 }
-.connection-details h4 {
+.details-section {
+    margin-bottom: 1.5rem;
+}
+.details-section:last-child {
+    margin-bottom: 0;
+}
+.details-section h4 {
     margin-top: 0;
-    margin-bottom: 0.5rem;
-    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    font-size: 1.1rem;
     font-weight: 600;
+    color: var(--text-primary);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
 }
-.connection-details p {
-    margin: 0.25rem 0;
+.details-section p {
+    margin: 0.4rem 0;
+    font-size: 0.95em;
+    color: var(--text-secondary);
+}
+.details-section p strong {
+    color: var(--text-primary);
+}
+.call-group {
+    background-color: var(--base-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+.call-group:last-child {
+    margin-bottom: 0;
+}
+.call-group-header {
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
     font-size: 0.9em;
-}
-.connection-details hr {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 1rem 0;
 }
 .participant-card {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.75rem;
-    margin-top: 0.5rem;
+    margin-top: 0.75rem;
 }
 .participant-card p {
     margin: 0.2rem 0;
+    font-size: 0.9em;
 }
+/* --- КОНЕЦ ОБНОВЛЕННЫХ СТИЛЕЙ --- */
 
 .status {
     padding: 0.25rem 0.75rem;
@@ -460,12 +491,13 @@ details summary span {
     padding: 1rem;
     max-height: 500px;
     overflow-y: auto;
-    white-space: pre-wrap; 
-    overflow-wrap: break-word; 
+    white-space: pre-wrap; /* ИЗМЕНЕНО */
+    overflow-wrap: break-word; /* ДОБАВЛЕНО */
     font-family: monospace;
     font-size: 0.85em;
 }
 
+/* --- СТИЛИ ДЛЯ ЛОГОВ --- */
 .log-line {
     display: block;
     padding: 0.1em 0;

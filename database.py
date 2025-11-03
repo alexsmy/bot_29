@@ -3,7 +3,7 @@
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 from logger_config import logger
 from config import ADMIN_TOKEN_LIFETIME_MINUTES
 
@@ -222,6 +222,33 @@ async def get_user_actions(user_id):
         rows = await conn.fetch("SELECT action, timestamp FROM bot_actions WHERE user_id = $1 ORDER BY timestamp DESC", user_id)
         return [dict(row) for row in rows]
 
+def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_seconds: int = 15) -> List[Dict[str, Any]]:
+    if not participants:
+        return []
+
+    call_groups = []
+    current_group = None
+
+    for p in participants:
+        if current_group is None:
+            # Start the first group
+            current_group = {'start_time': p['connected_at'], 'participants': [p]}
+        else:
+            # Check if the current participant belongs to the current group
+            time_diff = (p['connected_at'] - current_group['start_time']).total_seconds()
+            if time_diff <= threshold_seconds:
+                current_group['participants'].append(p)
+            else:
+                # Finalize the old group and start a new one
+                call_groups.append(current_group)
+                current_group = {'start_time': p['connected_at'], 'participants': [p]}
+    
+    # Add the last group
+    if current_group:
+        call_groups.append(current_group)
+
+    return call_groups
+
 async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -233,10 +260,13 @@ async def get_connections_info(date_obj: date):
         for session in sessions:
             session_dict = dict(session)
             connections = await conn.fetch(
-                "SELECT ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
+                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
                 session_dict['room_id']
             )
-            session_dict['participants'] = [dict(conn) for conn in connections]
+            
+            participants = [dict(conn) for conn in connections]
+            session_dict['call_groups'] = group_participants_into_calls(participants)
+            
             results.append(session_dict)
         return results
 
