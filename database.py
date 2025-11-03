@@ -83,13 +83,6 @@ async def init_db():
                 duration_seconds INTEGER,
                 connection_type VARCHAR(10)
             );
-            -- НОВАЯ ТАБЛИЦА ДЛЯ СВЯЗИ ЗВОНКОВ И УЧАСТНИКОВ
-            CREATE TABLE IF NOT EXISTS call_participants (
-                id SERIAL PRIMARY KEY,
-                call_group_id INTEGER REFERENCES call_groups(id) ON DELETE CASCADE,
-                connection_id INTEGER REFERENCES connections(id) ON DELETE CASCADE,
-                UNIQUE (call_group_id, connection_id)
-            );
             CREATE TABLE IF NOT EXISTS admin_tokens (
                 id SERIAL PRIMARY KEY,
                 token UUID UNIQUE NOT NULL,
@@ -173,12 +166,11 @@ async def log_room_closure(room_id: str, reason: str):
     finally:
         await (await get_pool()).release(conn)
 
-async def log_connection(room_id: str, ip_address: str, user_agent: str, parsed_data: dict) -> int:
+async def log_connection(room_id: str, ip_address: str, user_agent: str, parsed_data: dict):
     conn = await (await get_pool()).acquire()
     try:
-        # ИЗМЕНЕНО: Возвращаем ID созданной записи
-        return await conn.fetchval(
-            'INSERT INTO connections (room_id, ip_address, user_agent_string, parsed_data) VALUES ($1, $2, $3, $4) RETURNING id',
+        await conn.execute(
+            'INSERT INTO connections (room_id, ip_address, user_agent_string, parsed_data) VALUES ($1, $2, $3, $4)',
             uuid.UUID(room_id), ip_address, user_agent, parsed_data
         )
     finally:
@@ -197,6 +189,7 @@ async def log_call_initiated(room_id: str, call_type: str):
 async def log_connection_established(room_id: str, connection_type: str) -> bool:
     conn = await (await get_pool()).acquire()
     try:
+        # Обновляем только последнюю запись о звонке для этой комнаты, у которой еще нет типа соединения
         result = await conn.execute('''
             UPDATE call_groups
             SET connection_type = $1
@@ -207,32 +200,8 @@ async def log_connection_established(room_id: str, connection_type: str) -> bool
                 LIMIT 1
             )
         ''', connection_type, uuid.UUID(room_id))
+        # result в формате 'UPDATE N', где N - количество обновленных строк
         return result != 'UPDATE 0'
-    finally:
-        await (await get_pool()).release(conn)
-
-async def log_call_participants(room_id: str, connection_ids: List[int]):
-    conn = await (await get_pool()).acquire()
-    try:
-        # Находим последний звонок в этой комнате, у которого еще нет участников
-        call_group_id = await conn.fetchval('''
-            SELECT id FROM call_groups 
-            WHERE room_id = $1 AND id NOT IN (SELECT call_group_id FROM call_participants)
-            ORDER BY start_time DESC 
-            LIMIT 1
-        ''', uuid.UUID(room_id))
-
-        if call_group_id:
-            async with conn.transaction():
-                for conn_id in connection_ids:
-                    await conn.execute('''
-                        INSERT INTO call_participants (call_group_id, connection_id)
-                        VALUES ($1, $2)
-                        ON CONFLICT DO NOTHING
-                    ''', call_group_id, conn_id)
-            logger.info(f"Участники {connection_ids} привязаны к звонку ID {call_group_id}")
-    except Exception as e:
-        logger.error(f"Ошибка привязке участников к звонку: {e}")
     finally:
         await (await get_pool()).release(conn)
 
@@ -367,21 +336,30 @@ async def get_connections_info(query_date: date):
             for call in call_groups:
                 call_dict = dict(call)
                 
-                # ИЗМЕНЕНО: Получаем участников через новую связующую таблицу
+                # Для каждого звонка ищем двух последних уникальных участников до его начала
                 participants = await conn.fetch(
                     """
+                    WITH ranked_connections AS (
+                        SELECT
+                            ip_address,
+                            parsed_data,
+                            ROW_NUMBER() OVER(PARTITION BY ip_address, user_agent_string ORDER BY timestamp DESC) as rn
+                        FROM connections
+                        WHERE room_id = $1 AND timestamp < $2
+                    )
                     SELECT 
-                        c.ip_address,
-                        c.parsed_data ->> 'country' as country,
-                        c.parsed_data ->> 'city' as city,
-                        c.parsed_data ->> 'device' as device_type,
-                        c.parsed_data ->> 'os' as os_info,
-                        c.parsed_data ->> 'browser' as browser_info
-                    FROM connections c
-                    JOIN call_participants cp ON c.id = cp.connection_id
-                    WHERE cp.call_group_id = $1
+                        rc.ip_address,
+                        rc.parsed_data ->> 'country' as country,
+                        rc.parsed_data ->> 'city' as city,
+                        rc.parsed_data ->> 'device' as device_type,
+                        rc.parsed_data ->> 'os' as os_info,
+                        rc.parsed_data ->> 'browser' as browser_info
+                    FROM ranked_connections rc
+                    WHERE rc.rn = 1
+                    ORDER BY (SELECT MAX(timestamp) FROM connections c WHERE c.ip_address = rc.ip_address AND c.user_agent_string = (rc.parsed_data->>'browser' || ' ' || rc.parsed_data->>'os')) DESC
+                    LIMIT 2;
                     """,
-                    call['id']
+                    session['room_id'], call['start_time']
                 )
                 
                 call_dict['participants'] = [dict(p) for p in participants]
@@ -417,8 +395,7 @@ async def clear_all_data():
     conn = await (await get_pool()).acquire()
     try:
         async with conn.transaction():
-            # ИЗМЕНЕНО: Добавлена новая таблица в список для очистки
-            await conn.execute('TRUNCATE bot_actions, connections, call_groups, call_participants, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY')
+            await conn.execute('TRUNCATE bot_actions, connections, call_groups, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY')
         logger.warning("Все данные в базе данных были удалены администратором.")
     finally:
         await (await get_pool()).release(conn)
