@@ -393,11 +393,20 @@ async function endCall(isInitiator, reason) {
 function setupEventListeners() {
     continueToCallBtn.addEventListener('click', () => proceedToCall(false));
     continueSpectatorBtn.addEventListener('click', () => proceedToCall(true));
-    cameraSelect.addEventListener('change', setup.updatePreviewStream);
-    micSelect.addEventListener('change', setup.updatePreviewStream);
+
+    // --- ИСПРАВЛЕННЫЙ БЛОК ---
+    cameraSelect.addEventListener('change', () => {
+        selectedVideoId = cameraSelect.value;
+        setup.updatePreviewStream();
+    });
+    micSelect.addEventListener('change', () => {
+        selectedAudioInId = micSelect.value;
+        setup.updatePreviewStream();
+    });
     speakerSelect.addEventListener('change', () => {
         selectedAudioOutId = speakerSelect.value;
     });
+    // --- КОНЕЦ ИСПРАВЛЕННОГО БЛОКА ---
 
     speakerBtn.addEventListener('click', toggleSpeaker);
     muteBtn.addEventListener('click', toggleMute);
