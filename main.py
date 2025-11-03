@@ -68,7 +68,6 @@ class ConnectionLog(BaseModel):
 class ConnectionEstablishedPayload(BaseModel):
     room_id: str
     connection_type: str
-    call_type: str # Добавили это поле
 
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
@@ -286,26 +285,20 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
 @app.post("/api/call/connection-established")
 async def connection_established(payload: ConnectionEstablishedPayload):
-    """
-    Вызывается клиентом, когда WebRTC соединение успешно установлено.
-    Это теперь ОСНОВНАЯ точка для логирования начала звонка.
-    """
-    await database.log_call_start(
-        room_id=payload.room_id,
-        call_type=payload.call_type,
-        connection_type=payload.connection_type
-    )
+    """Вызывается клиентом, когда WebRTC соединение успешно установлено."""
+    was_updated = await database.log_connection_established(payload.room_id, payload.connection_type)
     
-    message_to_admin = (
-        f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
-        f"<b>Room ID:</b> <code>{payload.room_id}</code>\n"
-        f"<b>Тип звонка:</b> {payload.call_type}\n"
-        f"<b>Тип соединения:</b> {payload.connection_type.upper()}\n"
-        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-    )
-    asyncio.create_task(
-        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
-    )
+    # Отправляем уведомление администратору только если это первая фиксация соединения
+    if was_updated:
+        message_to_admin = (
+            f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
+            f"<b>Room ID:</b> <code>{payload.room_id}</code>\n"
+            f"<b>Тип соединения:</b> {payload.connection_type.upper()}\n"
+            f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+        )
+        asyncio.create_task(
+            notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
+        )
     
     return CustomJSONResponse(content={"status": "ok"})
 
@@ -355,8 +348,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 call_type = message["data"]["call_type"]
                 room.pending_call_type = call_type
-                # УБИРАЕМ логирование инициации звонка отсюда
-                # asyncio.create_task(database.log_call_initiated(room.room_id, call_type))
+                # Создаем запись о событии звонка
+                asyncio.create_task(database.log_call_initiated(room.room_id, call_type))
                 await room.set_user_status(user_id, "busy")
                 await room.set_user_status(target_id, "busy")
                 await room.send_personal_message(
@@ -368,6 +361,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
+                # Уведомление о начале звонка теперь отправляется из connection_established,
+                # поэтому здесь больше ничего не делаем с БД.
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:
@@ -404,14 +399,11 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             # При дисконнекте во время звонка, также логируем его завершение
             asyncio.create_task(database.log_call_end(room.room_id))
             other_user_id = None
-            # Ищем другого участника звонка
-            all_users = list(room.users.keys())
-            if len(all_users) > 1:
-                other_user_id = next((uid for uid in all_users if uid != user_id), None)
-
-            # Отменяем таймаут ожидания ответа, если он был
-            if other_user_id:
-                room.cancel_call_timeout(user_id, other_user_id)
+            for key in list(room.call_timeouts.keys()):
+                if user_id in key:
+                    other_user_id = key[0] if key[1] == user_id else key[1]
+                    room.cancel_call_timeout(user_id, other_user_id)
+                    break
             
             if other_user_id and other_user_id in room.users:
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
@@ -419,7 +411,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
 
         await room.disconnect(user_id)
 
-# ... (остальной код файла main.py остается без изменений)
 @app.websocket("/ws/private/{room_id}")
 async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     room = await manager.get_or_restore_room(room_id)

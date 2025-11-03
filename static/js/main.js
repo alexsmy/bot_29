@@ -164,8 +164,7 @@ function initializePrivateCallMode() {
         updateConnectionQualityIcon: updateConnectionQualityIcon,
         showConnectionToast: showConnectionToast,
         getIceServerDetails: () => iceServerDetails,
-        getRtcConfig: () => rtcConfig,
-        getCurrentCallType: () => currentCallType // Передаем функцию
+        getRtcConfig: () => rtcConfig
     });
 
     const webrtcCallbacks = {
@@ -192,7 +191,6 @@ function initializePrivateCallMode() {
     runPreCallCheck();
 }
 
-// ... (остальной код файла main.js остается без изменений)
 async function runPreCallCheck() {
     showScreen('pre-call-check');
 
