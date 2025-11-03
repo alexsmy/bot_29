@@ -109,7 +109,6 @@ async def init_db():
         ''')
     logger.info("База данных PostgreSQL успешно инициализирована.")
 
-# ... (функции log_user, log_bot_action, log_call_session без изменений) ...
 async def log_user(user_id, first_name, last_name, username):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -176,7 +175,7 @@ async def log_connection_established(room_id: str, connection_type: str) -> bool
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Находим последнее событие звонка для этой комнаты, у которого еще нет времени начала
+        # Используем RETURNING, чтобы проверить, была ли строка действительно обновлена
         result = await conn.fetchval(
             """
             UPDATE call_events
@@ -228,7 +227,6 @@ async def log_call_end(room_id: str):
         else:
             logger.warning(f"Получен сигнал hangup для комнаты {room_id}, но не найдено активного звонка для завершения.")
 
-# ... (остальные функции до get_connections_info) ...
 async def log_room_closure(room_id, reason):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -290,7 +288,6 @@ async def get_user_actions(user_id):
         rows = await conn.fetch("SELECT action, timestamp FROM bot_actions WHERE user_id = $1 ORDER BY timestamp DESC", user_id)
         return [dict(row) for row in rows]
 
-
 async def get_connections_info(date_obj: date):
     """Полностью переписанная функция для админ-панели."""
     pool = await get_pool()
@@ -305,10 +302,12 @@ async def get_connections_info(date_obj: date):
             session_dict = dict(session)
             
             # 2. Для каждой сессии получаем всех ее участников из таблицы connections
-            participants = await conn.fetch(
+            participants_records = await conn.fetch(
                 "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
                 session_dict['room_id']
             )
+            # Сохраняем участников на уровне сессии
+            session_dict['participants'] = [dict(p) for p in participants_records]
             
             # 3. Для каждой сессии получаем все ее звонки из новой таблицы call_events
             calls = await conn.fetch(
@@ -317,20 +316,11 @@ async def get_connections_info(date_obj: date):
             )
 
             # 4. Собираем все вместе
-            session_dict['call_groups'] = []
-            for call in calls:
-                session_dict['call_groups'].append({
-                    'start_time': call['started_at'],
-                    'duration_seconds': call['duration_seconds'],
-                    'call_type': call['call_type'],
-                    'connection_type': call['connection_type'],
-                    'participants': [dict(p) for p in participants] # Показываем всех участников сессии для каждого звонка
-                })
+            session_dict['call_groups'] = [dict(call) for call in calls]
             
             results.append(session_dict)
         return results
 
-# ... (остальные функции без изменений) ...
 async def get_call_session_details(room_id: str):
     pool = await get_pool()
     async with pool.acquire() as conn:

@@ -98,7 +98,6 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
         callbacks.log(`[WEBRTC] ICE State: ${state}`);
         
         if (state === 'connected') {
-            // --- НАЧАЛО ИЗМЕНЕНИЯ ---
             // Добавляем небольшую задержку перед сбором статистики.
             // Это решает "гонку состояний", когда 'connected' наступает раньше,
             // чем браузер успевает определить 'succeeded' пару кандидатов.
@@ -107,7 +106,6 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
                     connectionLogger.analyzeAndSend();
                 }
             }, 500); // 500 миллисекунд - безопасная задержка
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
             if (iceRestartTimeoutId) {
                 clearTimeout(iceRestartTimeoutId);
@@ -227,6 +225,8 @@ export async function handleCandidate(data) {
 }
 
 export function endPeerConnection() {
+    // Принудительно отменяем запланированный ICE Restart при любом завершении звонка.
+    // Это предотвращает самопроизвольные повторные вызовы.
     if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
     iceRestartTimeoutId = null;
 
