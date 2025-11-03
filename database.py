@@ -227,25 +227,34 @@ def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_
         return []
 
     call_groups = []
-    current_group = None
+    current_group = []
 
     for p in participants:
-        if current_group is None:
-            # Start the first group
-            current_group = {'start_time': p['connected_at'], 'participants': [p]}
+        if not current_group:
+            current_group.append(p)
+            continue
+
+        last_participant_time = current_group[-1]['connected_at']
+        time_diff = (p['connected_at'] - last_participant_time).total_seconds()
+
+        if time_diff <= threshold_seconds:
+            current_group.append(p)
         else:
-            # Check if the current participant belongs to the current group
-            time_diff = (p['connected_at'] - current_group['start_time']).total_seconds()
-            if time_diff <= threshold_seconds:
-                current_group['participants'].append(p)
-            else:
-                # Finalize the old group and start a new one
-                call_groups.append(current_group)
-                current_group = {'start_time': p['connected_at'], 'participants': [p]}
+            # Завершаем предыдущую группу. Добавляем ее, только если в ней больше 1 участника.
+            if len(current_group) > 1:
+                call_groups.append({
+                    'start_time': current_group[0]['connected_at'],
+                    'participants': current_group
+                })
+            # Начинаем новую группу с текущего участника
+            current_group = [p]
     
-    # Add the last group
-    if current_group:
-        call_groups.append(current_group)
+    # Проверяем последнюю собранную группу после окончания цикла
+    if len(current_group) > 1:
+        call_groups.append({
+            'start_time': current_group[0]['connected_at'],
+            'participants': current_group
+        })
 
     return call_groups
 
