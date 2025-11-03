@@ -1,5 +1,3 @@
-# main.py
-
 import asyncio
 import os
 import uuid
@@ -70,12 +68,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
-
-# НОВАЯ МОДЕЛЬ ДАННЫХ
-class CallConnectedPayload(BaseModel):
-    room_id: str
-    call_type: str
-    connection_type: str
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -285,35 +277,6 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
-# НОВЫЙ ENDPOINT
-@app.post("/api/call/connected")
-async def call_connected(payload: CallConnectedPayload):
-    room = await manager.get_or_restore_room(payload.room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-
-    # Логируем фактическое начало звонка
-    await database.log_call_connection_established(
-        room_id=payload.room_id,
-        call_type=payload.call_type,
-        connection_type=payload.connection_type
-    )
-    
-    # Отправляем уведомление администратору
-    message_to_admin = (
-        f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
-        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-        f"<b>Тип звонка:</b> {payload.call_type}\n"
-        f"<b>Тип соединения:</b> <b>{payload.connection_type.upper()}</b>\n"
-        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-    )
-    asyncio.create_task(
-        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
-    )
-    
-    return CustomJSONResponse(content={"status": "ok"})
-
-
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -371,7 +334,18 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
-                # УДАЛЯЕМ ЛОГИРОВАНИЕ ОТСЮДА. Теперь оно будет происходить по факту соединения.
+                if room.pending_call_type:
+                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
+                    message_to_admin = (
+                        f"📞 <b>Звонок начался</b>\n\n"
+                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
+                        f"<b>Тип:</b> {room.pending_call_type}\n"
+                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                    )
+                    asyncio.create_task(
+                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
+                    )
+                    room.pending_call_type = None
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:

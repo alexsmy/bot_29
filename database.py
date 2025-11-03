@@ -54,7 +54,6 @@ async def init_db():
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
                 call_type TEXT,
-                connection_type TEXT, -- НОВОЕ ПОЛЕ
                 call_started_at TIMESTAMPTZ,
                 call_ended_at TIMESTAMPTZ,
                 duration_seconds INTEGER,
@@ -63,13 +62,6 @@ async def init_db():
                 close_reason TEXT
             )
         ''')
-        # Попытка добавить колонку, если она еще не существует
-        try:
-            await conn.execute('ALTER TABLE call_sessions ADD COLUMN connection_type TEXT')
-            logger.info("Колонка 'connection_type' успешно добавлена в таблицу 'call_sessions'.")
-        except asyncpg.exceptions.DuplicateColumnError:
-            pass # Колонка уже существует, ничего не делаем
-            
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS connections (
                 connection_id SERIAL PRIMARY KEY,
@@ -149,24 +141,13 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['country'], parsed_data['city']
         )
 
-# НОВАЯ ФУНКЦИЯ для записи факта установления соединения
-async def log_call_connection_established(room_id: str, call_type: str, connection_type: str):
+async def log_call_start(room_id, call_type):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Обновляем только если звонок еще не был отмечен как активный
         await conn.execute(
-            """
-            UPDATE call_sessions 
-            SET call_type = $1, 
-                connection_type = $2,
-                call_started_at = $3, 
-                status = 'active' 
-            WHERE room_id = $4 AND status != 'active'
-            """,
-            call_type, connection_type, datetime.now(timezone.utc), room_id
+            "UPDATE call_sessions SET call_type = $1, call_started_at = $2, status = 'active' WHERE room_id = $3",
+            call_type, datetime.now(timezone.utc), room_id
         )
-        logger.info(f"Для комнаты {room_id} зафиксировано начало звонка. Тип: {call_type}, Соединение: {connection_type}")
-
 
 async def log_call_end(room_id):
     pool = await get_pool()
@@ -280,15 +261,8 @@ def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_
 async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Добавляем call_started_at и connection_type в запрос
         sessions = await conn.fetch(
-            """
-            SELECT room_id, created_at, status, call_type, duration_seconds, 
-                   closed_at, close_reason, call_started_at, connection_type 
-            FROM call_sessions 
-            WHERE date(created_at AT TIME ZONE 'UTC') = $1 
-            ORDER BY created_at DESC
-            """,
+            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []
