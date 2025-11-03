@@ -1,18 +1,36 @@
 // static/js/main.js
 
-import * as ui from './call_ui_elements.js';
+import {
+    preCallCheckScreen, previewVideo, micLevelBars, cameraStatus, cameraStatusText,
+    micStatus, micStatusText, continueToCallBtn, continueSpectatorBtn, cameraSelect,
+    micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
+    preCallScreen, popupWaiting, popupActions, popupInitiating, lifetimeTimer,
+    closeSessionBtn, instructionsBtn, instructionsModal, closeInstructionsBtns, callScreen,
+    audioCallVisualizer, localGlow, remoteGlow, incomingCallModal, callerName,
+    incomingCallType, acceptBtn, declineBtn, hangupBtn, remoteUserName, callTimer,
+    speakerBtn, muteBtn, videoBtn, videoControlItem, switchCameraBtn, switchCameraControlItem,
+    screenShareBtn, screenShareControlItem, localAudio, remoteAudio, localVideo, remoteVideo,
+    localVideoContainer, toggleLocalViewBtn, toggleRemoteViewBtn, ringOutAudio, connectAudio,
+    ringInAudio, connectionStatus, connectionQuality, qualityGoodSvg, qualityMediumSvg,
+    qualityBadSvg, remoteAudioLevel, remoteAudioLevelBars, connectionInfoPopup,
+    remoteMuteToast, connectionToast, deviceSettingsBtn, deviceSettingsModal,
+    closeSettingsBtns, cameraSelectCall, micSelectCall, speakerSelectCall,
+    cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall
+} from './call_ui_elements.js';
+
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
 import * as webrtc from './call_webrtc.js';
 import * as media from './call_media.js';
 import * as monitor from './call_connection_monitor.js';
-import * as uiManager from './call_ui_manager.js';
 
 const tg = window.Telegram.WebApp;
 
 let currentUser = {};
 let targetUser = {};
 let currentCallType = 'audio';
+let callTimerInterval;
 let lifetimeTimerInterval;
+let uiFadeTimeout = null;
 let isSpeakerMuted = false;
 let isMuted = false;
 let isVideoEnabled = true;
@@ -26,8 +44,11 @@ let selectedVideoId = null;
 let selectedAudioInId = null;
 let selectedAudioOutId = null;
 let iceServerDetails = {};
+let infoPopupTimeout = null;
 let isCallInitiator = false;
 let isEndingCall = false;
+let remoteMuteToastTimeout = null;
+let connectionToastTimeout = null;
 
 
 /**
@@ -59,8 +80,24 @@ function logToScreen(message) {
     sendLogToServer(logMessage);
 }
 
+function loadIcons() {
+    const iconPlaceholders = document.querySelectorAll('[data-icon-name]');
+    if (typeof ICONS === 'undefined') {
+        console.error('icons.js is not loaded or ICONS object is not defined.');
+        return;
+    }
+    iconPlaceholders.forEach(placeholder => {
+        const iconName = placeholder.dataset.iconName;
+        if (ICONS[iconName]) {
+            placeholder.innerHTML = ICONS[iconName];
+        } else {
+            console.warn(`Icon with name "${iconName}" not found.`);
+        }
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
-    uiManager.loadIcons();
+    loadIcons();
     const path = window.location.pathname;
     logToScreen(`App loaded. Path: ${path}`);
 
@@ -123,31 +160,26 @@ function initializePrivateCallMode() {
     monitor.init({
         log: logToScreen,
         getPeerConnection: webrtc.getPeerConnection,
-        updateConnectionIcon: uiManager.updateConnectionIcon,
-        updateConnectionQualityIcon: uiManager.updateConnectionQualityIcon,
-        showConnectionToast: uiManager.showConnectionToast,
+        updateConnectionIcon: updateConnectionIcon,
+        updateConnectionQualityIcon: updateConnectionQualityIcon,
+        showConnectionToast: showConnectionToast,
         getIceServerDetails: () => iceServerDetails,
         getRtcConfig: () => rtcConfig
     });
-    
-    uiManager.init({ monitor });
 
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
-            if (!ui.callScreen.classList.contains('active')) {
-                uiManager.showScreen('call');
-                uiManager.updateCallUI(currentCallType, targetUser, media.getMediaAccessStatus(), isMobileDevice());
+            if (!callScreen.classList.contains('active')) {
+                showScreen('call');
+                updateCallUI();
             }
-            uiManager.startTimer(currentCallType);
-            ui.connectAudio.play();
+            startTimer();
+            connectAudio.play();
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
-        onRemoteMuteStatus: (isMuted) => {
-            uiManager.showRemoteMuteToast(isMuted);
-            logToScreen(`[REMOTE_STATUS] Peer is now ${isMuted ? 'muted' : 'unmuted'}.`);
-        },
+        onRemoteMuteStatus: handleRemoteMuteStatus,
         getTargetUser: () => targetUser,
         getSelectedAudioOutId: () => selectedAudioOutId,
         getCurrentConnectionType: monitor.getCurrentConnectionType,
@@ -160,44 +192,44 @@ function initializePrivateCallMode() {
 }
 
 async function runPreCallCheck() {
-    uiManager.showScreen('pre-call-check');
+    showScreen('pre-call-check');
 
     const iosNote = document.getElementById('ios-audio-permission-note');
     if (isIOS()) {
         iosNote.style.display = 'block';
     }
     
-    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(ui.previewVideo, ui.micLevelBars);
+    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
     if (!hasCameraAccess || !hasMicrophoneAccess) {
         displayMediaErrors({ name: 'NotFoundError' }); // Simplified error display
-        ui.continueSpectatorBtn.style.display = 'block';
+        continueSpectatorBtn.style.display = 'block';
     }
 
     updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
 
     if (hasCameraAccess || hasMicrophoneAccess) {
         const selectedIds = await media.populateDeviceSelectors(
-            ui.cameraSelect, ui.micSelect, ui.speakerSelect,
-            ui.cameraSelectContainer, ui.micSelectContainer, ui.speakerSelectContainer
+            cameraSelect, micSelect, speakerSelect,
+            cameraSelectContainer, micSelectContainer, speakerSelectContainer
         );
         selectedVideoId = selectedIds.videoId;
         selectedAudioInId = selectedIds.audioInId;
         selectedAudioOutId = selectedIds.audioOutId;
-        ui.continueToCallBtn.disabled = false;
+        continueToCallBtn.disabled = false;
     } else {
         logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
     }
 }
 
 function updateStatusIndicators(hasCamera, hasMic) {
-    ui.cameraStatus.classList.toggle('status-ok', hasCamera);
-    ui.cameraStatus.classList.toggle('status-error', !hasCamera);
-    ui.cameraStatusText.textContent = `Камера: ${hasCamera ? 'OK' : 'Нет доступа'}`;
+    cameraStatus.classList.toggle('status-ok', hasCamera);
+    cameraStatus.classList.toggle('status-error', !hasCamera);
+    cameraStatusText.textContent = `Камера: ${hasCamera ? 'OK' : 'Нет доступа'}`;
 
-    ui.micStatus.classList.toggle('status-ok', hasMic);
-    ui.micStatus.classList.toggle('status-error', !hasMic);
-    ui.micStatusText.textContent = `Микрофон: ${hasMic ? 'OK' : 'Нет доступа'}`;
+    micStatus.classList.toggle('status-ok', hasMic);
+    micStatus.classList.toggle('status-error', !hasMic);
+    micStatusText.textContent = `Микрофон: ${hasMic ? 'OK' : 'Нет доступа'}`;
 }
 
 function displayMediaErrors(error) {
@@ -214,9 +246,9 @@ function displayMediaErrors(error) {
 }
 
 async function updatePreviewStream() {
-    selectedVideoId = ui.cameraSelect.value;
-    selectedAudioInId = ui.micSelect.value;
-    selectedAudioOutId = ui.speakerSelect.value;
+    selectedVideoId = cameraSelect.value;
+    selectedAudioInId = micSelect.value;
+    selectedAudioOutId = speakerSelect.value;
     
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
 
@@ -225,7 +257,7 @@ async function updatePreviewStream() {
         video: hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
-    await media.updatePreviewStream(constraints, ui.previewVideo, ui.micLevelBars);
+    await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
 }
 
 function proceedToCall(asSpectator = false) {
@@ -233,8 +265,8 @@ function proceedToCall(asSpectator = false) {
     logToScreen(`Proceeding to call screen. Spectator mode: ${isSpectator}`);
     media.stopPreviewStream();
 
-    uiManager.showScreen('pre-call');
-    uiManager.showPopup('waiting');
+    showScreen('pre-call');
+    showPopup('waiting');
     
     const wsHandlers = {
         onIdentity: (data) => {
@@ -244,8 +276,8 @@ function proceedToCall(asSpectator = false) {
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
         onCallAccepted: () => {
-            ui.ringOutAudio.pause(); 
-            ui.ringOutAudio.currentTime = 0;
+            ringOutAudio.pause(); 
+            ringOutAudio.currentTime = 0;
             const localStream = media.getLocalStream();
             webrtc.startPeerConnection(targetUser.id, true, currentCallType, localStream, rtcConfig, monitor.connectionLogger);
         },
@@ -272,18 +304,53 @@ function proceedToCall(asSpectator = false) {
     lifetimeTimerInterval = setInterval(updateRoomLifetime, 60000);
 }
 
+function showScreen(screenName) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    if (screenName) document.getElementById(`${screenName}-screen`).classList.add('active');
+}
+
+function showModal(modalName, show) {
+    const modal = document.getElementById(`${modalName}-modal`);
+    if (modal) modal.classList.toggle('active', show);
+}
+
+function showPopup(popupName) {
+    document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
+    if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
+}
+
+function resetUiFade() {
+    callScreen.classList.add('ui-interactive');
+    callScreen.classList.remove('ui-faded');
+    clearTimeout(uiFadeTimeout);
+    uiFadeTimeout = setTimeout(() => callScreen.classList.add('ui-faded'), 2000);
+    setTimeout(() => callScreen.classList.remove('ui-interactive'), 150);
+}
+
+function setupVideoCallUiListeners() {
+    callScreen.addEventListener('mousemove', resetUiFade);
+    callScreen.addEventListener('click', resetUiFade);
+    callScreen.addEventListener('touchstart', resetUiFade);
+}
+
+function removeVideoCallUiListeners() {
+    callScreen.removeEventListener('mousemove', resetUiFade);
+    callScreen.removeEventListener('click', resetUiFade);
+    callScreen.removeEventListener('touchstart', resetUiFade);
+}
+
 function handleUserList(users) {
     const otherUsers = users.filter(u => u.id !== currentUser.id);
 
     if (otherUsers.length === 0) {
         targetUser = {};
-        uiManager.showPopup('waiting');
+        showPopup('waiting');
     } else {
         targetUser = otherUsers[0];
         if (targetUser.status === 'busy') {
-            uiManager.showPopup('initiating');
+            showPopup('initiating');
         } else {
-            uiManager.showPopup('actions');
+            showPopup('actions');
         }
     }
 }
@@ -294,7 +361,7 @@ async function initiateCall(userToCall, callType) {
     currentCallType = callType;
     
     if (currentCallType === 'video') {
-        ui.remoteVideo.play().catch(() => {});
+        remoteVideo.play().catch(() => {});
     }
 
     const hasMedia = await initializeLocalMedia(currentCallType);
@@ -308,10 +375,10 @@ async function initiateCall(userToCall, callType) {
 
     sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
-    uiManager.showScreen('call');
-    uiManager.updateCallUI(currentCallType, targetUser, media.getMediaAccessStatus(), isMobileDevice());
-    ui.callTimer.textContent = "Вызов...";
-    ui.ringOutAudio.play();
+    showScreen('call');
+    updateCallUI();
+    callTimer.textContent = "Вызов...";
+    ringOutAudio.play();
 }
 
 function handleIncomingCall(data) {
@@ -320,19 +387,19 @@ function handleIncomingCall(data) {
     targetUser = data.from_user;
     currentCallType = data.call_type;
 
-    ui.callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
-    ui.incomingCallType.textContent = currentCallType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
-    uiManager.showModal('incoming-call', true);
-    ui.ringInAudio.play();
+    callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
+    incomingCallType.textContent = currentCallType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
+    showModal('incoming-call', true);
+    ringInAudio.play();
 }
 
 async function acceptCall() {
     logToScreen("[CALL] 'Accept' button pressed.");
-    uiManager.stopIncomingRing();
-    uiManager.showModal('incoming-call', false);
+    stopIncomingRing();
+    showModal('incoming-call', false);
 
     if (currentCallType === 'video') {
-        ui.remoteVideo.play().catch(() => {});
+        remoteVideo.play().catch(() => {});
     }
 
     const hasMedia = await initializeLocalMedia(currentCallType);
@@ -349,8 +416,8 @@ async function acceptCall() {
 
 function declineCall() {
     logToScreen("[CALL] Declining call.");
-    uiManager.stopIncomingRing();
-    uiManager.showModal('incoming-call', false);
+    stopIncomingRing();
+    showModal('incoming-call', false);
     sendMessage({ type: 'call_declined', data: { target_id: targetUser.id } });
     targetUser = {};
 }
@@ -370,79 +437,78 @@ async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
-    ui.connectionQuality.classList.remove('active');
+    connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
 
     webrtc.endPeerConnection();
     media.stopAllStreams();
-    if (ui.remoteAudioLevel) ui.remoteAudioLevel.style.display = 'none';
+    if (remoteAudioLevel) remoteAudioLevel.style.display = 'none';
 
-    ui.ringOutAudio.pause(); ui.ringOutAudio.currentTime = 0;
-    uiManager.stopIncomingRing();
+    ringOutAudio.pause(); ringOutAudio.currentTime = 0;
+    stopIncomingRing();
 
-    ui.localAudio.srcObject = null;
-    ui.localVideo.srcObject = null;
-    ui.localVideoContainer.style.display = 'none';
-    ui.remoteVideo.style.display = 'none';
+    localAudio.srcObject = null;
+    localVideo.srcObject = null;
+    localVideoContainer.style.display = 'none';
+    remoteVideo.style.display = 'none';
     
-    uiManager.stopTimer();
-    uiManager.showModal('incoming-call', false);
-    uiManager.showScreen('pre-call');
+    stopTimer();
+    showModal('incoming-call', false);
+    showScreen('pre-call');
 
     targetUser = {};
-    uiManager.resetCallControls();
-    isEndingCall = false;
+    resetCallControls();
 }
 
 function setupEventListeners() {
-    ui.continueToCallBtn.addEventListener('click', () => proceedToCall(false));
-    ui.continueSpectatorBtn.addEventListener('click', () => proceedToCall(true));
-    ui.cameraSelect.addEventListener('change', updatePreviewStream);
-    ui.micSelect.addEventListener('change', updatePreviewStream);
-    ui.speakerSelect.addEventListener('change', updatePreviewStream);
+    continueToCallBtn.addEventListener('click', () => proceedToCall(false));
+    continueSpectatorBtn.addEventListener('click', () => proceedToCall(true));
+    cameraSelect.addEventListener('change', updatePreviewStream);
+    micSelect.addEventListener('change', updatePreviewStream);
+    speakerSelect.addEventListener('change', updatePreviewStream);
 
-    ui.speakerBtn.addEventListener('click', toggleSpeaker);
-    ui.muteBtn.addEventListener('click', toggleMute);
-    ui.videoBtn.addEventListener('click', toggleVideo);
-    ui.screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(media.getLocalStream(), (isSharing) => uiManager.updateScreenShareUI(isSharing, isVideoEnabled, currentCallType)));
-    ui.acceptBtn.addEventListener('click', acceptCall);
-    ui.declineBtn.addEventListener('click', declineCall);
+    speakerBtn.addEventListener('click', toggleSpeaker);
+    muteBtn.addEventListener('click', toggleMute);
+    videoBtn.addEventListener('click', toggleVideo);
+    screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(media.getLocalStream(), updateScreenShareUI));
+    acceptBtn.addEventListener('click', acceptCall);
+    declineBtn.addEventListener('click', declineCall);
     
-    ui.hangupBtn.addEventListener('click', () => endCall(true, 'cancelled_by_user'));
+    hangupBtn.addEventListener('click', () => endCall(true, 'cancelled_by_user'));
     
-    ui.closeSessionBtn.addEventListener('click', closeSession);
+    closeSessionBtn.addEventListener('click', closeSession);
 
-    ui.instructionsBtn.addEventListener('click', () => ui.instructionsModal.classList.add('active'));
-    ui.closeInstructionsBtns.forEach(btn => btn.addEventListener('click', () => ui.instructionsModal.classList.remove('active')));
+    instructionsBtn.addEventListener('click', () => instructionsModal.classList.add('active'));
+    closeInstructionsBtns.forEach(btn => btn.addEventListener('click', () => instructionsModal.classList.remove('active')));
 
-    ui.deviceSettingsBtn.addEventListener('click', openDeviceSettings);
-    ui.closeSettingsBtns.forEach(btn => btn.addEventListener('click', () => ui.deviceSettingsModal.classList.remove('active')));
-    ui.cameraSelectCall.addEventListener('change', (e) => switchInputDevice('video', e.target.value));
-    ui.micSelectCall.addEventListener('change', (e) => switchInputDevice('audio', e.target.value));
-    ui.speakerSelectCall.addEventListener('change', (e) => switchAudioOutput(e.target.value));
+    deviceSettingsBtn.addEventListener('click', openDeviceSettings);
+    closeSettingsBtns.forEach(btn => btn.addEventListener('click', () => deviceSettingsModal.classList.remove('active')));
+    cameraSelectCall.addEventListener('change', (e) => switchInputDevice('video', e.target.value));
+    micSelectCall.addEventListener('change', (e) => switchInputDevice('audio', e.target.value));
+    speakerSelectCall.addEventListener('change', (e) => switchAudioOutput(e.target.value));
 
-    ui.popupActions.addEventListener('click', (e) => {
+    popupActions.addEventListener('click', (e) => {
         const button = e.target.closest('.action-call-btn');
         if (button && targetUser.id) {
             initiateCall(targetUser, button.dataset.callType);
         }
     });
 
-    ui.toggleLocalViewBtn.addEventListener('click', (e) => {
+    toggleLocalViewBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        ui.localVideo.classList.toggle('force-cover');
-        const iconSpan = ui.toggleLocalViewBtn.querySelector('.icon');
-        iconSpan.innerHTML = ui.localVideo.classList.contains('force-cover') ? ICONS.localViewCover : ICONS.localViewContain;
+        localVideo.classList.toggle('force-cover');
+        const iconSpan = toggleLocalViewBtn.querySelector('.icon');
+        iconSpan.innerHTML = localVideo.classList.contains('force-cover') ? ICONS.localViewCover : ICONS.localViewContain;
     });
 
-    ui.toggleRemoteViewBtn.addEventListener('click', (e) => {
+    toggleRemoteViewBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        ui.remoteVideo.classList.toggle('force-cover');
-        const iconSpan = ui.toggleRemoteViewBtn.querySelector('.icon');
-        iconSpan.innerHTML = ui.remoteVideo.classList.contains('force-cover') ? ICONS.remoteViewContain : ICONS.remoteViewCover;
+        remoteVideo.classList.toggle('force-cover');
+        const iconSpan = toggleRemoteViewBtn.querySelector('.icon');
+        iconSpan.innerHTML = remoteVideo.classList.contains('force-cover') ? ICONS.remoteViewContain : ICONS.remoteViewCover;
     });
 
-    ui.connectionStatus.addEventListener('click', uiManager.showConnectionInfo);
+    connectionStatus.addEventListener('click', showConnectionInfo);
 
     setupLocalVideoInteraction();
 }
@@ -453,13 +519,13 @@ function setupLocalVideoInteraction() {
     const onDragStart = (e) => {
         if (e.type === 'touchstart' && e.touches.length > 1) return;
         hasMoved = false;
-        const rect = ui.localVideoContainer.getBoundingClientRect();
+        const rect = localVideoContainer.getBoundingClientRect();
         const clientX = e.type === 'touchstart' ? e.touches[0].clientX : e.clientX;
         dragStartX = clientX;
         offsetX = clientX - rect.left;
         longPressTimer = setTimeout(() => {
             isDragging = true;
-            ui.localVideoContainer.classList.add('dragging');
+            localVideoContainer.classList.add('dragging');
         }, 200);
         document.addEventListener('mousemove', onDragMove);
         document.addEventListener('touchmove', onDragMove, { passive: false });
@@ -474,34 +540,34 @@ function setupLocalVideoInteraction() {
             clearTimeout(longPressTimer);
             if (!isDragging) {
                 isDragging = true;
-                ui.localVideoContainer.classList.add('dragging');
+                localVideoContainer.classList.add('dragging');
             }
         }
         if (isDragging) {
             if (e.type === 'touchmove') e.preventDefault();
             let newLeft = clientX - offsetX;
-            const parentWidth = ui.localVideoContainer.parentElement.clientWidth;
-            const videoWidth = ui.localVideoContainer.getBoundingClientRect().width;
+            const parentWidth = localVideoContainer.parentElement.clientWidth;
+            const videoWidth = localVideoContainer.getBoundingClientRect().width;
             newLeft = Math.max(0, Math.min(newLeft, parentWidth - videoWidth));
-            ui.localVideoContainer.style.left = `${newLeft}px`;
+            localVideoContainer.style.left = `${newLeft}px`;
         }
     };
 
     const onDragEnd = (e) => {
         clearTimeout(longPressTimer);
         if (!hasMoved && !e.target.closest('button')) {
-            ui.localVideoContainer.classList.toggle('small');
+            localVideoContainer.classList.toggle('small');
         }
         isDragging = false;
-        ui.localVideoContainer.classList.remove('dragging');
+        localVideoContainer.classList.remove('dragging');
         document.removeEventListener('mousemove', onDragMove);
         document.removeEventListener('touchmove', onDragMove);
         document.removeEventListener('mouseup', onDragEnd);
         document.removeEventListener('touchend', onDragEnd);
     };
 
-    ui.localVideoContainer.addEventListener('mousedown', onDragStart);
-    ui.localVideoContainer.addEventListener('touchstart', onDragStart, { passive: true });
+    localVideoContainer.addEventListener('mousedown', onDragStart);
+    localVideoContainer.addEventListener('touchstart', onDragStart, { passive: true });
 }
 
 async function initializeLocalMedia(callType) {
@@ -525,19 +591,19 @@ async function initializeLocalMedia(callType) {
         video: isVideoCall && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
-    const result = await media.getStreamForCall(constraints, ui.localVideo, ui.localAudio);
+    const result = await media.getStreamForCall(constraints, localVideo, localAudio);
     
     if (result.stream) {
         if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
             logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
             result.stream.getVideoTracks()[0].enabled = false;
-            ui.localVideoContainer.style.display = 'none';
+            localVideoContainer.style.display = 'none';
             isVideoEnabled = false;
         } else if (result.isVideo) {
-            ui.localVideoContainer.style.display = 'flex';
+            localVideoContainer.style.display = 'flex';
             isVideoEnabled = true;
         } else {
-            ui.localVideoContainer.style.display = 'none';
+            localVideoContainer.style.display = 'none';
             isVideoEnabled = false;
         }
         return true;
@@ -545,21 +611,55 @@ async function initializeLocalMedia(callType) {
     return false;
 }
 
+function handleRemoteMuteStatus(isMuted) {
+    clearTimeout(remoteMuteToastTimeout);
+    if (isMuted) {
+        remoteMuteToast.textContent = "Собеседник выключил микрофон. 🔇";
+    } else {
+        remoteMuteToast.textContent = "Микрофон снова включён. 🎤";
+    }
+    remoteMuteToast.classList.add('visible');
+    remoteMuteToastTimeout = setTimeout(() => {
+        remoteMuteToast.classList.remove('visible');
+    }, 2000);
+    logToScreen(`[REMOTE_STATUS] Peer is now ${isMuted ? 'muted' : 'unmuted'}.`);
+}
+
 function isMobileDevice() {
     return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
+
+function stopIncomingRing() {
+    ringInAudio.pause();
+    ringInAudio.currentTime = 0;
+}
+
+function updateCallUI() {
+    remoteUserName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
+    const isVideoCall = currentCallType === 'video';
+    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
+    
+    videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
+    muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
+    screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
+    
+    remoteVideo.style.display = isVideoCall ? 'block' : 'none';
+    
+    callScreen.classList.toggle('video-call-active', isVideoCall);
+    callScreen.classList.toggle('audio-call-active', !isVideoCall);
 }
 
 function toggleMute() {
     if (!media.getMediaAccessStatus().hasMicrophoneAccess) return;
     isMuted = !isMuted;
     webrtc.toggleMute(isMuted, media.getLocalStream());
-    ui.muteBtn.classList.toggle('active', isMuted);
+    muteBtn.classList.toggle('active', isMuted);
     logToScreen(`[CONTROLS] Mic ${isMuted ? 'muted' : 'unmuted'}.`);
 }
 
 function toggleSpeaker() {
     isSpeakerMuted = media.toggleRemoteSpeakerMute();
-    ui.speakerBtn.classList.toggle('active', isSpeakerMuted);
+    speakerBtn.classList.toggle('active', isSpeakerMuted);
     logToScreen(`[CONTROLS] Remote audio (speaker) ${isSpeakerMuted ? 'muted' : 'unmuted'}.`);
 }
 
@@ -567,14 +667,14 @@ function toggleVideo() {
     if (!media.getMediaAccessStatus().hasCameraAccess) return;
     isVideoEnabled = !isVideoEnabled;
     webrtc.toggleVideo(isVideoEnabled, media.getLocalStream());
-    ui.videoBtn.classList.toggle('active', !isVideoEnabled);
-    ui.localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
+    videoBtn.classList.toggle('active', !isVideoEnabled);
+    localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
     logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
 }
 
 async function openDeviceSettings() {
     await populateDeviceSelectorsInCall();
-    ui.deviceSettingsModal.classList.add('active');
+    deviceSettingsModal.classList.add('active');
 }
 
 async function populateDeviceSelectorsInCall() {
@@ -603,9 +703,9 @@ async function populateDeviceSelectorsInCall() {
     const currentAudioTrack = localStream?.getAudioTracks()[0];
     const currentVideoTrack = localStream?.getVideoTracks()[0];
     
-    populate(ui.micSelectCall, audioInDevices, ui.micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
-    populate(ui.cameraSelectCall, videoDevices, ui.cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
-    populate(ui.speakerSelectCall, audioOutDevices, ui.speakerSelectContainerCall, selectedAudioOutId);
+    populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
+    populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
+    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, selectedAudioOutId);
 }
 
 async function switchInputDevice(kind, deviceId) {
@@ -622,20 +722,74 @@ async function switchInputDevice(kind, deviceId) {
 }
 
 async function switchAudioOutput(deviceId) {
-    if (typeof ui.remoteVideo.setSinkId !== 'function') {
+    if (typeof remoteVideo.setSinkId !== 'function') {
         logToScreen('[SINK] setSinkId() is not supported by this browser.');
         alert('Ваш браузер не поддерживает переключение динамиков.');
         return;
     }
     try {
-        await ui.remoteVideo.setSinkId(deviceId);
-        await ui.remoteAudio.setSinkId(deviceId);
+        await remoteVideo.setSinkId(deviceId);
+        await remoteAudio.setSinkId(deviceId);
         selectedAudioOutId = deviceId;
         logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
         logToScreen(`[SINK] Error switching audio output: ${error}`);
         alert(`Не удалось переключить динамик: ${error.message}`);
     }
+}
+
+function updateScreenShareUI(isSharing) {
+    screenShareBtn.classList.toggle('active', isSharing);
+    localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'flex' : 'none');
+}
+
+function resetCallControls() {
+    isMuted = false; isVideoEnabled = true; isSpeakerMuted = false;
+    muteBtn.classList.remove('active');
+    videoBtn.classList.remove('active');
+    speakerBtn.classList.remove('active');
+    screenShareBtn.classList.remove('active');
+    localVideo.classList.remove('force-cover');
+    remoteVideo.classList.remove('force-cover');
+    toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
+    toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
+    clearTimeout(uiFadeTimeout);
+    removeVideoCallUiListeners();
+    callScreen.classList.remove('ui-faded', 'ui-interactive', 'video-call-active', 'audio-call-active');
+    audioCallVisualizer.style.display = 'none';
+    remoteUserName.style.display = 'block';
+    isEndingCall = false;
+}
+
+function startTimer() {
+    callScreen.classList.add('call-connected');
+    if (callTimerInterval) clearInterval(callTimerInterval);
+    let seconds = 0;
+    callTimer.textContent = '00:00';
+    remoteUserName.style.display = 'none';
+    callTimerInterval = setInterval(() => {
+        seconds++;
+        const mins = String(Math.floor(seconds / 60)).padStart(2, '0');
+        const secs = String(seconds % 60).padStart(2, '0');
+        callTimer.textContent = `${mins}:${secs}`;
+    }, 1000);
+
+    if (currentCallType === 'video') {
+        setupVideoCallUiListeners();
+        resetUiFade();
+    } else {
+        audioCallVisualizer.style.display = 'flex';
+    }
+
+    connectionQuality.classList.add('active');
+    monitor.startConnectionMonitoring();
+}
+
+function stopTimer() {
+    clearInterval(callTimerInterval);
+    callTimerInterval = null;
+    callTimer.textContent = '00:00';
+    remoteUserName.style.display = 'block';
 }
 
 async function updateRoomLifetime() {
@@ -645,18 +799,18 @@ async function updateRoomLifetime() {
         const data = await response.json();
         const remainingSeconds = data.remaining_seconds;
         if (remainingSeconds <= 0) {
-            ui.lifetimeTimer.textContent = "00:00";
+            lifetimeTimer.textContent = "00:00";
             clearInterval(lifetimeTimerInterval);
             alert("Время жизни ссылки истекло.");
             redirectToInvalidLink();
         } else {
             const hours = Math.floor(remainingSeconds / 3600);
             const minutes = Math.floor((remainingSeconds % 3600) / 60);
-            ui.lifetimeTimer.textContent = `${String(hours).padStart(2, '0')} ч. ${String(minutes).padStart(2, '0')} м.`;
+            lifetimeTimer.textContent = `${String(hours).padStart(2, '0')} ч. ${String(minutes).padStart(2, '0')} м.`;
         }
     } catch (error) {
         logToScreen(`[LIFETIME] Error fetching lifetime: ${error.message}`);
-        ui.lifetimeTimer.textContent = "Ошибка";
+        lifetimeTimer.textContent = "Ошибка";
         clearInterval(lifetimeTimerInterval);
     }
 }
@@ -675,4 +829,73 @@ async function closeSession() {
 function redirectToInvalidLink() {
     setGracefulDisconnect(true);
     window.location.reload();
+}
+
+function updateConnectionIcon(type) {
+    connectionStatus.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
+    const typeMap = {
+        local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
+        p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
+        relay: { id: 'conn-relay', title: 'Соединение через сервер (Relay)' },
+        unknown: { id: 'conn-unknown', title: 'Определение типа соединения...' }
+    };
+    const { id, title } = typeMap[type] || typeMap.unknown;
+    document.getElementById(id)?.classList.add('active');
+    connectionStatus.setAttribute('data-type-title', title);
+    const qualityText = connectionStatus.title.split(' / ')[0] || 'Качество соединения';
+    connectionStatus.title = `${qualityText} / ${title}`;
+}
+
+function updateConnectionQualityIcon(quality) {
+    connectionQuality.classList.remove('quality-good', 'quality-medium', 'quality-bad');
+    [qualityGoodSvg, qualityMediumSvg, qualityBadSvg].forEach(svg => {
+        svg.classList.remove('active-quality-svg');
+        svg.style.display = 'none';
+    });
+    const qualityMap = {
+        good: { class: 'quality-good', text: 'Отличное соединение', svg: qualityGoodSvg },
+        medium: { class: 'quality-medium', text: 'Среднее соединение', svg: qualityMediumSvg },
+        bad: { class: 'quality-bad', text: 'Плохое соединение', svg: qualityBadSvg },
+        unknown: { class: '', text: 'Оценка качества...', svg: null }
+    };
+    const { class: qualityClass, text: qualityText, svg: activeSvg } = qualityMap[quality] || qualityMap.unknown;
+    if (qualityClass) connectionQuality.classList.add(qualityClass);
+    if (activeSvg) {
+        activeSvg.style.display = 'block';
+        activeSvg.classList.add('active-quality-svg');
+    }
+    const typeTitle = connectionStatus.getAttribute('data-type-title') || 'Определение типа...';
+    connectionStatus.title = `${qualityText} / ${typeTitle}`;
+}
+
+function showConnectionInfo() {
+    const details = monitor.getCurrentConnectionDetails();
+    if (!details) return;
+    clearTimeout(infoPopupTimeout);
+    connectionInfoPopup.textContent = `${details.region}, ${details.provider}`;
+    connectionInfoPopup.classList.add('active');
+    infoPopupTimeout = setTimeout(() => {
+        connectionInfoPopup.classList.remove('active');
+    }, 3000);
+}
+
+function showConnectionToast(type, message) {
+    clearTimeout(connectionToastTimeout);
+    
+    let finalMessage = message;
+    if (type === 'good') {
+        finalMessage += ' 🌍';
+    } else if (type === 'warning') {
+        finalMessage += ' 📡';
+    }
+    
+    connectionToast.textContent = finalMessage;
+    connectionToast.className = 'toast-notification'; // Reset classes
+    connectionToast.classList.add(`toast-${type}`);
+    
+    connectionToast.classList.add('visible');
+    
+    connectionToastTimeout = setTimeout(() => {
+        connectionToast.classList.remove('visible');
+    }, 2000);
 }
