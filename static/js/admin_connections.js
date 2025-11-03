@@ -1,3 +1,4 @@
+
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -20,29 +21,30 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        // Сначала готовим HTML для всех участников сессии
-        const participantsHtml = session.participants.map((p, pIndex) => `
-            <div class="participant-card">
-                <strong>Участник ${pIndex + 1}</strong>
-                <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-            </div>
-        `).join('');
-
-        // Теперь для каждого звонка используем этот общий список участников
         const callGroupsHtml = session.call_groups.length > 0
-            ? session.call_groups.map((call, groupIndex) => {
-                const callMetaHtml = `
-                    <div class="call-group-meta">
-                        <span>Тип: <strong>${call.call_type || 'N/A'}</strong></span>
-                        <span>Длительность: <strong>${call.duration_seconds === null ? 'активен' : `${call.duration_seconds} сек`}</strong></span>
-                        ${call.connection_type ? `<span>Соединение: <strong class="conn-type conn-type-${call.connection_type}">${call.connection_type.toUpperCase()}</strong></span>` : ''}
+            ? session.call_groups.map((group, groupIndex) => {
+                const participantsHtml = group.participants.map((p, pIndex) => `
+                    <div class="participant-card">
+                        <strong>Участник ${pIndex + 1}</strong>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
                     </div>
-                `;
+                `).join('');
+
+                let callMetaHtml = '';
+                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
+                if (session.status === 'completed' && group.participants.length >= 2) {
+                    callMetaHtml = `
+                        <div class="call-group-meta">
+                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
+                        </div>
+                    `;
+                }
 
                 return `
                     <div class="call-group">
-                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(call.start_time)}</div>
+                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
                         ${callMetaHtml}
                         ${participantsHtml}
                     </div>

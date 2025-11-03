@@ -13,7 +13,6 @@ let currentConnectionDetails = null;
 let connectionStatsInterval = null;
 let initialConnectionToastShown = false;
 let currentConnectionType = 'unknown';
-let connectionDetailsSent = false; // Флаг, чтобы отправить данные только один раз
 
 export function init(callbacks) {
     log = callbacks.log;
@@ -251,22 +250,6 @@ async function monitorConnectionStats() {
                 
                 updateConnectionIcon(connectionTypeForIcon);
 
-                // --- НАЧАЛО НОВОГО БЛОКА ---
-                if (!connectionDetailsSent && currentConnectionType !== 'unknown') {
-                    connectionDetailsSent = true; // Устанавливаем флаг
-                    const roomId = window.location.pathname.split('/')[2];
-                    log(`[MONITOR] Соединение установлено. Тип: ${currentConnectionType}. Отправка на сервер.`);
-                    fetch('/api/call/connection-established', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            room_id: roomId,
-                            connection_type: currentConnectionType
-                        })
-                    }).catch(err => log(`[MONITOR] Ошибка отправки данных о соединении: ${err}`));
-                }
-                // --- КОНЕЦ НОВОГО БЛОКА ---
-
                 if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
                     initialConnectionToastShown = true;
                     if (connectionTypeForIcon === 'p2p' || connectionTypeForIcon === 'local') {
@@ -311,7 +294,6 @@ async function monitorConnectionStats() {
 
 export function startConnectionMonitoring() {
     if (connectionStatsInterval) clearInterval(connectionStatsInterval);
-    connectionDetailsSent = false; // Сбрасываем флаг при каждом новом звонке
     connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
     initialConnectionToastShown = false;
     updateConnectionIcon('unknown');
@@ -325,7 +307,6 @@ export function stopConnectionMonitoring() {
     currentConnectionDetails = null;
     currentConnectionType = 'unknown';
     initialConnectionToastShown = false;
-    connectionDetailsSent = false; // Сбрасываем флаг при завершении
     updateConnectionQualityIcon('unknown');
     updateConnectionIcon('unknown');
 }
