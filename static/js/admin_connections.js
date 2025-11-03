@@ -1,4 +1,3 @@
-
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -38,6 +37,7 @@ async function loadConnections() {
                         <div class="call-group-meta">
                             <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
                             <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
+                            ${session.connection_type ? `<span>Соединение: <strong class="conn-type conn-type-${session.connection_type}">${session.connection_type.toUpperCase()}</strong></span>` : ''}
                         </div>
                     `;
                 }

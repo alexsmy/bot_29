@@ -1,3 +1,5 @@
+# main.py
+
 import asyncio
 import os
 import uuid
@@ -62,6 +64,10 @@ class ConnectionLog(BaseModel):
     isCallInitiator: bool
     probeResults: List[Dict[str, Any]]
     selectedConnection: Optional[Dict[str, Any]] = None
+
+class ConnectionEstablishedPayload(BaseModel):
+    room_id: str
+    connection_type: str
 
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
@@ -277,6 +283,24 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
+@app.post("/api/call/connection-established")
+async def connection_established(payload: ConnectionEstablishedPayload):
+    """Вызывается клиентом, когда WebRTC соединение успешно установлено."""
+    await database.log_connection_established(payload.room_id, payload.connection_type)
+    
+    # Отправляем уведомление администратору
+    message_to_admin = (
+        f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
+        f"<b>Room ID:</b> <code>{payload.room_id}</code>\n"
+        f"<b>Тип соединения:</b> {payload.connection_type.upper()}\n"
+        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+    )
+    asyncio.create_task(
+        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
+    )
+    
+    return CustomJSONResponse(content={"status": "ok"})
+
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -323,6 +347,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 call_type = message["data"]["call_type"]
                 room.pending_call_type = call_type
+                # Записываем в БД, что звонок инициирован
+                asyncio.create_task(database.log_call_initiated(room.room_id, call_type))
                 await room.set_user_status(user_id, "busy")
                 await room.set_user_status(target_id, "busy")
                 await room.send_personal_message(
@@ -334,18 +360,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
-                if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
-                    message_to_admin = (
-                        f"📞 <b>Звонок начался</b>\n\n"
-                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-                        f"<b>Тип:</b> {room.pending_call_type}\n"
-                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-                    )
-                    asyncio.create_task(
-                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
-                    )
-                    room.pending_call_type = None
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:

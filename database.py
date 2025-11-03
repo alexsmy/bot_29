@@ -59,7 +59,8 @@ async def init_db():
                 duration_seconds INTEGER,
                 status TEXT DEFAULT 'pending',
                 closed_at TIMESTAMPTZ,
-                close_reason TEXT
+                close_reason TEXT,
+                connection_type TEXT
             )
         ''')
         await conn.execute('''
@@ -141,13 +142,31 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['country'], parsed_data['city']
         )
 
-async def log_call_start(room_id, call_type):
+async def log_call_initiated(room_id, call_type):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE call_sessions SET call_type = $1, call_started_at = $2, status = 'active' WHERE room_id = $3",
-            call_type, datetime.now(timezone.utc), room_id
+            "UPDATE call_sessions SET call_type = $1, status = 'initiated' WHERE room_id = $2",
+            call_type, room_id
         )
+
+async def log_connection_established(room_id: str, connection_type: str):
+    """Записывает фактическое время начала звонка и тип соединения."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Обновляем только если звонок еще не помечен как активный, чтобы избежать двойной записи
+        await conn.execute(
+            """
+            UPDATE call_sessions
+            SET call_started_at = $1,
+                connection_type = $2,
+                status = 'active'
+            WHERE room_id = $3 AND status != 'active'
+            """,
+            datetime.now(timezone.utc), connection_type, room_id
+        )
+        logger.info(f"Для комнаты {room_id} зафиксировано соединение типа '{connection_type}'.")
+
 
 async def log_call_end(room_id):
     pool = await get_pool()
@@ -262,7 +281,7 @@ async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
         sessions = await conn.fetch(
-            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
+            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason, connection_type FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []

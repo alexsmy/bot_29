@@ -449,10 +449,25 @@ html.dark .connection-item {
     margin-bottom: 1rem;
     display: flex;
     gap: 1.5rem;
+    align-items: center;
 }
 .call-group-meta strong {
     color: var(--text-primary);
     font-weight: 600;
+}
+.conn-type {
+    font-family: monospace;
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+.conn-type-p2p {
+    background-color: var(--success-color);
+    color: white;
+}
+.conn-type-relay {
+    background-color: var(--pending-color);
+    color: #18181b;
 }
 .participant-card {
     background-color: var(--surface-bg);
@@ -476,7 +491,7 @@ html.dark .connection-item {
 }
 .status.completed { background-color: var(--success-color); color: white; }
 .status.active { background-color: var(--accent-color); color: white; }
-.status.pending { background-color: var(--pending-color); color: #18181b; }
+.status.pending, .status.initiated { background-color: var(--pending-color); color: #18181b; }
 .status.closed { background-color: var(--text-secondary); color: var(--surface-bg); }
 
 .report-item {
