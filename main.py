@@ -68,7 +68,6 @@ class ConnectionLog(BaseModel):
 class ConnectionEstablishedPayload(BaseModel):
     room_id: str
     connection_type: str
-    user_id: str # Добавили это поле
 
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
@@ -287,25 +286,10 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 @app.post("/api/call/connection-established")
 async def connection_established(payload: ConnectionEstablishedPayload):
     """Вызывается клиентом, когда WebRTC соединение успешно установлено."""
-    room = manager.rooms.get(payload.room_id)
-    if not room or len(room.users) != 2:
-        logger.warning(f"Получен сигнал connection-established для комнаты {payload.room_id}, но в ней не 2 участника.")
-        return CustomJSONResponse(content={"status": "ignored, wrong user count"}, status_code=400)
-
-    # Находим ID обоих участников
-    participant_ids = list(room.users.keys())
-    if payload.user_id not in participant_ids:
-        logger.error(f"UserID {payload.user_id} не найден в комнате {payload.room_id} при установке соединения.")
-        return CustomJSONResponse(content={"status": "error, user not in room"}, status_code=404)
-
-    # Обновляем запись о звонке, привязывая к ней участников
-    call_id = await database.log_connection_established(
-        room_id=payload.room_id,
-        connection_type=payload.connection_type,
-        participant_ids=participant_ids
-    )
+    was_updated = await database.log_connection_established(payload.room_id, payload.connection_type)
     
-    if call_id:
+    # Отправляем уведомление администратору только если это первая фиксация соединения
+    if was_updated:
         message_to_admin = (
             f"📞 <b>Звонок начался (соединение установлено)</b>\n\n"
             f"<b>Room ID:</b> <code>{payload.room_id}</code>\n"
@@ -377,6 +361,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
+                # Уведомление о начале звонка теперь отправляется из connection_established,
+                # поэтому здесь больше ничего не делаем с БД.
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:
@@ -390,12 +376,10 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 
                 if message_type == "hangup":
                     # Логируем окончание последнего активного звонка
-                    duration = await database.log_call_end(room.room_id)
-                    duration_str = f"{duration} сек." if duration is not None else "N/A"
+                    asyncio.create_task(database.log_call_end(room.room_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-                        f"<b>Длительность:</b> {duration_str}\n"
                         f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
                     )
                     asyncio.create_task(
@@ -413,18 +397,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         
         if is_in_call:
             # При дисконнекте во время звонка, также логируем его завершение
-            duration = await database.log_call_end(room.room_id)
-            duration_str = f"{duration} сек." if duration is not None else "N/A"
-            message_to_admin = (
-                f"🔚 <b>Звонок завершен (дисконнект)</b>\n\n"
-                f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-                f"<b>Длительность:</b> {duration_str}\n"
-                f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-            )
-            asyncio.create_task(
-                notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
-            )
-
+            asyncio.create_task(database.log_call_end(room.room_id))
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:
@@ -449,16 +422,15 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
-    new_user_id = str(uuid.uuid4())
-
     async def log_connection_in_background():
         location_data = await utils.get_ip_location(ip_address)
         ua_data = utils.parse_user_agent(user_agent)
         parsed_data = {**location_data, **ua_data}
-        await database.log_connection(room_id, new_user_id, ip_address, user_agent, parsed_data)
+        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
 
     asyncio.create_task(log_connection_in_background())
 
+    new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
     
     actual_user_id = await room.connect(websocket, user_data)

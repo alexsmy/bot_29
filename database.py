@@ -1,413 +1,390 @@
+# database.py
+
 import os
 import asyncpg
-from datetime import datetime, timedelta, date, timezone
-from typing import Optional, List, Dict, Any
+from datetime import datetime, date, timezone, timedelta
+from typing import Dict, Optional, List, Any
 from logger_config import logger
+from config import ADMIN_TOKEN_LIFETIME_MINUTES
 
-# --- Глобальные переменные ---
-pool = None
 DATABASE_URL = os.environ.get("DATABASE_URL")
+_pool: Optional[asyncpg.Pool] = None
 
-# --- Управление соединением ---
-async def get_pool():
-    global pool
-    if pool is None:
+async def get_pool() -> asyncpg.Pool:
+    global _pool
+    if _pool is None:
         if not DATABASE_URL:
-            raise ValueError("DATABASE_URL не установлен в переменных окружения.")
-        try:
-            pool = await asyncpg.create_pool(DATABASE_URL)
-            logger.info("Пул соединений с базой данных успешно создан.")
-        except Exception as e:
-            logger.critical(f"Не удалось создать пул соединений с БД: {e}")
-            raise
-    return pool
+            raise ValueError("DATABASE_URL не установлена в переменных окружения")
+        _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
+        logger.info("Пул соединений с базой данных успешно создан.")
+    return _pool
 
 async def close_pool():
-    global pool
-    if pool:
-        await pool.close()
-        pool = None
+    global _pool
+    if _pool:
+        await _pool.close()
+        _pool = None
         logger.info("Пул соединений с базой данных закрыт.")
 
-# --- Инициализация и структура БД ---
 async def init_db():
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        await connection.execute('''
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # --- СУЩЕСТВУЮЩИЕ ТАБЛИЦЫ (БЕЗ ИЗМЕНЕНИЙ) ---
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
                 first_name TEXT,
                 last_name TEXT,
                 username TEXT,
                 first_seen TIMESTAMPTZ NOT NULL
-            );
+            )
         ''')
-        await connection.execute('''
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS bot_actions (
-                id SERIAL PRIMARY KEY,
-                user_id BIGINT REFERENCES users(user_id),
+                action_id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
                 action TEXT NOT NULL,
                 timestamp TIMESTAMPTZ NOT NULL
-            );
+            )
         ''')
-        await connection.execute('''
+        # --- ИЗМЕНЕНИЯ В CALL_SESSIONS ---
+        # Убираем поля, специфичные для одного звонка, они переедут в call_events
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS call_sessions (
-                id SERIAL PRIMARY KEY,
-                room_id UUID UNIQUE NOT NULL,
-                creator_user_id BIGINT REFERENCES users(user_id),
+                session_id SERIAL PRIMARY KEY,
+                room_id TEXT NOT NULL UNIQUE,
+                generated_by_user_id BIGINT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
-                status TEXT DEFAULT 'active',
+                status TEXT DEFAULT 'pending',
                 closed_at TIMESTAMPTZ,
                 close_reason TEXT
-            );
+            )
         ''')
-        await connection.execute('''
+        # --- НОВАЯ ТАБЛИЦА ДЛЯ ЗВОНКОВ ---
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS call_events (
+                event_id SERIAL PRIMARY KEY,
+                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
+                call_type TEXT,
+                connection_type TEXT,
+                started_at TIMESTAMPTZ,
+                ended_at TIMESTAMPTZ,
+                duration_seconds INTEGER
+            )
+        ''')
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS connections (
-                id SERIAL PRIMARY KEY,
-                session_id INT REFERENCES call_sessions(id),
-                user_id_internal UUID NOT NULL,
+                connection_id SERIAL PRIMARY KEY,
+                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
+                connected_at TIMESTAMPTZ NOT NULL,
                 ip_address TEXT,
                 user_agent TEXT,
-                parsed_data JSONB,
-                timestamp TIMESTAMPTZ NOT NULL
-            );
+                device_type TEXT,
+                os_info TEXT,
+                browser_info TEXT,
+                country TEXT,
+                city TEXT
+            )
         ''')
-        await connection.execute('''
-            CREATE TABLE IF NOT EXISTS call_events (
-                id SERIAL PRIMARY KEY,
-                session_id INT REFERENCES call_sessions(id),
-                call_type TEXT,
-                initiated_at TIMESTAMPTZ NOT NULL,
-                start_time TIMESTAMPTZ,
-                end_time TIMESTAMPTZ,
-                connection_type TEXT
-            );
-        ''')
-        await connection.execute('''
-            CREATE TABLE IF NOT EXISTS call_participants (
-                id SERIAL PRIMARY KEY,
-                call_event_id INT REFERENCES call_events(id) ON DELETE CASCADE,
-                connection_id INT REFERENCES connections(id) ON DELETE CASCADE,
-                UNIQUE (call_event_id, connection_id)
-            );
-        ''')
-        await connection.execute('''
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_tokens (
-                id SERIAL PRIMARY KEY,
-                token UUID UNIQUE NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL,
+                token TEXT PRIMARY KEY,
                 expires_at TIMESTAMPTZ NOT NULL
-            );
+            )
         ''')
-        await connection.execute('''
+        await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_settings (
                 key TEXT PRIMARY KEY,
                 value BOOLEAN NOT NULL
-            );
+            )
         ''')
-        logger.info("Проверка и инициализация таблиц БД завершена.")
+        await conn.execute('''
+            INSERT INTO admin_settings (key, value) VALUES
+            ('notify_on_room_creation', TRUE),
+            ('notify_on_call_start', TRUE),
+            ('notify_on_call_end', TRUE),
+            ('send_connection_report', TRUE)
+            ON CONFLICT(key) DO NOTHING
+        ''')
+    logger.info("База данных PostgreSQL успешно инициализирована.")
 
-# --- Логирование ---
-async def log_user(user_id: int, first_name: str, last_name: Optional[str], username: Optional[str]):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        await connection.execute('''
+async def log_user(user_id, first_name, last_name, username):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
             INSERT INTO users (user_id, first_name, last_name, username, first_seen)
             VALUES ($1, $2, $3, $4, $5)
-            ON CONFLICT (user_id) DO UPDATE SET
-                first_name = EXCLUDED.first_name,
-                last_name = EXCLUDED.last_name,
-                username = EXCLUDED.username;
-        ''', user_id, first_name, last_name, username, datetime.now(timezone.utc))
+            ON CONFLICT (user_id) DO NOTHING
+            """,
+            user_id, first_name, last_name, username, datetime.now(timezone.utc)
+        )
 
-async def log_bot_action(user_id: int, action: str):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        await connection.execute('''
-            INSERT INTO bot_actions (user_id, action, timestamp)
-            VALUES ($1, $2, $3);
-        ''', user_id, action, datetime.now(timezone.utc))
+async def log_bot_action(user_id, action):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO bot_actions (user_id, action, timestamp) VALUES ($1, $2, $3)",
+            user_id, action, datetime.now(timezone.utc)
+        )
 
-async def log_call_session(room_id: str, user_id: int, created_at: datetime, expires_at: datetime):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        await connection.execute('''
-            INSERT INTO call_sessions (room_id, creator_user_id, created_at, expires_at)
-            VALUES ($1, $2, $3, $4);
-        ''', uuid.UUID(room_id), user_id, created_at, expires_at)
+async def log_call_session(room_id, user_id, created_at, expires_at):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "INSERT INTO call_sessions (room_id, generated_by_user_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
+            room_id, user_id, created_at, expires_at
+        )
 
-async def log_room_closure(room_id: str, reason: str):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        await connection.execute('''
-            UPDATE call_sessions
-            SET status = 'closed', closed_at = $1, close_reason = $2
-            WHERE room_id = $3 AND status = 'active';
-        ''', datetime.now(timezone.utc), reason, uuid.UUID(room_id))
+async def log_connection(room_id, ip_address, user_agent, parsed_data):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO connections (
+                room_id, connected_at, ip_address, user_agent,
+                device_type, os_info, browser_info, country, city
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            """,
+            room_id, datetime.now(timezone.utc), ip_address, user_agent,
+            parsed_data['device'], parsed_data['os'], parsed_data['browser'],
+            parsed_data['country'], parsed_data['city']
+        )
 
-async def log_connection(room_id: str, user_id_internal: str, ip: str, ua: str, parsed_data: dict):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        session_id = await connection.fetchval('SELECT id FROM call_sessions WHERE room_id = $1', uuid.UUID(room_id))
-        if session_id:
-            await connection.execute('''
-                INSERT INTO connections (session_id, user_id_internal, ip_address, user_agent, parsed_data, timestamp)
-                VALUES ($1, $2, $3, $4, $5, $6);
-            ''', session_id, uuid.UUID(user_id_internal), ip, ua, json.dumps(parsed_data), datetime.now(timezone.utc))
+async def log_call_initiated(room_id: str, call_type: str) -> int:
+    """Создает новую запись о событии звонка и возвращает ее ID."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        event_id = await conn.fetchval(
+            """
+            INSERT INTO call_events (room_id, call_type)
+            VALUES ($1, $2)
+            RETURNING event_id
+            """,
+            room_id, call_type
+        )
+        await conn.execute("UPDATE call_sessions SET status = 'initiated' WHERE room_id = $1", room_id)
+        logger.info(f"Для комнаты {room_id} инициирован звонок типа '{call_type}' (Event ID: {event_id}).")
+        return event_id
 
-async def log_call_initiated(room_id: str, call_type: str):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        session_id = await connection.fetchval('SELECT id FROM call_sessions WHERE room_id = $1', uuid.UUID(room_id))
-        if session_id:
-            await connection.execute('''
-                INSERT INTO call_events (session_id, call_type, initiated_at)
-                VALUES ($1, $2, $3);
-            ''', session_id, call_type, datetime.now(timezone.utc))
-
-async def log_connection_established(room_id: str, connection_type: str, participant_ids: List[str]) -> Optional[int]:
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        async with connection.transaction():
-            session_id = await connection.fetchval('SELECT id FROM call_sessions WHERE room_id = $1', uuid.UUID(room_id))
-            if not session_id: return None
-
-            call_event_id = await connection.fetchval('''
-                SELECT id FROM call_events
-                WHERE session_id = $1 AND start_time IS NULL
-                ORDER BY initiated_at DESC
-                LIMIT 1;
-            ''', session_id)
-
-            if not call_event_id: return None
-
-            await connection.execute('''
-                UPDATE call_events
-                SET start_time = $1, connection_type = $2
-                WHERE id = $3;
-            ''', datetime.now(timezone.utc), connection_type, call_event_id)
-
-            for user_id in participant_ids:
-                connection_id = await connection.fetchval('''
-                    SELECT id FROM connections
-                    WHERE session_id = $1 AND user_id_internal = $2
-                    ORDER BY timestamp DESC
-                    LIMIT 1;
-                ''', session_id, uuid.UUID(user_id))
-                if connection_id:
-                    await connection.execute('''
-                        INSERT INTO call_participants (call_event_id, connection_id)
-                        VALUES ($1, $2) ON CONFLICT DO NOTHING;
-                    ''', call_event_id, connection_id)
-            return call_event_id
-
-async def log_call_end(room_id: str) -> Optional[int]:
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        session_id = await connection.fetchval('SELECT id FROM call_sessions WHERE room_id = $1', uuid.UUID(room_id))
-        if not session_id: return None
-
-        record = await connection.fetchrow('''
+async def log_connection_established(room_id: str, connection_type: str) -> bool:
+    """
+    Обновляет последнюю запись о звонке, добавляя время начала и тип соединения.
+    Возвращает True, если это первая фиксация для данного события звонка.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Используем RETURNING, чтобы проверить, была ли строка действительно обновлена
+        result = await conn.fetchval(
+            """
             UPDATE call_events
-            SET end_time = $1
-            WHERE session_id = $2 AND start_time IS NOT NULL AND end_time IS NULL
-            RETURNING start_time, end_time;
-        ''', datetime.now(timezone.utc), session_id)
-        
-        if record and record['start_time'] and record['end_time']:
-            duration = (record['end_time'] - record['start_time']).total_seconds()
-            return int(duration)
-        return None
+            SET started_at = $1,
+                connection_type = $2
+            WHERE event_id = (
+                SELECT event_id FROM call_events
+                WHERE room_id = $3 AND started_at IS NULL
+                ORDER BY event_id DESC
+                LIMIT 1
+            )
+            RETURNING event_id
+            """,
+            datetime.now(timezone.utc), connection_type, room_id
+        )
+        if result:
+            await conn.execute("UPDATE call_sessions SET status = 'active' WHERE room_id = $1", room_id)
+            logger.info(f"Для комнаты {room_id} (Event ID: {result}) зафиксировано соединение типа '{connection_type}'.")
+            return True
+        else:
+            logger.warning(f"Попытка зафиксировать соединение для {room_id}, но не найдено активного события звонка.")
+            return False
 
-# --- Получение данных для админ-панели ---
-async def get_connections_info(for_date: date) -> List[Dict[str, Any]]:
-    db_pool = await get_pool()
-    start_of_day = datetime.combine(for_date, datetime.min.time(), tzinfo=timezone.utc)
-    end_of_day = datetime.combine(for_date, datetime.max.time(), tzinfo=timezone.utc)
+async def log_call_end(room_id: str):
+    """Находит последний активный звонок в комнате и записывает время его окончания."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Находим последнее событие звонка, у которого есть время начала, но нет времени окончания
+        row = await conn.fetchrow(
+            """
+            SELECT event_id, started_at FROM call_events
+            WHERE room_id = $1 AND started_at IS NOT NULL AND ended_at IS NULL
+            ORDER BY event_id DESC
+            LIMIT 1
+            """,
+            room_id
+        )
+        if row:
+            event_id = row['event_id']
+            start_time = row['started_at']
+            end_time = datetime.now(timezone.utc)
+            duration = int((end_time - start_time).total_seconds())
+            await conn.execute(
+                "UPDATE call_events SET ended_at = $1, duration_seconds = $2 WHERE event_id = $3",
+                end_time, duration, event_id
+            )
+            await conn.execute("UPDATE call_sessions SET status = 'completed' WHERE room_id = $1", room_id)
+            logger.info(f"Звонок (Event ID: {event_id}) в комнате {room_id} завершен. Длительность: {duration} сек.")
+        else:
+            logger.warning(f"Получен сигнал hangup для комнаты {room_id}, но не найдено активного звонка для завершения.")
 
-    async with db_pool.acquire() as connection:
-        sessions = await connection.fetch('''
-            SELECT id, room_id, created_at, status, closed_at, close_reason
-            FROM call_sessions
-            WHERE created_at >= $1 AND created_at <= $2
-            ORDER BY created_at DESC;
-        ''', start_of_day, end_of_day)
-
-        result = []
-        for session in sessions:
-            session_id = session['id']
-            
-            call_events = await connection.fetch('''
-                SELECT id, call_type, start_time, end_time, connection_type
-                FROM call_events
-                WHERE session_id = $1 AND start_time IS NOT NULL
-                ORDER BY start_time;
-            ''', session_id)
-
-            call_groups = []
-            for call in call_events:
-                duration = None
-                if call['end_time']:
-                    duration = int((call['end_time'] - call['start_time']).total_seconds())
-
-                participants = await connection.fetch('''
-                    SELECT c.ip_address, c.parsed_data
-                    FROM call_participants cp
-                    JOIN connections c ON cp.connection_id = c.id
-                    WHERE cp.call_event_id = $1;
-                ''', call['id'])
-
-                call_groups.append({
-                    "call_type": call['call_type'],
-                    "start_time": call['start_time'],
-                    "duration_seconds": duration,
-                    "connection_type": call['connection_type'],
-                    "participants": [{
-                        "ip_address": p['ip_address'],
-                        "country": p['parsed_data'].get('country'),
-                        "city": p['parsed_data'].get('city'),
-                        "device_type": p['parsed_data'].get('device'),
-                        "os_info": p['parsed_data'].get('os'),
-                        "browser_info": p['parsed_data'].get('browser'),
-                    } for p in participants]
-                })
-
-            result.append({
-                "room_id": str(session['room_id']),
-                "created_at": session['created_at'],
-                "status": session['status'],
-                "closed_at": session['closed_at'],
-                "close_reason": session['close_reason'],
-                "call_groups": call_groups
-            })
-    return result
-
-# --- Остальные функции без изменений ---
-async def get_stats(period: str):
-    db_pool = await get_pool()
-    
-    interval_map = {
-        "day": "1 day",
-        "week": "7 days",
-        "month": "1 month"
-    }
-    interval = interval_map.get(period)
-    
-    time_filter = f"WHERE timestamp >= NOW() - interval '{interval}'" if interval else ""
-    session_time_filter = f"WHERE created_at >= NOW() - interval '{interval}'" if interval else ""
-    call_time_filter = f"WHERE start_time >= NOW() - interval '{interval}'" if interval else ""
-
-    async with db_pool.acquire() as connection:
-        total_users = await connection.fetchval('SELECT COUNT(*) FROM users;')
-        total_actions = await connection.fetchval(f'SELECT COUNT(*) FROM bot_actions {time_filter};')
-        total_sessions_created = await connection.fetchval(f'SELECT COUNT(*) FROM call_sessions {session_time_filter};')
-        
-        completed_calls_query = f'''
-            SELECT COUNT(*) FROM call_events 
-            {call_time_filter} {'AND' if call_time_filter else 'WHERE'} end_time IS NOT NULL;
-        '''
-        completed_calls = await connection.fetchval(completed_calls_query)
-
-        avg_duration_query = f'''
-            SELECT AVG(EXTRACT(EPOCH FROM (end_time - start_time))) 
-            FROM call_events 
-            {call_time_filter} {'AND' if call_time_filter else 'WHERE'} end_time IS NOT NULL;
-        '''
-        avg_duration = await connection.fetchval(avg_duration_query) or 0
-        
-        active_rooms_count = await connection.fetchval("SELECT COUNT(*) FROM call_sessions WHERE status = 'active';")
-
-    return {
-        "total_users": total_users,
-        "total_actions": total_actions,
-        "total_sessions_created": total_sessions_created,
-        "completed_calls": completed_calls,
-        "avg_call_duration": round(avg_duration, 2),
-        "active_rooms_count": active_rooms_count
-    }
-
-async def get_users_info():
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        return [dict(row) for row in await connection.fetch('SELECT user_id, first_name, last_name, username, first_seen FROM users ORDER BY first_seen DESC;')]
-
-async def get_user_actions(user_id: int):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        return [dict(row) for row in await connection.fetch('SELECT action, timestamp FROM bot_actions WHERE user_id = $1 ORDER BY timestamp DESC;', user_id)]
-
-async def get_call_session_details(room_id: str):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        return await connection.fetchrow("SELECT * FROM call_sessions WHERE room_id = $1 AND status = 'active'", uuid.UUID(room_id))
-
-async def get_all_active_sessions():
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        return await connection.fetch('''
-            SELECT cs.room_id, cs.created_at, cs.expires_at, ce.call_type,
-                   CASE WHEN ce.start_time IS NOT NULL AND ce.end_time IS NULL THEN 'active' ELSE 'pending' END as status
-            FROM call_sessions cs
-            LEFT JOIN (
-                SELECT session_id, call_type, start_time, end_time,
-                       ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY initiated_at DESC) as rn
-                FROM call_events
-            ) ce ON cs.id = ce.session_id AND ce.rn = 1
-            WHERE cs.status = 'active';
-        ''')
-
-async def get_room_lifetime_hours(room_id: str) -> int:
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        record = await connection.fetchrow("SELECT created_at, expires_at FROM call_sessions WHERE room_id = $1", uuid.UUID(room_id))
-        if record:
-            return round((record['expires_at'] - record['created_at']).total_seconds() / 3600)
-        return 3
+async def log_room_closure(room_id, reason):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE call_sessions SET closed_at = $1, close_reason = $2, status = 'closed' WHERE room_id = $3 AND closed_at IS NULL",
+            datetime.now(timezone.utc), reason, room_id
+        )
 
 async def add_admin_token(token: str):
-    db_pool = await get_pool()
-    from config import ADMIN_TOKEN_LIFETIME_MINUTES
-    created_at = datetime.now(timezone.utc)
-    expires_at = created_at + timedelta(minutes=ADMIN_TOKEN_LIFETIME_MINUTES)
-    async with db_pool.acquire() as connection:
-        await connection.execute("INSERT INTO admin_tokens (token, created_at, expires_at) VALUES ($1, $2, $3);", uuid.UUID(token), created_at, expires_at)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        expiry_time = datetime.now(timezone.utc) + timedelta(minutes=ADMIN_TOKEN_LIFETIME_MINUTES)
+        await conn.execute(
+            "INSERT INTO admin_tokens (token, expires_at) VALUES ($1, $2)",
+            token, expiry_time
+        )
 
 async def get_admin_token_expiry(token: str) -> Optional[datetime]:
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        record = await connection.fetchrow("SELECT expires_at FROM admin_tokens WHERE token = $1;", uuid.UUID(token))
-        if record and record['expires_at'] > datetime.now(timezone.utc):
-            return record['expires_at']
-    return None
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM admin_tokens WHERE expires_at < $1", datetime.now(timezone.utc))
+        row = await conn.fetchrow("SELECT expires_at FROM admin_tokens WHERE token = $1", token)
+        return row['expires_at'] if row else None
 
-async def get_notification_settings() -> Dict[str, bool]:
-    db_pool = await get_pool()
-    defaults = {
-        "notify_on_room_creation": False,
-        "notify_on_call_start": False,
-        "notify_on_call_end": False,
-        "send_connection_report": False
+async def get_stats(period):
+    query_parts = {
+        "day": "WHERE first_seen >= NOW() - INTERVAL '1 day'",
+        "week": "WHERE first_seen >= NOW() - INTERVAL '7 days'",
+        "month": "WHERE first_seen >= NOW() - INTERVAL '30 days'",
+        "all": ""
     }
-    async with db_pool.acquire() as connection:
-        records = await connection.fetch("SELECT key, value FROM admin_settings;")
-        settings = {r['key']: r['value'] for r in records}
-        defaults.update(settings)
-    return defaults
+    date_filter = query_parts.get(period, "")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        total_users = await conn.fetchval(f"SELECT COUNT(*) FROM users {date_filter}")
+        total_actions = await conn.fetchval("SELECT COUNT(*) FROM bot_actions")
+        total_sessions = await conn.fetchval("SELECT COUNT(*) FROM call_sessions")
+        # Статистику по звонкам теперь берем из новой таблицы
+        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_events WHERE duration_seconds IS NOT NULL")
+        active_rooms_count = await conn.fetchval("SELECT COUNT(*) FROM call_sessions WHERE expires_at > NOW() AND closed_at IS NULL")
+        return {
+            "total_users": total_users or 0,
+            "total_actions": total_actions or 0,
+            "total_sessions_created": total_sessions or 0,
+            "completed_calls": completed_calls_data['count'] or 0,
+            "avg_call_duration": round(completed_calls_data['avg_duration'] or 0),
+            "active_rooms_count": active_rooms_count or 0
+        }
 
-async def update_notification_settings(settings: Dict[str, bool]):
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        async with connection.transaction():
-            for key, value in settings.items():
-                await connection.execute('''
-                    INSERT INTO admin_settings (key, value) VALUES ($1, $2)
-                    ON CONFLICT (key) DO UPDATE SET value = $2;
-                ''', key, value)
+async def get_users_info():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT user_id, first_name, last_name, username, first_seen FROM users ORDER BY first_seen DESC")
+        return [dict(row) for row in rows]
+
+async def get_user_actions(user_id):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT action, timestamp FROM bot_actions WHERE user_id = $1 ORDER BY timestamp DESC", user_id)
+        return [dict(row) for row in rows]
+
+async def get_connections_info(date_obj: date):
+    """Полностью переписанная функция для админ-панели."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # 1. Получаем все сессии за указанную дату
+        sessions = await conn.fetch(
+            "SELECT room_id, created_at, status, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
+            date_obj
+        )
+        results = []
+        for session in sessions:
+            session_dict = dict(session)
+            
+            # 2. Для каждой сессии получаем всех ее участников из таблицы connections
+            participants_records = await conn.fetch(
+                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
+                session_dict['room_id']
+            )
+            # Сохраняем участников на уровне сессии
+            session_dict['participants'] = [dict(p) for p in participants_records]
+            
+            # 3. Для каждой сессии получаем все ее звонки из новой таблицы call_events
+            calls = await conn.fetch(
+                "SELECT started_at, duration_seconds, call_type, connection_type FROM call_events WHERE room_id = $1 AND started_at IS NOT NULL ORDER BY started_at",
+                session_dict['room_id']
+            )
+
+            # 4. Собираем все вместе
+            session_dict['call_groups'] = [dict(call) for call in calls]
+            
+            results.append(session_dict)
+        return results
+
+async def get_call_session_details(room_id: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = """
+            SELECT room_id, created_at, expires_at
+            FROM call_sessions
+            WHERE room_id = $1 AND expires_at > NOW() AND closed_at IS NULL
+        """
+        row = await conn.fetchrow(query, room_id)
+        return dict(row) if row else None
+
+async def get_room_lifetime_hours(room_id: str) -> int:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        query = "SELECT created_at, expires_at FROM call_sessions WHERE room_id = $1"
+        row = await conn.fetchrow(query, room_id)
+        if not row:
+            from config import PRIVATE_ROOM_LIFETIME_HOURS
+            return PRIVATE_ROOM_LIFETIME_HOURS
+        
+        created_at = row['created_at']
+        expires_at = row['expires_at']
+        
+        lifetime_seconds = (expires_at - created_at).total_seconds()
+        return round(lifetime_seconds / 3600)
 
 async def clear_all_data():
-    db_pool = await get_pool()
-    async with db_pool.acquire() as connection:
-        async with connection.transaction():
-            await connection.execute("TRUNCATE TABLE bot_actions, call_participants, call_events, connections, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY;")
-    logger.warning("Все данные в базе данных были удалены администратором.")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Добавляем call_events в список для очистки
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_events, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
+        logger.warning("Все таблицы базы данных были полностью очищены.")
+
+async def get_all_active_sessions():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Убираем call_type и status, так как они теперь в другой таблице
+        query = """
+            SELECT cs.room_id, cs.created_at, cs.expires_at,
+                   (SELECT status FROM call_sessions WHERE room_id = cs.room_id) as call_status,
+                   (SELECT call_type FROM call_events WHERE room_id = cs.room_id ORDER BY event_id DESC LIMIT 1) as call_type
+            FROM call_sessions cs
+            WHERE cs.expires_at > NOW() AND cs.closed_at IS NULL
+            ORDER BY cs.created_at DESC
+        """
+        rows = await conn.fetch(query)
+        return [dict(row) for row in rows]
+
+async def get_notification_settings() -> Dict[str, bool]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT key, value FROM admin_settings")
+        return {row['key']: row['value'] for row in rows}
+
+async def update_notification_settings(settings: Dict[str, bool]):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            for key, value in settings.items():
+                await conn.execute(
+                    """
+                    INSERT INTO admin_settings (key, value) VALUES ($1, $2)
+                    ON CONFLICT (key) DO UPDATE SET value = $2
+                    """,
+                    key, value
+                )
+        logger.info("Настройки уведомлений администратора обновлены.")
