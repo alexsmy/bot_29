@@ -20,18 +20,18 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        // Сначала готовим HTML для всех участников сессии
-        const participantsHtml = session.participants.map((p, pIndex) => `
-            <div class="participant-card">
-                <strong>Участник ${pIndex + 1}</strong>
-                <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-            </div>
-        `).join('');
-
-        // Теперь для каждого звонка используем этот общий список участников
         const callGroupsHtml = session.call_groups.length > 0
             ? session.call_groups.map((call, groupIndex) => {
+                
+                // Теперь participantsHtml генерируется для каждого звонка индивидуально
+                const participantsHtml = call.participants.map((p, pIndex) => `
+                    <div class="participant-card">
+                        <strong>Участник ${pIndex + 1}</strong>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>
+                `).join('');
+
                 const callMetaHtml = `
                     <div class="call-group-meta">
                         <span>Тип: <strong>${call.call_type || 'N/A'}</strong></span>
