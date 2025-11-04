@@ -3,6 +3,8 @@ import os
 import uuid
 import json
 import glob
+import secrets
+import time
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException, Depends, status
@@ -20,6 +22,11 @@ from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
 
 LOGS_DIR = "connection_logs"
+
+# --- НОВЫЙ КОД ---
+# Временное хранилище для кодов подтверждения в памяти
+wipe_code_storage: Dict[str, Any] = {}
+# --- КОНЕЦ НОВОГО КОДА ---
 
 class CustomJSONResponse(Response):
     media_type = "application/json"
@@ -68,6 +75,11 @@ class NotificationSettings(BaseModel):
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
+
+# --- НОВЫЙ КОД ---
+class WipePayload(BaseModel):
+    code: str
+# --- КОНЕЦ НОВОГО КОДА ---
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -609,6 +621,62 @@ async def clear_database(token: str = Depends(verify_admin_token)):
     except Exception as e:
         logger.error(f"Ошибка при очистке базы данных: {e}")
         raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
+
+# --- НОВЫЙ КОД ---
+@app.post("/api/admin/database/request-wipe-code")
+async def request_db_wipe_code(token: str = Depends(verify_admin_token)):
+    admin_id = os.environ.get("ADMIN_USER_ID")
+    if not notifier._bot_app or not admin_id:
+        raise HTTPException(status_code=500, detail="Bot is not configured to send verification code.")
+
+    # Удаляем старые коды
+    for key, data in list(wipe_code_storage.items()):
+        if time.time() > data['expires_at']:
+            del wipe_code_storage[key]
+
+    code = str(secrets.randbelow(1_000_000)).zfill(6)
+    expiry_time = time.time() + 120  # 2 минуты на ввод
+    
+    wipe_code_storage[admin_id] = {"code": code, "expires_at": expiry_time}
+
+    message = (
+        f"⚠️ <b>Запрос на полное удаление базы данных!</b>\n\n"
+        f"Для подтверждения введите этот код в админ-панели:\n\n"
+        f"<code>{code}</code>\n\n"
+        f"<b>ВНИМАНИЕ:</b> Это действие необратимо и приведет к удалению ВСЕХ таблиц. "
+        f"Код действителен 2 минуты."
+    )
+    try:
+        await notifier._bot_app.bot.send_message(chat_id=admin_id, text=message, parse_mode='HTML')
+        logger.info(f"Код подтверждения для удаления БД отправлен администратору {admin_id}.")
+        return CustomJSONResponse(content={"status": "code_sent"})
+    except Exception as e:
+        logger.error(f"Не удалось отправить код подтверждения администратору: {e}")
+        raise HTTPException(status_code=500, detail="Failed to send verification code via Telegram.")
+
+@app.post("/api/admin/database/wipe-with-code")
+async def wipe_database_with_code(payload: WipePayload, token: str = Depends(verify_admin_token)):
+    admin_id = os.environ.get("ADMIN_USER_ID")
+    stored_data = wipe_code_storage.get(admin_id)
+
+    if not stored_data:
+        raise HTTPException(status_code=400, detail="Verification code was not requested or has expired.")
+    
+    if time.time() > stored_data['expires_at']:
+        del wipe_code_storage[admin_id]
+        raise HTTPException(status_code=400, detail="Verification code has expired.")
+        
+    if payload.code != stored_data['code']:
+        raise HTTPException(status_code=403, detail="Invalid verification code.")
+
+    try:
+        del wipe_code_storage[admin_id]
+        await database.drop_all_tables()
+        return CustomJSONResponse(content={"status": "database_dropped"})
+    except Exception as e:
+        logger.critical(f"КРИТИЧЕСКАЯ ОШИБКА при попытке УДАЛИТЬ таблицы БД: {e}")
+        raise HTTPException(status_code=500, detail=f"Database drop failed: {e}")
+# --- КОНЕЦ НОВОГО КОДА ---
 
 @app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
 async def catch_all_invalid_paths(request: Request, full_path: str):

@@ -187,7 +187,10 @@
                 <div class="danger-zone">
                     <h2>Опасная зона</h2>
                     <p>Действия в этой зоне необратимы. Будьте внимательны.</p>
-                    <button id="wipe-db-btn" class="action-btn danger">Очистить базу данных</button>
+                    <div class="danger-actions">
+                        <button id="wipe-db-btn" class="action-btn danger">Очистить данные (Truncate)</button>
+                        <button id="drop-db-btn" class="action-btn danger-outline">Полностью удалить БД (Drop)</button>
+                    </div>
                 </div>
             </section>
 

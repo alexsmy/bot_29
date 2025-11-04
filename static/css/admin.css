@@ -520,6 +520,22 @@ html.dark .call-history-card .participant-card {
 }
 .danger-zone h2 { color: var(--danger-text); }
 .danger-zone p { color: var(--text-secondary); }
+.danger-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+.action-btn.danger-outline {
+    background-color: transparent;
+    border-color: var(--danger-action);
+    color: var(--danger-action);
+}
+.action-btn.danger-outline:hover {
+    background-color: var(--danger-action);
+    color: #fff;
+}
+
 
 .notification-settings-form {
     background-color: var(--surface-bg);

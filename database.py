@@ -289,20 +289,38 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Добавил call_history в список
         await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_history, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
+
+# --- НОВАЯ ФУНКЦИЯ ---
+async def drop_all_tables():
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("""
+            DROP TABLE IF EXISTS 
+            admin_settings, admin_tokens, bot_actions, call_history, 
+            connections, call_sessions, users CASCADE;
+        """)
+        logger.critical("ВСЕ ТАБЛИЦЫ БАЗЫ ДАННЫХ БЫЛИ УДАЛЕНЫ (DROP).")
 
 async def get_all_active_sessions():
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT cs.room_id, cs.created_at, cs.expires_at, cs.status, ch.call_type
+            SELECT 
+                cs.room_id, 
+                cs.created_at, 
+                cs.expires_at, 
+                cs.status, 
+                ch.call_type
             FROM call_sessions cs
-            LEFT JOIN (
-                SELECT room_id, call_type, ROW_NUMBER() OVER(PARTITION BY room_id ORDER BY call_started_at DESC) as rn
+            LEFT JOIN LATERAL (
+                SELECT call_type
                 FROM call_history
-            ) ch ON cs.room_id = ch.room_id AND ch.rn = 1
+                WHERE room_id = cs.room_id
+                ORDER BY call_started_at DESC
+                LIMIT 1
+            ) ch ON true
             WHERE cs.expires_at > NOW() AND cs.closed_at IS NULL
             ORDER BY cs.created_at DESC
         """
