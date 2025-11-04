@@ -23,10 +23,8 @@ from config import PRIVATE_ROOM_LIFETIME_HOURS
 
 LOGS_DIR = "connection_logs"
 
-# --- НОВЫЙ КОД ---
 # Временное хранилище для кодов подтверждения в памяти
 wipe_code_storage: Dict[str, Any] = {}
-# --- КОНЕЦ НОВОГО КОДА ---
 
 class CustomJSONResponse(Response):
     media_type = "application/json"
@@ -76,10 +74,8 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-# --- НОВЫЙ КОД ---
 class WipePayload(BaseModel):
     code: str
-# --- КОНЕЦ НОВОГО КОДА ---
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -256,6 +252,41 @@ async def receive_log(log: ClientLog):
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
     try:
+        # --- ИЗМЕНЕНИЕ: Логика записи участников перенесена сюда ---
+        if log_data.selectedConnection:
+            participants_to_log = []
+            
+            # Извлекаем данные из `selectedConnection`
+            local_cand = log_data.selectedConnection.get('local', {})
+            remote_cand = log_data.selectedConnection.get('remote', {})
+            
+            # Получаем IP адреса
+            local_ip = local_cand.get('address', '').split(':')[0]
+            remote_ip = remote_cand.get('address', '').split(':')[0]
+
+            # Находим полные данные участников из `probeResults` по IP
+            # Это не самый надежный способ, но лучший из доступных данных
+            all_participants_info = {}
+            for probe in log_data.probeResults:
+                if probe.get('candidate'):
+                    ip = probe['candidate'].get('address')
+                    if ip and ip not in all_participants_info:
+                         # Предполагаем, что первый успешный кандидат от IP - это он
+                        ua_string = next((p.get('user_agent') for p in log_data.probeResults if p.get('candidate', {}).get('address') == ip), "Unknown")
+                        ua_data = utils.parse_user_agent(ua_string)
+                        location_data = await utils.get_ip_location(ip)
+                        all_participants_info[ip] = {**ua_data, **location_data, "ip_address": ip}
+
+            if local_ip and local_ip in all_participants_info:
+                participants_to_log.append(all_participants_info[local_ip])
+            if remote_ip and remote_ip in all_participants_info and remote_ip != local_ip:
+                 participants_to_log.append(all_participants_info[remote_ip])
+
+            if participants_to_log:
+                asyncio.create_task(database.log_call_participants(log_data.roomId, participants_to_log))
+
+        # --- Конец изменений ---
+
         os.makedirs(LOGS_DIR, exist_ok=True)
         
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
@@ -286,7 +317,7 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
-        logger.error(f"Ошибка при сохранении лога соединения: {e}")
+        logger.error(f"Ошибка при сохранении лога соединения и участников: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
 @app.get("/room/lifetime/{room_id}")
@@ -414,13 +445,8 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
-    async def log_connection_in_background():
-        location_data = await utils.get_ip_location(ip_address)
-        ua_data = utils.parse_user_agent(user_agent)
-        parsed_data = {**location_data, **ua_data}
-        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
-
-    asyncio.create_task(log_connection_in_background())
+    # --- ИЗМЕНЕНИЕ: Убрана проверка на дубликаты, просто логируем каждый вход ---
+    asyncio.create_task(database.log_connection(room_id, ip_address, user_agent))
 
     new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
@@ -622,7 +648,6 @@ async def clear_database(token: str = Depends(verify_admin_token)):
         logger.error(f"Ошибка при очистке базы данных: {e}")
         raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
 
-# --- НОВЫЙ КОД ---
 @app.post("/api/admin/database/request-wipe-code")
 async def request_db_wipe_code(token: str = Depends(verify_admin_token)):
     admin_id = os.environ.get("ADMIN_USER_ID")
@@ -676,7 +701,6 @@ async def wipe_database_with_code(payload: WipePayload, token: str = Depends(ver
     except Exception as e:
         logger.critical(f"КРИТИЧЕСКАЯ ОШИБКА при попытке УДАЛИТЬ таблицы БД: {e}")
         raise HTTPException(status_code=500, detail=f"Database drop failed: {e}")
-# --- КОНЕЦ НОВОГО КОДА ---
 
 @app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
 async def catch_all_invalid_paths(request: Request, full_path: str):
