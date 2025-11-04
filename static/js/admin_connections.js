@@ -1,3 +1,4 @@
+
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -22,59 +23,42 @@ async function loadConnections() {
     connectionsListContainer.innerHTML = sessions.map(session => {
         const callGroupsHtml = session.call_groups.length > 0
             ? session.call_groups.map((group, groupIndex) => {
-                
-                const participantsHtml = group.participants.map((p, pIndex) => {
-                    const role = p.role === 'initiator' ? 'Инициатор' : 'Собеседник';
-                    return `
-                        <div class="participant-card">
-                            <strong>${role}</strong>
-                            <p><strong>ID:</strong> <code>${p.server_id.substring(0, 8)}...</code></p>
-                            <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                            <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                const participantsHtml = group.participants.map((p, pIndex) => `
+                    <div class="participant-card">
+                        <strong>Участник ${pIndex + 1}</strong>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
+                    </div>
+                `).join('');
+
+                let callMetaHtml = '';
+                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
+                if (session.status === 'completed' && group.participants.length >= 2) {
+                    callMetaHtml = `
+                        <div class="call-group-meta">
+                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
                         </div>
                     `;
-                }).join('');
-
-                const durationText = group.duration_seconds !== null 
-                    ? `${group.duration_seconds} сек` 
-                    : (group.status === 'active' ? 'Активен' : 'N/A');
-                
-                const callMetaHtml = `
-                    <div class="call-group-meta">
-                        <span>Тип: <strong>${group.call_type || 'N/A'}</strong></span>
-                        <span>Статус: <strong class="status-${group.status}">${group.status}</strong></span>
-                        <span>Длительность: <strong>${durationText}</strong></span>
-                    </div>
-                `;
+                }
 
                 return `
                     <div class="call-group">
                         <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
                         ${callMetaHtml}
-                        <div class="participants-grid">
-                            ${participantsHtml}
-                        </div>
+                        ${participantsHtml}
                     </div>
                 `;
             }).join('')
             : '<p>В этой сессии не было зафиксировано звонков.</p>';
-
-        // Determine session status based on call groups
-        let sessionStatus = session.closed_at ? 'closed' : 'pending';
-        if (session.call_groups.some(g => g.status === 'active')) {
-            sessionStatus = 'active';
-        } else if (session.call_groups.some(g => g.status === 'completed')) {
-            sessionStatus = 'completed';
-        }
 
         return `
         <div class="connection-item">
             <div class="connection-summary">
                 <div class="summary-info">
                     <code>${session.room_id}</code>
-                    <span class="session-created-at">Создана: ${formatDate(session.created_at)}</span>
                 </div>
-                <span class="status ${sessionStatus}">${sessionStatus}</span>
+                <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
                 <div class="details-section">
@@ -84,7 +68,7 @@ async function loadConnections() {
                     ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
                 </div>
                 <div class="details-section">
-                    <h4>История звонков (${session.call_groups.length})</h4>
+                    <h4>Звонки в рамках сессии</h4>
                     ${callGroupsHtml}
                 </div>
             </div>
