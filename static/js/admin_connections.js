@@ -1,3 +1,4 @@
+
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -20,9 +21,9 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const callEventsHtml = session.call_events.length > 0
-            ? session.call_events.map((event, eventIndex) => {
-                const participantsHtml = event.participants.map((p, pIndex) => `
+        const callGroupsHtml = session.call_groups.length > 0
+            ? session.call_groups.map((group, groupIndex) => {
+                const participantsHtml = group.participants.map((p, pIndex) => `
                     <div class="participant-card">
                         <strong>Участник ${pIndex + 1}</strong>
                         <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
@@ -30,20 +31,20 @@ async function loadConnections() {
                     </div>
                 `).join('');
 
-                const connectionType = event.connection_type || 'N/A';
-                const connectionTypeClass = connectionType === 'relay' ? 'type-relay' : 'type-p2p';
-
-                let callMetaHtml = `
-                    <div class="call-group-meta">
-                        <span>Тип: <strong>${event.call_type || 'N/A'}</strong></span>
-                        <span>Длительность: <strong>${event.duration_seconds !== null ? `${event.duration_seconds} сек` : 'N/A'}</strong></span>
-                        <span>Соединение: <strong class="conn-type ${connectionTypeClass}">${connectionType.toUpperCase()}</strong></span>
-                    </div>
-                `;
+                let callMetaHtml = '';
+                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
+                if (session.status === 'completed' && group.participants.length >= 2) {
+                    callMetaHtml = `
+                        <div class="call-group-meta">
+                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
+                        </div>
+                    `;
+                }
 
                 return `
                     <div class="call-group">
-                        <div class="call-group-header">Звонок #${eventIndex + 1} &middot; ${formatDate(event.call_started_at)}</div>
+                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
                         ${callMetaHtml}
                         ${participantsHtml}
                     </div>
@@ -68,7 +69,7 @@ async function loadConnections() {
                 </div>
                 <div class="details-section">
                     <h4>Звонки в рамках сессии</h4>
-                    ${callEventsHtml}
+                    ${callGroupsHtml}
                 </div>
             </div>
         </div>`;
@@ -92,6 +93,7 @@ export function initConnections() {
         const details = summary.nextElementSibling;
         const item = summary.parentElement;
 
+        // Закрываем все остальные открытые карточки
         document.querySelectorAll('.connection-item.open').forEach(openItem => {
             if (openItem !== item) {
                 openItem.classList.remove('open');
@@ -99,6 +101,7 @@ export function initConnections() {
             }
         });
 
+        // Открываем или закрываем текущую
         if (item.classList.contains('open')) {
             details.style.maxHeight = null;
             item.classList.remove('open');
@@ -108,5 +111,6 @@ export function initConnections() {
         }
     });
     
+    // Загружаем данные за сегодняшний день при инициализации
     loadConnections();
 }
