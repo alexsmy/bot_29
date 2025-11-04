@@ -1,5 +1,3 @@
-# main.py
-
 import asyncio
 import os
 import uuid
@@ -337,9 +335,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    participants_info = await database.get_last_two_connections(room.room_id)
-                    asyncio.create_task(database.log_call_history_start(room.room_id, room.pending_call_type, participants_info))
-                    
+                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -362,7 +358,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 
                 if message_type == "hangup":
-                    asyncio.create_task(database.log_call_history_end(room.room_id))
+                    asyncio.create_task(database.log_call_end(room.room_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -382,7 +378,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
-            asyncio.create_task(database.log_call_history_end(room.room_id))
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:

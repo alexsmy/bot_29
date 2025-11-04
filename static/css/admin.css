@@ -357,20 +357,20 @@ details summary span {
     height: 16px;
 }
 
-/* --- СТИЛИ ДЛЯ ИСТОРИИ СОЕДИНЕНИЙ --- */
+/* --- ОБНОВЛЕННЫЕ СТИЛИ ДЛЯ ИСТОРИИ СОЕДИНЕНИЙ --- */
 .connections-list .connection-item {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     margin-bottom: 1.5rem;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
     transition: box-shadow 0.2s ease-in-out;
 }
 html.dark .connection-item {
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.2), 0 2px 4px -2px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.4), 0 2px 4px -2px rgba(0,0,0,0.4);
 }
 .connection-item:hover {
-    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05), 0 4px 6px -4px rgba(0,0,0,0.05);
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
 }
 .connection-summary {
     display: flex;
@@ -465,7 +465,7 @@ html.dark .connection-item {
     margin: 0.2rem 0;
     font-size: 0.9em;
 }
-/* --- КОНЕЦ СТИЛЕЙ ДЛЯ ИСТОРИИ СОЕДИНЕНИЙ --- */
+/* --- КОНЕЦ ОБНОВЛЕННЫХ СТИЛЕЙ --- */
 
 .status {
     padding: 0.25rem 0.75rem;
@@ -498,12 +498,13 @@ html.dark .connection-item {
     padding: 1rem;
     max-height: 500px;
     overflow-y: auto;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
+    white-space: pre-wrap; /* ИЗМЕНЕНО */
+    overflow-wrap: break-word; /* ДОБАВЛЕНО */
     font-family: monospace;
     font-size: 0.85em;
 }
 
+/* --- СТИЛИ ДЛЯ ЛОГОВ --- */
 .log-line {
     display: block;
     padding: 0.1em 0;
@@ -514,6 +515,7 @@ html.dark .connection-item {
 .log-critical { color: var(--danger-action); font-weight: bold; }
 .log-http-2xx { color: var(--success-color); }
 .log-http-3xx { color: var(--accent-color); }
+/* -------------------------------- */
 
 .danger-zone {
     background-color: var(--danger-bg);

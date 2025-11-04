@@ -1,3 +1,4 @@
+
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -15,14 +16,14 @@ async function loadConnections() {
     const sessions = await fetchData(`connections?date=${date}`);
     
     if (!sessions || sessions.length === 0) {
-        connectionsListContainer.innerHTML = '<p class="empty-list">Сессии за эту дату не найдены.</p>';
+        connectionsListContainer.innerHTML = '<p class="empty-list">Соединения за эту дату не найдены.</p>';
         return;
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const callHistoryHtml = session.call_history.length > 0
-            ? session.call_history.map((call, callIndex) => {
-                const participantsHtml = (call.participants_info || []).map((p, pIndex) => `
+        const callGroupsHtml = session.call_groups.length > 0
+            ? session.call_groups.map((group, groupIndex) => {
+                const participantsHtml = group.participants.map((p, pIndex) => `
                     <div class="participant-card">
                         <strong>Участник ${pIndex + 1}</strong>
                         <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
@@ -30,15 +31,21 @@ async function loadConnections() {
                     </div>
                 `).join('');
 
-                const duration = call.duration_seconds !== null ? `${call.duration_seconds} сек` : 'N/A';
+                let callMetaHtml = '';
+                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
+                if (session.status === 'completed' && group.participants.length >= 2) {
+                    callMetaHtml = `
+                        <div class="call-group-meta">
+                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
+                        </div>
+                    `;
+                }
 
                 return `
                     <div class="call-group">
-                        <div class="call-group-header">Звонок #${callIndex + 1} &middot; ${formatDate(call.started_at)}</div>
-                        <div class="call-group-meta">
-                            <span>Тип: <strong>${call.call_type || 'N/A'}</strong></span>
-                            <span>Длительность: <strong>${duration}</strong></span>
-                        </div>
+                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
+                        ${callMetaHtml}
                         ${participantsHtml}
                     </div>
                 `;
@@ -61,8 +68,8 @@ async function loadConnections() {
                     ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
                 </div>
                 <div class="details-section">
-                    <h4>История звонков в рамках сессии</h4>
-                    ${callHistoryHtml}
+                    <h4>Звонки в рамках сессии</h4>
+                    ${callGroupsHtml}
                 </div>
             </div>
         </div>`;
