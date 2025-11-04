@@ -295,11 +295,12 @@ async def clear_all_data():
 async def drop_all_tables():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # --- ИСПРАВЛЕНИЕ: Добавлены все таблицы, включая старые возможные имена ---
+        # --- ИСПРАВЛЕНИЕ: Добавлены все возможные имена таблиц для полного удаления ---
         await conn.execute("""
             DROP TABLE IF EXISTS 
             admin_settings, admin_tokens, bot_actions, call_history, 
-            connections, call_sessions, users, call_connections, call_events CASCADE;
+            connections, call_sessions, users, call_connections, call_events,
+            call_connections_history CASCADE;
         """)
         logger.critical("ВСЕ ТАБЛИЦЫ БАЗЫ ДАННЫХ БЫЛИ УДАЛЕНЫ (DROP).")
 
