@@ -53,6 +53,10 @@ async def init_db():
                 generated_by_user_id BIGINT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
+                call_type TEXT,
+                call_started_at TIMESTAMPTZ,
+                call_ended_at TIMESTAMPTZ,
+                duration_seconds INTEGER,
                 status TEXT DEFAULT 'pending',
                 closed_at TIMESTAMPTZ,
                 close_reason TEXT
@@ -70,21 +74,6 @@ async def init_db():
                 browser_info TEXT,
                 country TEXT,
                 city TEXT
-            )
-        ''')
-        await conn.execute('''
-            CREATE TABLE IF NOT EXISTS call_history (
-                call_id SERIAL PRIMARY KEY,
-                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
-                start_time TIMESTAMPTZ NOT NULL,
-                end_time TIMESTAMPTZ,
-                duration_seconds INTEGER,
-                initiator_user_id TEXT,
-                connection_type TEXT,
-                local_candidate_type TEXT,
-                remote_candidate_type TEXT,
-                rtt_ms REAL,
-                status TEXT DEFAULT 'active'
             )
         ''')
         await conn.execute('''
@@ -152,54 +141,26 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['country'], parsed_data['city']
         )
 
-async def log_call_start_history(log_data: Dict[str, Any]):
+async def log_call_start(room_id, call_type):
     pool = await get_pool()
-    
-    connection_type = 'p2p'
-    local_candidate_type = 'N/A'
-    remote_candidate_type = 'N/A'
-    rtt_ms = 0.0
-
-    if log_data.get('selectedConnection'):
-        conn_details = log_data['selectedConnection']
-        local_candidate_type = conn_details.get('local', {}).get('type', 'N/A')
-        remote_candidate_type = conn_details.get('remote', {}).get('type', 'N/A')
-        if local_candidate_type == 'relay' or remote_candidate_type == 'relay':
-            connection_type = 'relay'
-        rtt_ms = conn_details.get('rtt', 0) * 1000
-
     async with pool.acquire() as conn:
         await conn.execute(
-            """
-            INSERT INTO call_history (
-                room_id, start_time, initiator_user_id, connection_type,
-                local_candidate_type, remote_candidate_type, rtt_ms, status
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
-            """,
-            log_data['roomId'],
-            datetime.now(timezone.utc),
-            log_data['userId'],
-            connection_type,
-            local_candidate_type,
-            remote_candidate_type,
-            rtt_ms
+            "UPDATE call_sessions SET call_type = $1, call_started_at = $2, status = 'active' WHERE room_id = $3",
+            call_type, datetime.now(timezone.utc), room_id
         )
 
-async def log_call_end_history(room_id: str):
+async def log_call_end(room_id):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        async with conn.transaction():
-            active_call = await conn.fetchrow(
-                "SELECT call_id, start_time FROM call_history WHERE room_id = $1 AND status = 'active' ORDER BY start_time DESC LIMIT 1",
-                room_id
+        row = await conn.fetchrow("SELECT call_started_at FROM call_sessions WHERE room_id = $1 AND status = 'active'", room_id)
+        if row and row['call_started_at']:
+            start_time = row['call_started_at']
+            end_time = datetime.now(timezone.utc)
+            duration = int((end_time - start_time).total_seconds())
+            await conn.execute(
+                "UPDATE call_sessions SET call_ended_at = $1, duration_seconds = $2, status = 'completed' WHERE room_id = $3",
+                end_time, duration, room_id
             )
-            if active_call:
-                end_time = datetime.now(timezone.utc)
-                duration = int((end_time - active_call['start_time']).total_seconds())
-                await conn.execute(
-                    "UPDATE call_history SET end_time = $1, duration_seconds = $2, status = 'completed' WHERE call_id = $3",
-                    end_time, duration, active_call['call_id']
-                )
 
 async def log_room_closure(room_id, reason):
     pool = await get_pool()
@@ -238,7 +199,7 @@ async def get_stats(period):
         total_users = await conn.fetchval(f"SELECT COUNT(*) FROM users {date_filter}")
         total_actions = await conn.fetchval("SELECT COUNT(*) FROM bot_actions")
         total_sessions = await conn.fetchval("SELECT COUNT(*) FROM call_sessions")
-        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_history WHERE status = 'completed'")
+        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_sessions WHERE status = 'completed'")
         active_rooms_count = await conn.fetchval("SELECT COUNT(*) FROM call_sessions WHERE expires_at > NOW() AND closed_at IS NULL")
         return {
             "total_users": total_users or 0,
@@ -261,35 +222,61 @@ async def get_user_actions(user_id):
         rows = await conn.fetch("SELECT action, timestamp FROM bot_actions WHERE user_id = $1 ORDER BY timestamp DESC", user_id)
         return [dict(row) for row in rows]
 
+def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_seconds: int = 15) -> List[Dict[str, Any]]:
+    if not participants:
+        return []
+
+    call_groups = []
+    current_group = []
+
+    for p in participants:
+        if not current_group:
+            current_group.append(p)
+            continue
+
+        last_participant_time = current_group[-1]['connected_at']
+        time_diff = (p['connected_at'] - last_participant_time).total_seconds()
+
+        if time_diff <= threshold_seconds:
+            current_group.append(p)
+        else:
+            # Завершаем предыдущую группу. Добавляем ее, только если в ней больше 1 участника.
+            if len(current_group) > 1:
+                call_groups.append({
+                    'start_time': current_group[0]['connected_at'],
+                    'participants': current_group
+                })
+            # Начинаем новую группу с текущего участника
+            current_group = [p]
+    
+    # Проверяем последнюю собранную группу после окончания цикла
+    if len(current_group) > 1:
+        call_groups.append({
+            'start_time': current_group[0]['connected_at'],
+            'participants': current_group
+        })
+
+    return call_groups
+
 async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        calls = await conn.fetch(
-            "SELECT * FROM call_history WHERE date(start_time AT TIME ZONE 'UTC') = $1 ORDER BY start_time DESC",
+        sessions = await conn.fetch(
+            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []
-        for call in calls:
-            call_dict = dict(call)
-            
-            # Находим участников, которые были онлайн во время звонка
-            # (от начала звонка до его конца, или до сейчас, если он еще активен)
-            end_timestamp = call_dict.get('end_time') or datetime.now(timezone.utc)
-            
+        for session in sessions:
+            session_dict = dict(session)
             connections = await conn.fetch(
-                """
-                SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city 
-                FROM connections 
-                WHERE room_id = $1 AND connected_at >= $2 AND connected_at <= $3
-                ORDER BY connected_at
-                """,
-                call_dict['room_id'],
-                call_dict['start_time'],
-                end_timestamp
+                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
+                session_dict['room_id']
             )
             
-            call_dict['participants'] = [dict(conn) for conn in connections]
-            results.append(call_dict)
+            participants = [dict(conn) for conn in connections]
+            session_dict['call_groups'] = group_participants_into_calls(participants)
+            
+            results.append(session_dict)
         return results
 
 async def get_call_session_details(room_id: str):
@@ -321,19 +308,17 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_history, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
 async def get_all_active_sessions():
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT cs.room_id, cs.created_at, cs.expires_at,
-                   (SELECT status FROM call_history ch WHERE ch.room_id = cs.room_id ORDER BY ch.start_time DESC LIMIT 1) as call_status,
-                   (SELECT connection_type FROM call_history ch WHERE ch.room_id = cs.room_id ORDER BY ch.start_time DESC LIMIT 1) as call_type
-            FROM call_sessions cs
-            WHERE cs.expires_at > NOW() AND cs.closed_at IS NULL
-            ORDER BY cs.created_at DESC
+            SELECT room_id, created_at, expires_at, status, call_type
+            FROM call_sessions
+            WHERE expires_at > NOW() AND closed_at IS NULL
+            ORDER BY created_at DESC
         """
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
