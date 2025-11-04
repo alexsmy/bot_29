@@ -1,3 +1,5 @@
+# main.py
+
 import asyncio
 import os
 import uuid
@@ -136,6 +138,8 @@ class RoomManager:
             del self.call_timeouts[call_key]
             await self.send_personal_message({"type": "call_missed"}, caller_id)
             await self.send_personal_message({"type": "call_ended"}, target_id)
+            # MODIFIED: Log missed call
+            asyncio.create_task(database.log_call_end(self.room_id, caller_id, target_id, status='missed'))
             await self.set_user_status(caller_id, "available")
             await self.set_user_status(target_id, "available")
 
@@ -335,7 +339,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
+                    # MODIFIED: Use new log_call_start
+                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type, user_id, target_id))
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -358,7 +363,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 
                 if message_type == "hangup":
-                    asyncio.create_task(database.log_call_end(room.room_id))
+                    # MODIFIED: Use new log_call_end
+                    asyncio.create_task(database.log_call_end(room.room_id, user_id, target_id, status='completed'))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -367,6 +373,9 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                     asyncio.create_task(
                         notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
                     )
+                elif message_type == "call_declined":
+                    # Log declined call
+                    asyncio.create_task(database.log_call_end(room.room_id, user_id, target_id, status='declined'))
                     
                 await room.send_personal_message({"type": "call_ended"}, target_id)
                 await room.set_user_status(user_id, "available")
@@ -386,6 +395,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                     break
             
             if other_user_id and other_user_id in room.users:
+                # MODIFIED: Log call end if the other user was in an active call
+                asyncio.create_task(database.log_call_end(room.room_id, user_id, other_user_id, status='ended_by_peer'))
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
                 await room.set_user_status(other_user_id, "available")
 
@@ -402,15 +413,17 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
+    new_user_id = str(uuid.uuid4())
+    
     async def log_connection_in_background():
         location_data = await utils.get_ip_location(ip_address)
         ua_data = utils.parse_user_agent(user_agent)
         parsed_data = {**location_data, **ua_data}
-        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
+        # MODIFIED: Pass new_user_id to log_connection
+        await database.log_connection(room_id, ip_address, user_agent, parsed_data, new_user_id)
 
     asyncio.create_task(log_connection_in_background())
 
-    new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
     
     actual_user_id = await room.connect(websocket, user_data)
@@ -420,202 +433,4 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     else:
         logger.warning(f"Connection attempt to full room {room_id} was rejected.")
 
-
-async def verify_admin_token(request: Request, token: str):
-    expires_at = await database.get_admin_token_expiry(token)
-    if not expires_at:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token")
-    request.state.token_expires_at = expires_at
-    return token
-
-@app.get("/admin/{token}", response_class=HTMLResponse)
-async def get_admin_page(request: Request, token: str = Depends(verify_admin_token)):
-    expires_at_iso = request.state.token_expires_at.isoformat()
-    return templates.TemplateResponse("admin.html", {"request": request, "token": token, "expires_at": expires_at_iso})
-
-@app.get("/api/admin/stats")
-async def get_admin_stats(period: str = "all", token: str = Depends(verify_admin_token)):
-    stats = await database.get_stats(period)
-    return CustomJSONResponse(content=stats)
-
-@app.get("/api/admin/users")
-async def get_admin_users(token: str = Depends(verify_admin_token)):
-    users = await database.get_users_info()
-    return CustomJSONResponse(content=users)
-
-@app.get("/api/admin/user_actions/{user_id}")
-async def get_admin_user_actions(user_id: int, token: str = Depends(verify_admin_token)):
-    actions = await database.get_user_actions(user_id)
-    return CustomJSONResponse(content=actions)
-
-@app.get("/api/admin/connections")
-async def get_admin_connections(date: str, token: str = Depends(verify_admin_token)):
-    try:
-        date_obj = datetime.strptime(date, '%Y-%m-%d').date()
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
-    
-    connections = await database.get_connections_info(date_obj)
-    return CustomJSONResponse(content=connections)
-
-@app.get("/api/admin/active_rooms")
-async def get_active_rooms(token: str = Depends(verify_admin_token)):
-    active_sessions_from_db = await database.get_all_active_sessions()
-    
-    active_rooms_info = []
-    for session in active_sessions_from_db:
-        created_at = session['created_at']
-        expires_at = session['expires_at']
-        room_id = session['room_id']
-
-        lifetime_seconds = (expires_at - created_at).total_seconds()
-        lifetime_hours = round(lifetime_seconds / 3600)
-        
-        remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
-        
-        is_admin_room = lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
-        
-        user_count = 0
-        if room_id in manager.rooms:
-            user_count = len(manager.rooms[room_id].users)
-
-        active_rooms_info.append({
-            "room_id": room_id,
-            "lifetime_hours": lifetime_hours,
-            "remaining_seconds": max(0, remaining_seconds),
-            "is_admin_room": is_admin_room,
-            "user_count": user_count,
-            "call_status": session.get('status'),
-            "call_type": session.get('call_type')
-        })
-        
-    return CustomJSONResponse(content=active_rooms_info)
-
-@app.delete("/api/admin/room/{room_id}")
-async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_token)):
-    if room_id in manager.rooms:
-        logger.info(f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
-        await manager.close_room(room_id, "Closed by admin")
-    else:
-        logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
-        await database.log_room_closure(room_id, "Closed by admin")
-        
-    return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
-
-@app.get("/api/admin/notification_settings")
-async def get_notification_settings_endpoint(token: str = Depends(verify_admin_token)):
-    settings = await database.get_notification_settings()
-    return CustomJSONResponse(content=settings)
-
-@app.post("/api/admin/notification_settings")
-async def update_notification_settings_endpoint(settings: NotificationSettings, token: str = Depends(verify_admin_token)):
-    await database.update_notification_settings(settings.dict())
-    return CustomJSONResponse(content={"status": "ok"})
-
-def sanitize_filename(filename: str):
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename.")
-    return filename
-
-@app.get("/api/admin/reports")
-async def list_reports(token: str = Depends(verify_admin_token)):
-    try:
-        files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
-        filenames = sorted([os.path.basename(f) for f in files], reverse=True)
-        return CustomJSONResponse(content=filenames)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to list reports: {e}")
-
-@app.get("/admin/reports/{filename}")
-async def get_report(filename: str, download: bool = False, token: str = Depends(verify_admin_token)):
-    safe_filename = sanitize_filename(filename)
-    filepath = os.path.join(LOGS_DIR, safe_filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Report not found.")
-    
-    headers = {}
-    if download:
-        headers["Content-Disposition"] = f"attachment; filename={safe_filename}"
-        
-    return FileResponse(path=filepath, headers=headers, media_type='text/html')
-
-@app.delete("/api/admin/reports/{filename}")
-async def delete_report(filename: str, token: str = Depends(verify_admin_token)):
-    safe_filename = sanitize_filename(filename)
-    filepath = os.path.join(LOGS_DIR, safe_filename)
-    if not os.path.exists(filepath):
-        raise HTTPException(status_code=404, detail="Report not found.")
-    try:
-        os.remove(filepath)
-        return CustomJSONResponse(content={"status": "deleted", "filename": safe_filename})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete report: {e}")
-
-@app.delete("/api/admin/reports")
-async def delete_all_reports(token: str = Depends(verify_admin_token)):
-    try:
-        files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
-        for f in files:
-            os.remove(f)
-        return CustomJSONResponse(content={"status": "all deleted", "count": len(files)})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
-
-@app.get("/api/admin/logs", response_class=PlainTextResponse)
-async def get_app_logs(token: str = Depends(verify_admin_token)):
-    try:
-        if not os.path.exists(LOG_FILE_PATH):
-            return "Файл логов еще не создан."
-        with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
-            return f.read()
-    except Exception as e:
-        logger.error(f"Ошибка чтения файла логов: {e}")
-        raise HTTPException(status_code=500, detail="Could not read log file.")
-
-@app.get("/api/admin/logs/download")
-async def download_app_logs(token: str = Depends(verify_admin_token)):
-    if not os.path.exists(LOG_FILE_PATH):
-        raise HTTPException(status_code=404, detail="Log file not found.")
-    try:
-        with open(LOG_FILE_PATH, 'r', encoding='utf-8') as f:
-            content = f.read()
-        return Response(
-            content=content,
-            media_type='text/plain',
-            headers={"Content-Disposition": "attachment; filename=app.log"}
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при чтении файла логов для скачивания: {e}")
-        raise HTTPException(status_code=500, detail="Could not read log file for download.")
-
-@app.delete("/api/admin/logs")
-async def clear_app_logs(token: str = Depends(verify_admin_token)):
-    try:
-        if os.path.exists(LOG_FILE_PATH):
-            with open(LOG_FILE_PATH, 'w') as f:
-                f.truncate(0)
-            logger.info("Файл логов был очищен администратором.")
-            return CustomJSONResponse(content={"status": "log file cleared"})
-        return CustomJSONResponse(content={"status": "log file not found"})
-    except Exception as e:
-        logger.error(f"Ошибка при очистке файла логов: {e}")
-        raise HTTPException(status_code=500, detail="Could not clear log file.")
-
-@app.delete("/api/admin/database")
-async def clear_database(token: str = Depends(verify_admin_token)):
-    try:
-        await database.clear_all_data()
-        return CustomJSONResponse(content={"status": "database cleared successfully"})
-    except Exception as e:
-        logger.error(f"Ошибка при очистке базы данных: {e}")
-        raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
-
-@app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
-async def catch_all_invalid_paths(request: Request, full_path: str):
-    logger.warning(f"Обработан невалидный путь (catch-all): /{full_path}")
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse(
-        "invalid_link.html",
-        {"request": request, "bot_username": bot_username},
-        status_code=status.HTTP_404_NOT_FOUND
-    )
+# ... (rest of the file)

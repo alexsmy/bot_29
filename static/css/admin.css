@@ -394,6 +394,10 @@ html.dark .connection-item {
     word-break: break-all;
     color: var(--text-primary);
 }
+.session-created-at {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
 .connection-details {
     padding: 0;
     background-color: transparent;
@@ -449,17 +453,24 @@ html.dark .connection-item {
     margin-bottom: 1rem;
     display: flex;
     gap: 1.5rem;
+    flex-wrap: wrap;
 }
 .call-group-meta strong {
     color: var(--text-primary);
     font-weight: 600;
+}
+/* New grid for participants */
+.participants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 0.75rem;
+    margin-top: 0.75rem;
 }
 .participant-card {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.75rem;
-    margin-top: 0.75rem;
 }
 .participant-card p {
     margin: 0.2rem 0;
@@ -473,11 +484,17 @@ html.dark .connection-item {
     font-size: 0.8em;
     font-weight: 600;
     flex-shrink: 0;
+    text-transform: capitalize; /* Added for better status display */
 }
 .status.completed { background-color: var(--success-color); color: white; }
 .status.active { background-color: var(--accent-color); color: white; }
 .status.pending { background-color: var(--pending-color); color: #18181b; }
 .status.closed { background-color: var(--text-secondary); color: var(--surface-bg); }
+
+/* New status colors for call_history */
+.status-completed { color: var(--success-color); font-weight: 600; }
+.status-active { color: var(--accent-color); font-weight: 600; }
+.status-declined, .status-missed, .status-ended_by_peer { color: var(--error-color); font-weight: 600; }
 
 .report-item {
     display: flex;
@@ -672,5 +689,8 @@ html.dark .connection-item {
     }
     .stat-card .label {
         font-size: 0.8rem;
+    }
+    .participants-grid {
+        grid-template-columns: 1fr;
     }
 }
