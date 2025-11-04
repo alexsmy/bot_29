@@ -2,6 +2,7 @@
 
 import os
 import asyncpg
+import json
 from datetime import datetime, date, timezone, timedelta
 from typing import Dict, Optional, List, Any
 from logger_config import logger
@@ -53,10 +54,6 @@ async def init_db():
                 generated_by_user_id BIGINT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
-                call_type TEXT,
-                call_started_at TIMESTAMPTZ,
-                call_ended_at TIMESTAMPTZ,
-                duration_seconds INTEGER,
                 status TEXT DEFAULT 'pending',
                 closed_at TIMESTAMPTZ,
                 close_reason TEXT
@@ -74,6 +71,17 @@ async def init_db():
                 browser_info TEXT,
                 country TEXT,
                 city TEXT
+            )
+        ''')
+        await conn.execute('''
+            CREATE TABLE IF NOT EXISTS call_history (
+                call_id SERIAL PRIMARY KEY,
+                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
+                call_type TEXT,
+                started_at TIMESTAMPTZ NOT NULL,
+                ended_at TIMESTAMPTZ,
+                duration_seconds INTEGER,
+                participants_info JSONB
             )
         ''')
         await conn.execute('''
@@ -141,25 +149,61 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['country'], parsed_data['city']
         )
 
-async def log_call_start(room_id, call_type):
+async def get_last_two_connections(room_id: str) -> List[Dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT ip_address, device_type, os_info, browser_info, country, city
+            FROM connections
+            WHERE room_id = $1
+            ORDER BY connected_at DESC
+            LIMIT 2
+            """,
+            room_id
+        )
+        return [dict(row) for row in rows]
+
+async def log_call_history_start(room_id: str, call_type: str, participants_info: List[Dict[str, Any]]):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "UPDATE call_sessions SET call_type = $1, call_started_at = $2, status = 'active' WHERE room_id = $3",
-            call_type, datetime.now(timezone.utc), room_id
+            "UPDATE call_sessions SET status = 'active' WHERE room_id = $1",
+            room_id
+        )
+        await conn.execute(
+            """
+            INSERT INTO call_history (room_id, call_type, started_at, participants_info)
+            VALUES ($1, $2, $3, $4)
+            """,
+            room_id, call_type, datetime.now(timezone.utc), json.dumps(participants_info)
         )
 
-async def log_call_end(room_id):
+async def log_call_history_end(room_id: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT call_started_at FROM call_sessions WHERE room_id = $1 AND status = 'active'", room_id)
-        if row and row['call_started_at']:
-            start_time = row['call_started_at']
+        # Находим последний начатый, но не законченный звонок в этой комнате
+        call = await conn.fetchrow(
+            """
+            SELECT call_id, started_at FROM call_history
+            WHERE room_id = $1 AND ended_at IS NULL
+            ORDER BY started_at DESC
+            LIMIT 1
+            """,
+            room_id
+        )
+        if call:
+            start_time = call['started_at']
             end_time = datetime.now(timezone.utc)
             duration = int((end_time - start_time).total_seconds())
             await conn.execute(
-                "UPDATE call_sessions SET call_ended_at = $1, duration_seconds = $2, status = 'completed' WHERE room_id = $3",
-                end_time, duration, room_id
+                "UPDATE call_history SET ended_at = $1, duration_seconds = $2 WHERE call_id = $3",
+                end_time, duration, call['call_id']
+            )
+            # Обновляем статус сессии на "завершенный", если это был последний звонок
+            await conn.execute(
+                "UPDATE call_sessions SET status = 'completed' WHERE room_id = $1",
+                room_id
             )
 
 async def log_room_closure(room_id, reason):
@@ -199,7 +243,7 @@ async def get_stats(period):
         total_users = await conn.fetchval(f"SELECT COUNT(*) FROM users {date_filter}")
         total_actions = await conn.fetchval("SELECT COUNT(*) FROM bot_actions")
         total_sessions = await conn.fetchval("SELECT COUNT(*) FROM call_sessions")
-        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_sessions WHERE status = 'completed'")
+        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_history WHERE duration_seconds IS NOT NULL")
         active_rooms_count = await conn.fetchval("SELECT COUNT(*) FROM call_sessions WHERE expires_at > NOW() AND closed_at IS NULL")
         return {
             "total_users": total_users or 0,
@@ -222,60 +266,21 @@ async def get_user_actions(user_id):
         rows = await conn.fetch("SELECT action, timestamp FROM bot_actions WHERE user_id = $1 ORDER BY timestamp DESC", user_id)
         return [dict(row) for row in rows]
 
-def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_seconds: int = 15) -> List[Dict[str, Any]]:
-    if not participants:
-        return []
-
-    call_groups = []
-    current_group = []
-
-    for p in participants:
-        if not current_group:
-            current_group.append(p)
-            continue
-
-        last_participant_time = current_group[-1]['connected_at']
-        time_diff = (p['connected_at'] - last_participant_time).total_seconds()
-
-        if time_diff <= threshold_seconds:
-            current_group.append(p)
-        else:
-            # Завершаем предыдущую группу. Добавляем ее, только если в ней больше 1 участника.
-            if len(current_group) > 1:
-                call_groups.append({
-                    'start_time': current_group[0]['connected_at'],
-                    'participants': current_group
-                })
-            # Начинаем новую группу с текущего участника
-            current_group = [p]
-    
-    # Проверяем последнюю собранную группу после окончания цикла
-    if len(current_group) > 1:
-        call_groups.append({
-            'start_time': current_group[0]['connected_at'],
-            'participants': current_group
-        })
-
-    return call_groups
-
 async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
         sessions = await conn.fetch(
-            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
+            "SELECT room_id, created_at, status, closed_at, close_reason FROM call_sessions WHERE date(created_at AT TIME ZONE 'UTC') = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []
         for session in sessions:
             session_dict = dict(session)
-            connections = await conn.fetch(
-                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
+            calls = await conn.fetch(
+                "SELECT call_type, started_at, duration_seconds, participants_info FROM call_history WHERE room_id = $1 ORDER BY started_at",
                 session_dict['room_id']
             )
-            
-            participants = [dict(conn) for conn in connections]
-            session_dict['call_groups'] = group_participants_into_calls(participants)
-            
+            session_dict['call_history'] = [dict(call) for call in calls]
             results.append(session_dict)
         return results
 
@@ -308,17 +313,21 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_history, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
 async def get_all_active_sessions():
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT room_id, created_at, expires_at, status, call_type
-            FROM call_sessions
-            WHERE expires_at > NOW() AND closed_at IS NULL
-            ORDER BY created_at DESC
+            SELECT cs.room_id, cs.created_at, cs.expires_at, cs.status, ch.call_type
+            FROM call_sessions cs
+            LEFT JOIN (
+                SELECT room_id, call_type, ROW_NUMBER() OVER(PARTITION BY room_id ORDER BY started_at DESC) as rn
+                FROM call_history
+            ) ch ON cs.room_id = ch.room_id AND ch.rn = 1
+            WHERE cs.expires_at > NOW() AND cs.closed_at IS NULL
+            ORDER BY cs.created_at DESC
         """
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
