@@ -292,14 +292,14 @@ async def clear_all_data():
         await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_history, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
-# --- НОВАЯ ФУНКЦИЯ ---
 async def drop_all_tables():
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # --- ИСПРАВЛЕНИЕ: Добавлены все таблицы, включая старые возможные имена ---
         await conn.execute("""
             DROP TABLE IF EXISTS 
             admin_settings, admin_tokens, bot_actions, call_history, 
-            connections, call_sessions, users CASCADE;
+            connections, call_sessions, users, call_connections, call_events CASCADE;
         """)
         logger.critical("ВСЕ ТАБЛИЦЫ БАЗЫ ДАННЫХ БЫЛИ УДАЛЕНЫ (DROP).")
 

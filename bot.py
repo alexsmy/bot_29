@@ -51,10 +51,13 @@ async def post_init(application: Application) -> None:
     await application.bot.set_my_commands(public_commands)
     logger.info("Меню публичных команд успешно установлено.")
 
+# --- ИСПРАВЛЕНИЕ: Убрана асинхронная гонка данных ---
 async def log_user_and_action(update: Update, action: str):
     user = update.effective_user
-    asyncio.create_task(database.log_user(user.id, user.first_name, user.last_name, user.username))
-    asyncio.create_task(database.log_bot_action(user.id, action))
+    # Сначала всегда дожидаемся записи пользователя
+    await database.log_user(user.id, user.first_name, user.last_name, user.username)
+    # И только потом записываем его действие
+    await database.log_bot_action(user.id, action)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await log_user_and_action(update, "/start")
@@ -139,7 +142,7 @@ async def _create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id
         f"Ваша приватная ссылка для звонка готова:\n\n"
         f"<a href=\"{full_link}\">{link_text}</a>\n\n"
         f"Ссылка будет действительна в течение {lifetime_text}.\n\n"
-        "Вы можете просто **переслать это сообщение** собеседнику, либо использовать кнопку 'Поделиться' для отправки чистого приглашения (без пометки 'Переслано')."
+        "Вы можете просто <b>переслать это сообщение</b> собеседнику, либо использовать кнопку 'Поделиться' для отправки чистого приглашения (без пометки 'Переслано')."
     )
 
     keyboard = [
