@@ -62,9 +62,6 @@ class ConnectionLog(BaseModel):
     isCallInitiator: bool
     probeResults: List[Dict[str, Any]]
     selectedConnection: Optional[Dict[str, Any]] = None
-    # Добавляем поля для логирования истории звонков
-    generationTime: Optional[str] = None
-    callType: Optional[str] = None
 
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
@@ -267,9 +264,6 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
         
-        # Логируем историю звонка в базу данных
-        await log_call_to_history(log_data)
-        
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
             f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
@@ -282,93 +276,6 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
     except Exception as e:
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
-
-async def log_call_to_history(log_data: ConnectionLog):
-    """Логирует соединение в историю звонков"""
-    try:
-        # Определяем время начала и окончания звонка
-        call_start_time = datetime.now(timezone.utc)  # Время генерации отчета
-        call_end_time = datetime.now(timezone.utc)    # Временно используем текущее время
-        
-        # Если указано время генерации отчета, используем его как время начала
-        if log_data.generationTime:
-            try:
-                call_start_time = datetime.fromisoformat(log_data.generationTime.replace('Z', '+00:00'))
-            except:
-                pass  # Используем текущее время как fallback
-        
-        # Анализируем selectedConnection для получения информации о соединении
-        connection_type = "p2p"  # По умолчанию
-        participant_ip = ""
-        location = ""
-        
-        if log_data.selectedConnection:
-            selected_conn = log_data.selectedConnection
-            if selected_conn.get('path') == 'relay':
-                connection_type = "relay"
-            
-            # Извлекаем IP адреса из кандидатов
-            local_candidate = selected_conn.get('localCandidate', {})
-            remote_candidate = selected_conn.get('remoteCandidate', {})
-            
-            if local_candidate.get('address'):
-                participant_ip = f"{local_candidate.get('address')}:{local_candidate.get('port', '')}"
-            elif remote_candidate.get('address'):
-                participant_ip = f"{remote_candidate.get('address')}:{remote_candidate.get('port', '')}"
-        
-        # Определяем тип устройства из user agent (базовый анализ)
-        device_type = "Unknown"
-        os_info = "Unknown"
-        browser_info = "Unknown"
-        
-        # Упрощенное определение типа устройства и ОС из probeResults
-        if log_data.probeResults:
-            for result in log_data.probeResults:
-                if 'screen' in result:
-                    screen_data = result['screen']
-                    width = screen_data.get('width', 0)
-                    height = screen_data.get('height', 0)
-                    if width <= 768 or height <= 768:
-                        device_type = "Mobile"
-                    elif width <= 1024:
-                        device_type = "Tablet"
-                    else:
-                        device_type = "Desktop"
-                    break
-        
-        # Анализируем selectedConnection для получения более подробной информации
-        if log_data.selectedConnection:
-            local_candidate = log_data.selectedConnection.get('localCandidate', {})
-            if local_candidate.get('type') == 'host':
-                if participant_ip.startswith('192.168.') or participant_ip.startswith('10.') or participant_ip.startswith('172.'):
-                    os_info = "Local Network"
-                else:
-                    os_info = "Public Network"
-        
-        # Подготавливаем данные для записи в историю
-        history_data = {
-            'device_type': device_type,
-            'os_info': os_info,
-            'browser_info': browser_info,
-            'participant_ip': participant_ip,
-            'location': location,
-            'call_start_time': call_start_time,
-            'call_end_time': call_end_time,
-            'connection_type': connection_type,
-            'is_call_initiator': log_data.isCallInitiator
-        }
-        
-        # Записываем в историю звонков
-        await database.log_call_connection(
-            room_id=log_data.roomId,
-            user_id=log_data.userId,
-            report_data=history_data
-        )
-        
-        logger.info(f"История звонка записана для комнаты {log_data.roomId}, пользователь {log_data.userId}")
-        
-    except Exception as e:
-        logger.error(f"Ошибка при записи истории звонка: {e}")
 
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):

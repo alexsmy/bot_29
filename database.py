@@ -77,32 +77,6 @@ async def init_db():
             )
         ''')
         await conn.execute('''
-            CREATE TABLE IF NOT EXISTS call_connections_history (
-                connection_id SERIAL PRIMARY KEY,
-                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
-                user_id TEXT NOT NULL,
-                participant_device_type TEXT,
-                participant_os_info TEXT,
-                participant_browser_info TEXT,
-                participant_ip_address TEXT,
-                participant_location TEXT,
-                call_start_time TIMESTAMPTZ NOT NULL,
-                call_end_time TIMESTAMPTZ NOT NULL,
-                connection_type TEXT,
-                is_call_initiator BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMPTZ NOT NULL
-            )
-        ''')
-        await conn.execute('''
-            CREATE INDEX IF NOT EXISTS idx_call_connections_history_room_id ON call_connections_history(room_id)
-        ''')
-        await conn.execute('''
-            CREATE INDEX IF NOT EXISTS idx_call_connections_history_user_id ON call_connections_history(user_id)
-        ''')
-        await conn.execute('''
-            CREATE INDEX IF NOT EXISTS idx_call_connections_history_call_start ON call_connections_history(call_start_time)
-        ''')
-        await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_tokens (
                 token TEXT PRIMARY KEY,
                 expires_at TIMESTAMPTZ NOT NULL
@@ -284,93 +258,7 @@ def group_participants_into_calls(participants: List[Dict[str, Any]], threshold_
 
     return call_groups
 
-async def log_call_connection(room_id: str, user_id: str, report_data: Dict[str, Any]):
-    """Записывает информацию о соединении в историю звонков"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            INSERT INTO call_connections_history (
-                room_id, user_id, participant_device_type, participant_os_info, 
-                participant_browser_info, participant_ip_address, participant_location,
-                call_start_time, call_end_time, connection_type, is_call_initiator, created_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            """,
-            room_id, 
-            user_id,
-            report_data.get('device_type', 'Unknown'),
-            report_data.get('os_info', 'Unknown'), 
-            report_data.get('browser_info', 'Unknown'),
-            report_data.get('participant_ip', ''),
-            report_data.get('location', ''),
-            report_data['call_start_time'],
-            report_data['call_end_time'],
-            report_data.get('connection_type', 'p2p'),
-            report_data.get('is_call_initiator', False),
-            datetime.now(timezone.utc)
-        )
-
-async def get_room_call_history(room_id: str) -> List[Dict[str, Any]]:
-    """Получает полную историю звонков для комнаты"""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT connection_id, user_id, participant_device_type, participant_os_info,
-                   participant_browser_info, participant_ip_address, participant_location,
-                   call_start_time, call_end_time, connection_type, is_call_initiator
-            FROM call_connections_history 
-            WHERE room_id = $1 
-            ORDER BY call_start_time, user_id
-            """,
-            room_id
-        )
-        return [dict(row) for row in rows]
-
-async def group_history_calls(records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Группирует записи истории звонков по сессиям (звонкам)"""
-    if not records:
-        return []
-    
-    call_groups = []
-    current_group = []
-    current_start_time = None
-    
-    for record in records:
-        start_time = record['call_start_time']
-        
-        # Если это новая сессия (прошло больше 30 секунд)
-        if current_start_time and (start_time - current_start_time).total_seconds() > 30:
-            if len(current_group) >= 2:
-                call_groups.append({
-                    'call_id': len(call_groups) + 1,
-                    'call_start_time': current_start_time,
-                    'call_end_time': max(r['call_end_time'] for r in current_group),
-                    'duration_seconds': int((max(r['call_end_time'] for r in current_group) - current_start_time).total_seconds()),
-                    'connection_type': current_group[0]['connection_type'],
-                    'participants': current_group
-                })
-            current_group = []
-        
-        current_group.append(record)
-        if not current_start_time:
-            current_start_time = start_time
-    
-    # Обрабатываем последнюю группу
-    if len(current_group) >= 2:
-        call_groups.append({
-            'call_id': len(call_groups) + 1,
-            'call_start_time': current_start_time,
-            'call_end_time': max(r['call_end_time'] for r in current_group),
-            'duration_seconds': int((max(r['call_end_time'] for r in current_group) - current_start_time).total_seconds()),
-            'connection_type': current_group[0]['connection_type'],
-            'participants': current_group
-        })
-    
-    return call_groups
-
 async def get_connections_info(date_obj: date):
-    """Обновленная функция для получения информации о соединениях с историей звонков"""
     pool = await get_pool()
     async with pool.acquire() as conn:
         sessions = await conn.fetch(
@@ -380,10 +268,13 @@ async def get_connections_info(date_obj: date):
         results = []
         for session in sessions:
             session_dict = dict(session)
+            connections = await conn.fetch(
+                "SELECT connected_at, ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1 ORDER BY connected_at",
+                session_dict['room_id']
+            )
             
-            # Получаем историю звонков для этой комнаты
-            history_records = await get_room_call_history(session_dict['room_id'])
-            session_dict['call_history'] = await group_history_calls(history_records)
+            participants = [dict(conn) for conn in connections]
+            session_dict['call_groups'] = group_participants_into_calls(participants)
             
             results.append(session_dict)
         return results
@@ -417,7 +308,7 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE TABLE admin_tokens, call_connections_history, connections, bot_actions, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
 async def get_all_active_sessions():

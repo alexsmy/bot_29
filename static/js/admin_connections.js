@@ -1,3 +1,4 @@
+
 // static/js/admin_connections.js
 
 // Этот модуль отвечает за логику раздела "Соединения".
@@ -20,32 +21,36 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const callHistoryHtml = session.call_history && session.call_history.length > 0
-            ? session.call_history.map((call, callIndex) => {
-                const participantsHtml = call.participants.map((participant, pIndex) => `
+        const callGroupsHtml = session.call_groups.length > 0
+            ? session.call_groups.map((group, groupIndex) => {
+                const participantsHtml = group.participants.map((p, pIndex) => `
                     <div class="participant-card">
                         <strong>Участник ${pIndex + 1}</strong>
-                        <p><strong>ID пользователя:</strong> ${participant.user_id.substring(0, 8)}...</p>
-                        <p><strong>IP:</strong> ${participant.participant_ip || 'Не определен'}</p>
-                        <p><strong>Устройство:</strong> ${participant.participant_device_type}, ${participant.participant_os_info}, ${participant.participant_browser_info}</p>
-                        <p><strong>Локация:</strong> ${participant.participant_location || 'Не определена'}</p>
-                        <p><strong>Инициатор звонка:</strong> ${participant.is_call_initiator ? 'Да' : 'Нет'}</p>
+                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
+                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
                     </div>
                 `).join('');
 
+                let callMetaHtml = '';
+                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
+                if (session.status === 'completed' && group.participants.length >= 2) {
+                    callMetaHtml = `
+                        <div class="call-group-meta">
+                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
+                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
+                        </div>
+                    `;
+                }
+
                 return `
                     <div class="call-group">
-                        <div class="call-group-header">Звонок #${call.call_id} &middot; ${formatDate(call.call_start_time)}</div>
-                        <div class="call-group-meta">
-                            <span>Тип соединения: <strong>${call.connection_type || 'p2p'}</strong></span>
-                            <span>Продолжительность: <strong>${call.duration_seconds} сек</strong></span>
-                            <span>Участников: <strong>${call.participants.length}</strong></span>
-                        </div>
+                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
+                        ${callMetaHtml}
                         ${participantsHtml}
                     </div>
                 `;
             }).join('')
-            : '<p>История звонков за эту дату не найдена.</p>';
+            : '<p>В этой сессии не было зафиксировано звонков.</p>';
 
         return `
         <div class="connection-item">
@@ -63,8 +68,8 @@ async function loadConnections() {
                     ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
                 </div>
                 <div class="details-section">
-                    <h4>История звонков</h4>
-                    ${callHistoryHtml}
+                    <h4>Звонки в рамках сессии</h4>
+                    ${callGroupsHtml}
                 </div>
             </div>
         </div>`;
