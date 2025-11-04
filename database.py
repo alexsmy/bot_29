@@ -299,7 +299,8 @@ async def drop_all_tables():
         await conn.execute("""
             DROP TABLE IF EXISTS 
             admin_settings, admin_tokens, bot_actions, call_history, 
-            connections, call_sessions, users, call_connections, call_events CASCADE;
+            connections, call_sessions, users, call_connections, call_events,
+            call_connections_history CASCADE;
         """)
         logger.critical("ВСЕ ТАБЛИЦЫ БАЗЫ ДАННЫХ БЫЛИ УДАЛЕНЫ (DROP).")
 
