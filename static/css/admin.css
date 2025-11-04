@@ -396,35 +396,73 @@ details summary span {
     max-height: 0;
     overflow: hidden;
     transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 .connection-item:not(.open) .connection-details {
     padding-top: 0;
     padding-bottom: 0;
 }
-.connection-details h4 {
-    margin-top: 0;
+
+.call-history-card {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+}
+.call-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 0.5rem;
-    font-size: 1rem;
+}
+.call-type {
     font-weight: 600;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.85em;
 }
-.connection-details p {
-    margin: 0.25rem 0;
+.call-type.video {
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--accent-color);
+}
+.call-type.audio {
+    background-color: rgba(34, 197, 94, 0.1);
+    color: var(--success-color);
+}
+.call-duration {
     font-size: 0.9em;
+    font-weight: 500;
+    color: var(--text-secondary);
 }
-.connection-details hr {
-    border: none;
-    border-top: 1px solid var(--border-color);
-    margin: 1rem 0;
+.call-meta {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+.call-participants-list h4 {
+    margin-top: 0;
+    margin-bottom: 0.75rem;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--text-secondary);
 }
 .participant-card {
-    background-color: var(--surface-bg);
+    background-color: var(--base-bg);
     border: 1px solid var(--border-color);
     border-radius: 6px;
     padding: 0.75rem;
     margin-top: 0.5rem;
 }
+html.dark .call-history-card .participant-card {
+    background-color: var(--surface-bg);
+}
 .participant-card p {
     margin: 0.2rem 0;
+    font-size: 0.9em;
 }
 
 .status {
@@ -458,13 +496,11 @@ details summary span {
     padding: 1rem;
     max-height: 500px;
     overflow-y: auto;
-    white-space: pre-wrap; /* ИЗМЕНЕНО */
-    overflow-wrap: break-word; /* ДОБАВЛЕНО */
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
     font-family: monospace;
     font-size: 0.85em;
 }
-
-/* --- СТИЛИ ДЛЯ ЛОГОВ --- */
 .log-line {
     display: block;
     padding: 0.1em 0;
@@ -475,7 +511,6 @@ details summary span {
 .log-critical { color: var(--danger-action); font-weight: bold; }
 .log-http-2xx { color: var(--success-color); }
 .log-http-3xx { color: var(--accent-color); }
-/* -------------------------------- */
 
 .danger-zone {
     background-color: var(--danger-bg);

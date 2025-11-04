@@ -15,7 +15,7 @@ async function loadConnections() {
     const sessions = await fetchData(`connections?date=${date}`);
     
     if (!sessions || sessions.length === 0) {
-        connectionsListContainer.innerHTML = '<p class="empty-list">Соединения за эту дату не найдены.</p>';
+        connectionsListContainer.innerHTML = '<p class="empty-list">Сессии за эту дату не найдены.</p>';
         return;
     }
     
@@ -27,7 +27,25 @@ async function loadConnections() {
                     <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
                     <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
                 </div>`).join('')
-            : '<p>Нет информации об участниках.</p>';
+            : '<p>Нет информации об участниках в этой сессии.</p>';
+
+        const callHistoryHtml = session.call_history.length > 0
+            ? session.call_history.map(call => `
+                <div class="call-history-card">
+                    <div class="call-header">
+                        <span class="call-type ${call.call_type}">${call.call_type === 'video' ? 'Видеозвонок' : 'Аудиозвонок'}</span>
+                        <span class="call-duration">${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</span>
+                    </div>
+                    <div class="call-meta">
+                        Начало: ${formatDate(call.call_started_at)}
+                    </div>
+                    <div class="call-participants-list">
+                        <h4>Участники в сессии:</h4>
+                        ${participantsHtml}
+                    </div>
+                </div>
+            `).join('')
+            : '<p class="empty-list">В этой сессии не было завершенных звонков.</p>';
 
         return `
         <div class="connection-item">
@@ -35,19 +53,13 @@ async function loadConnections() {
                 <div class="summary-info">
                     <code>${session.room_id}</code>
                     <div class="meta">
-                       Тип: ${session.call_type || 'N/A'} | Длительность: ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}
+                       Создана: ${formatDate(session.created_at)}
                     </div>
                 </div>
                 <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
-                <h4>Детали сессии</h4>
-                <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
-                ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
-                ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
-                <hr>
-                <h4>Участники</h4>
-                ${participantsHtml}
+                ${callHistoryHtml}
             </div>
         </div>`;
     }).join('');
@@ -69,6 +81,13 @@ export function initConnections() {
         const details = summary.nextElementSibling;
         const item = summary.parentElement;
 
+        document.querySelectorAll('.connection-item.open').forEach(openItem => {
+            if (openItem !== item) {
+                openItem.classList.remove('open');
+                openItem.querySelector('.connection-details').style.maxHeight = null;
+            }
+        });
+
         if (details.style.maxHeight) {
             details.style.maxHeight = null;
             item.classList.remove('open');
@@ -77,4 +96,7 @@ export function initConnections() {
             item.classList.add('open');
         }
     });
+
+    // Загружаем данные за сегодняшний день при инициализации
+    loadConnections();
 }
