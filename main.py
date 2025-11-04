@@ -62,6 +62,7 @@ class ConnectionLog(BaseModel):
     isCallInitiator: bool
     probeResults: List[Dict[str, Any]]
     selectedConnection: Optional[Dict[str, Any]] = None
+    connectionType: Optional[str] = None
 
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
@@ -79,6 +80,7 @@ class RoomManager:
         self.call_timeouts: Dict[tuple, asyncio.Task] = {}
         self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
+        self.current_call_event_id: Optional[int] = None
 
     async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:
@@ -244,8 +246,13 @@ async def receive_log(log: ClientLog):
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
     try:
+        room = manager.rooms.get(log_data.roomId)
+        if room and room.current_call_event_id and log_data.connectionType:
+            asyncio.create_task(database.log_call_event_connection_type(
+                room.current_call_event_id, log_data.connectionType
+            ))
+
         os.makedirs(LOGS_DIR, exist_ok=True)
-        
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"conn_log_{timestamp}_room_{log_data.roomId[:8]}.html"
         filepath = os.path.join(LOGS_DIR, filename)
@@ -335,7 +342,9 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
+                    event_id = await database.log_call_event_start(room.room_id, room.pending_call_type)
+                    room.current_call_event_id = event_id
+                    
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -357,8 +366,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 
-                if message_type == "hangup":
-                    asyncio.create_task(database.log_call_end(room.room_id))
+                if message_type == "hangup" and room.current_call_event_id:
+                    asyncio.create_task(database.log_call_event_end(room.current_call_event_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -367,6 +376,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                     asyncio.create_task(
                         notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
                     )
+                    room.current_call_event_id = None
                     
                 await room.send_personal_message({"type": "call_ended"}, target_id)
                 await room.set_user_status(user_id, "available")
@@ -378,6 +388,10 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
+            if room.current_call_event_id:
+                asyncio.create_task(database.log_call_event_end(room.current_call_event_id))
+                room.current_call_event_id = None
+
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:

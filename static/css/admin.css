@@ -449,6 +449,7 @@ html.dark .connection-item {
     margin-bottom: 1rem;
     display: flex;
     gap: 1.5rem;
+    flex-wrap: wrap;
 }
 .call-group-meta strong {
     color: var(--text-primary);
@@ -464,6 +465,20 @@ html.dark .connection-item {
 .participant-card p {
     margin: 0.2rem 0;
     font-size: 0.9em;
+}
+.conn-type {
+    padding: 0.2em 0.5em;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-family: monospace;
+}
+.conn-type.type-p2p {
+    background-color: var(--success-color);
+    color: white;
+}
+.conn-type.type-relay {
+    background-color: var(--pending-color);
+    color: #18181b;
 }
 /* --- КОНЕЦ ОБНОВЛЕННЫХ СТИЛЕЙ --- */
 

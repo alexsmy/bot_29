@@ -34,7 +34,8 @@ export const connectionLogger = {
             userId: userId,
             isCallInitiator: isCallInitiator,
             probeResults: [],
-            selectedConnection: null
+            selectedConnection: null,
+            connectionType: null
         };
     },
     setProbeResults: function(results) {
@@ -79,19 +80,24 @@ export const connectionLogger = {
                 const remote = statsMap.get(activePair.remoteCandidateId);
                 const rtt = activePair.currentRoundTripTime * 1000;
                 let explanation = 'Не удалось определить причину выбора.';
+                let connType = 'unknown';
 
                 if (local.candidateType === 'host' && remote.candidateType === 'host') {
                     explanation = 'Выбран наилучший путь: прямое соединение в локальной сети (host-to-host). Это обеспечивает минимальную задержку.';
+                    connType = 'local';
                 } else if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
                     explanation = 'Выбран запасной вариант: соединение через ретрансляционный TURN-сервер (relay). Прямое соединение невозможно, трафик пойдет через посредника, что может увеличить задержку.';
+                    connType = 'relay';
                 } else if (['srflx', 'prflx'].includes(local.candidateType) || ['srflx', 'prflx'].includes(remote.candidateType)) {
                     if (rtt < 20) {
                         explanation = 'Выбран быстрый P2P-путь, характерный для сложных локальных сетей (например, с VPN или Docker). Низкий RTT подтверждает, что трафик не покидает локальную сеть.';
                     } else {
                         explanation = 'Выбран оптимальный путь: прямое P2P соединение через интернет. STUN-сервер или сам пир помог устройствам "увидеть" друг друга за NAT.';
                     }
+                    connType = 'p2p';
                 }
-
+                
+                this.data.connectionType = connType;
                 this.data.selectedConnection = {
                     local: {
                         type: local.candidateType,
