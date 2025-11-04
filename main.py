@@ -264,6 +264,9 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
         
+        # Log the start of the call in the new history table
+        asyncio.create_task(database.log_call_start_history(log_data.dict()))
+
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
             f"<b>Room ID:</b> <code>{log_data.roomId}</code>"
@@ -335,7 +338,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -358,7 +360,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 
                 if message_type == "hangup":
-                    asyncio.create_task(database.log_call_end(room.room_id))
+                    asyncio.create_task(database.log_call_end_history(room.room_id))
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -378,6 +380,9 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
+            # This user disconnected while in a call, so we log the end of the call.
+            asyncio.create_task(database.log_call_end_history(room.room_id))
+            
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:
@@ -485,7 +490,7 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
             "remaining_seconds": max(0, remaining_seconds),
             "is_admin_room": is_admin_room,
             "user_count": user_count,
-            "call_status": session.get('status'),
+            "call_status": session.get('call_status'),
             "call_type": session.get('call_type')
         })
         
