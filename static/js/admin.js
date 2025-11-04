@@ -13,6 +13,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const API_TOKEN = document.body.dataset.token;
     const TOKEN_EXPIRES_AT_ISO = document.body.dataset.tokenExpiresAt;
 
+    // --- ИЗМЕНЕНИЕ: Делаем токен глобально доступным ---
+    window.ADMIN_API_TOKEN = API_TOKEN;
+
     // 1. Инициализируем API-модуль с токеном
     initApi(API_TOKEN);
 

@@ -1,3 +1,4 @@
+
 // static/js/admin_reports.js
 
 // Этот модуль отвечает за логику раздела "Отчёты".
@@ -5,16 +6,15 @@
 import { fetchData } from './admin_api.js';
 
 let reportsListContainer, deleteAllReportsBtn;
-const API_TOKEN = document.body.dataset.token; // Токен нужен для формирования ссылок
 
 async function loadReports() {
     const files = await fetchData('reports');
     if (files && files.length > 0) {
         reportsListContainer.innerHTML = files.map(filename => `
             <div class="report-item">
-                <a href="/admin/reports/${filename}?token=${API_TOKEN}" target="_blank">${filename}</a>
+                <a href="/admin/reports/${filename}?token=${window.ADMIN_API_TOKEN}" target="_blank">${filename}</a>
                 <div class="report-actions">
-                    <button class="action-btn" onclick="window.location.href='/admin/reports/${filename}?download=true&token=${API_TOKEN}'">Скачать</button>
+                    <button class="action-btn" onclick="window.location.href='/admin/reports/${filename}?download=true&token=${window.ADMIN_API_TOKEN}'">Скачать</button>
                     <button class="action-btn danger" data-filename="${filename}">Удалить</button>
                 </div>
             </div>

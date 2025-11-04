@@ -18,7 +18,7 @@ export function initDangerZone() {
         }
     });
 
-    // НОВЫЙ БЛОК: Кнопка для DROP (полное удаление таблиц)
+    // Блок для DROP (полное удаление таблиц)
     document.getElementById('drop-db-btn').addEventListener('click', async () => {
         if (!confirm('ВЫ УВЕРЕНЕНЫ, ЧТО ХОТИТЕ ПОЛНОСТЬЮ УДАЛИТЬ ВСЕ ТАБЛИЦЫ В БД?\n\nЭто необратимое действие. Приложение перестанет работать до следующего перезапуска. Использовать только для исправления схемы БД.')) {
             return;
@@ -40,7 +40,8 @@ export function initDangerZone() {
 
         // 3. Отправляем запрос на удаление с кодом
         try {
-            const wipeResult = await fetch(`/api/admin/database/wipe-with-code?token=${window.API_TOKEN_INTERNAL}`, {
+            // --- ИЗМЕНЕНИЕ: Используем правильную глобальную переменную ---
+            const wipeResult = await fetch(`/api/admin/database/wipe-with-code?token=${window.ADMIN_API_TOKEN}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ code: code.trim() })
