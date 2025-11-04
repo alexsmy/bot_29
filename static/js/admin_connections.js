@@ -1,12 +1,47 @@
-
 // static/js/admin_connections.js
-
-// Этот модуль отвечает за логику раздела "Соединения".
 
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
+
+function renderParticipant(details, role) {
+    if (!details) {
+        return `
+        <div class="participant-details">
+            <h5>${role}</h5>
+            <p>Информация отсутствует (возможно, звонок не был принят).</p>
+        </div>`;
+    }
+    return `
+    <div class="participant-details">
+        <h5>${role}</h5>
+        <p><strong>ID:</strong> ${details.websocket_user_id.substring(0, 8)}...</p>
+        <p><strong>IP:</strong> ${details.ip_address} (${details.country || 'N/A'}, ${details.city || 'N/A'})</p>
+        <p><strong>Устройство:</strong> ${details.device_type}, ${details.os_info}, ${details.browser_info}</p>
+    </div>`;
+}
+
+function renderCallEvent(event, index) {
+    const durationText = event.duration_seconds !== null ? `Длительность: <strong>${event.duration_seconds} сек</strong>` : '';
+    const callType = event.call_type === 'video' ? 'Видеозвонок' : 'Аудиозвонок';
+
+    return `
+    <div class="call-event-card">
+        <div class="call-event-header">
+            <span class="call-event-title">Попытка звонка #${index + 1} (${callType})</span>
+            <span class="status-badge ${event.status}">${event.status}</span>
+        </div>
+        <div class="call-event-meta">
+            <span>Начат: <strong>${formatDate(event.initiated_at)}</strong></span>
+            ${durationText ? `<span> | ${durationText}</span>` : ''}
+        </div>
+        <div class="participants-container">
+            ${renderParticipant(event.caller_details, 'Инициатор')}
+            ${renderParticipant(event.callee_details, 'Ответивший')}
+        </div>
+    </div>`;
+}
 
 async function loadConnections() {
     const date = connectionsDateInput.value;
@@ -16,41 +51,14 @@ async function loadConnections() {
     const sessions = await fetchData(`connections?date=${date}`);
     
     if (!sessions || sessions.length === 0) {
-        connectionsListContainer.innerHTML = '<p class="empty-list">Соединения за эту дату не найдены.</p>';
+        connectionsListContainer.innerHTML = '<p class="empty-list">Сессии за эту дату не найдены.</p>';
         return;
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const callGroupsHtml = session.call_groups.length > 0
-            ? session.call_groups.map((group, groupIndex) => {
-                const participantsHtml = group.participants.map((p, pIndex) => `
-                    <div class="participant-card">
-                        <strong>Участник ${pIndex + 1}</strong>
-                        <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                        <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-                    </div>
-                `).join('');
-
-                let callMetaHtml = '';
-                // Показываем детали звонка только если он был завершен и в нем было хотя бы 2 участника
-                if (session.status === 'completed' && group.participants.length >= 2) {
-                    callMetaHtml = `
-                        <div class="call-group-meta">
-                            <span>Тип: <strong>${session.call_type || 'N/A'}</strong></span>
-                            <span>Длительность: <strong>${session.duration_seconds} сек</strong></span>
-                        </div>
-                    `;
-                }
-
-                return `
-                    <div class="call-group">
-                        <div class="call-group-header">Звонок #${groupIndex + 1} &middot; ${formatDate(group.start_time)}</div>
-                        ${callMetaHtml}
-                        ${participantsHtml}
-                    </div>
-                `;
-            }).join('')
-            : '<p>В этой сессии не было зафиксировано звонков.</p>';
+        const callHistoryHtml = session.call_history.length > 0
+            ? `<div class="call-history-container">${session.call_history.map(renderCallEvent).join('')}</div>`
+            : '<p>В этой сессии не было зафиксировано попыток звонков.</p>';
 
         return `
         <div class="connection-item">
@@ -68,8 +76,8 @@ async function loadConnections() {
                     ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
                 </div>
                 <div class="details-section">
-                    <h4>Звонки в рамках сессии</h4>
-                    ${callGroupsHtml}
+                    <h4>История звонков в сессии</h4>
+                    ${callHistoryHtml}
                 </div>
             </div>
         </div>`;
@@ -81,7 +89,6 @@ export function initConnections() {
     searchConnectionsBtn = document.getElementById('search-connections-btn');
     connectionsListContainer = document.getElementById('connections-list');
     
-    // Устанавливаем сегодняшнюю дату по умолчанию
     connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
     searchConnectionsBtn.addEventListener('click', loadConnections);
@@ -93,7 +100,6 @@ export function initConnections() {
         const details = summary.nextElementSibling;
         const item = summary.parentElement;
 
-        // Закрываем все остальные открытые карточки
         document.querySelectorAll('.connection-item.open').forEach(openItem => {
             if (openItem !== item) {
                 openItem.classList.remove('open');
@@ -101,7 +107,6 @@ export function initConnections() {
             }
         });
 
-        // Открываем или закрываем текущую
         if (item.classList.contains('open')) {
             details.style.maxHeight = null;
             item.classList.remove('open');
@@ -111,6 +116,5 @@ export function initConnections() {
         }
     });
     
-    // Загружаем данные за сегодняшний день при инициализации
     loadConnections();
 }

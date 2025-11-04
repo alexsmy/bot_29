@@ -78,7 +78,7 @@ class RoomManager:
         self.users: Dict[Any, dict] = {}
         self.call_timeouts: Dict[tuple, asyncio.Task] = {}
         self.creation_time = datetime.now(timezone.utc)
-        self.pending_call_type: Optional[str] = None
+        self.active_call_event_id: Optional[int] = None
 
     async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:
@@ -129,20 +129,22 @@ class RoomManager:
             self.users[user_id]["status"] = status
             await self.broadcast_user_list()
 
-    async def _call_timeout_task(self, caller_id: Any, target_id: Any):
+    async def _call_timeout_task(self, caller_id: Any, target_id: Any, event_id: int):
         await asyncio.sleep(60)
         call_key = tuple(sorted((caller_id, target_id)))
         if call_key in self.call_timeouts:
             del self.call_timeouts[call_key]
+            asyncio.create_task(database.log_call_missed(event_id))
             await self.send_personal_message({"type": "call_missed"}, caller_id)
             await self.send_personal_message({"type": "call_ended"}, target_id)
             await self.set_user_status(caller_id, "available")
             await self.set_user_status(target_id, "available")
+            self.active_call_event_id = None
 
-    def start_call_timeout(self, caller_id: Any, target_id: Any):
+    def start_call_timeout(self, caller_id: Any, target_id: Any, event_id: int):
         call_key = tuple(sorted((caller_id, target_id)))
         self.cancel_call_timeout(caller_id, target_id)
-        task = asyncio.create_task(self._call_timeout_task(caller_id, target_id))
+        task = asyncio.create_task(self._call_timeout_task(caller_id, target_id, event_id))
         self.call_timeouts[call_key] = task
 
     def cancel_call_timeout(self, user1_id: Any, user2_id: Any):
@@ -322,30 +324,33 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             if message_type == "call_user":
                 target_id = message["data"]["target_id"]
                 call_type = message["data"]["call_type"]
-                room.pending_call_type = call_type
+                
+                event_id = await database.log_call_initiation(room.room_id, user_id, call_type)
+                room.active_call_event_id = event_id
+
                 await room.set_user_status(user_id, "busy")
                 await room.set_user_status(target_id, "busy")
                 await room.send_personal_message(
-                    {"type": "incoming_call", "data": {"from": user_id, "from_user": room.users.get(user_id), "call_type": call_type}},
+                    {"type": "incoming_call", "data": {"from": user_id, "from_user": room.users.get(user_id), "call_type": call_type, "event_id": event_id}},
                     target_id
                 )
-                room.start_call_timeout(user_id, target_id)
+                room.start_call_timeout(user_id, target_id, event_id)
 
             elif message_type == "call_accepted":
                 target_id = message["data"]["target_id"]
+                event_id = message["data"]["event_id"]
                 room.cancel_call_timeout(user_id, target_id)
-                if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
-                    message_to_admin = (
-                        f"📞 <b>Звонок начался</b>\n\n"
-                        f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
-                        f"<b>Тип:</b> {room.pending_call_type}\n"
-                        f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
-                    )
-                    asyncio.create_task(
-                        notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
-                    )
-                    room.pending_call_type = None
+                
+                await database.log_call_answered(event_id, user_id)
+                
+                message_to_admin = (
+                    f"📞 <b>Звонок начался</b>\n\n"
+                    f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
+                    f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+                )
+                asyncio.create_task(
+                    notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
+                )
                 await room.send_personal_message({"type": "call_accepted", "data": {"from": user_id}}, target_id)
 
             elif message_type in ["offer", "answer", "candidate"]:
@@ -353,12 +358,22 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 message["data"]["from"] = user_id
                 await room.send_personal_message(message, target_id)
 
-            elif message_type in ["hangup", "call_declined"]:
+            elif message_type == "call_declined":
+                target_id = message["data"]["target_id"]
+                event_id = message["data"]["event_id"]
+                room.cancel_call_timeout(user_id, target_id)
+                await database.log_call_declined(event_id, user_id)
+                await room.send_personal_message({"type": "call_ended"}, target_id)
+                await room.set_user_status(user_id, "available")
+                await room.set_user_status(target_id, "available")
+                room.active_call_event_id = None
+
+            elif message_type == "hangup":
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
                 
-                if message_type == "hangup":
-                    asyncio.create_task(database.log_call_end(room.room_id))
+                if room.active_call_event_id:
+                    await database.log_call_ended(room.active_call_event_id)
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -371,6 +386,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 await room.send_personal_message({"type": "call_ended"}, target_id)
                 await room.set_user_status(user_id, "available")
                 await room.set_user_status(target_id, "available")
+                room.active_call_event_id = None
 
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
@@ -386,6 +402,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                     break
             
             if other_user_id and other_user_id in room.users:
+                if room.active_call_event_id:
+                    await database.log_call_ended(room.active_call_event_id)
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
                 await room.set_user_status(other_user_id, "available")
 
@@ -398,24 +416,24 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
         return
 
-    x_forwarded_for = websocket.headers.get("x-forwarded-for")
-    ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
-    user_agent = websocket.headers.get("user-agent", "Unknown")
-    
-    async def log_connection_in_background():
-        location_data = await utils.get_ip_location(ip_address)
-        ua_data = utils.parse_user_agent(user_agent)
-        parsed_data = {**location_data, **ua_data}
-        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
-
-    asyncio.create_task(log_connection_in_background())
-
     new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
     
     actual_user_id = await room.connect(websocket, user_data)
 
     if actual_user_id:
+        x_forwarded_for = websocket.headers.get("x-forwarded-for")
+        ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
+        user_agent = websocket.headers.get("user-agent", "Unknown")
+        
+        async def log_connection_in_background():
+            location_data = await utils.get_ip_location(ip_address)
+            ua_data = utils.parse_user_agent(user_agent)
+            parsed_data = {**location_data, **ua_data}
+            await database.log_connection(room_id, actual_user_id, ip_address, user_agent, parsed_data)
+
+        asyncio.create_task(log_connection_in_background())
+        
         await handle_websocket_logic(websocket, room, actual_user_id)
     else:
         logger.warning(f"Connection attempt to full room {room_id} was rejected.")
