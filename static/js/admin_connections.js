@@ -31,7 +31,7 @@ function renderCallHistory(calls, connections) {
         <div class="call-card">
             <div class="call-card-header">
                 <h5>Звонок #${index + 1} (${call.call_type || 'N/A'})</h5>
-                <span class="connection-type-badge">${call.connection_type || 'N/A'}</span>
+                <span class="connection-type-badge ${call.connection_type?.toLowerCase()}">${call.connection_type || 'N/A'}</span>
             </div>
             <div class="call-card-body">
                 <div>
