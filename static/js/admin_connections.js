@@ -1,11 +1,30 @@
 // static/js/admin_connections.js
 
-// Этот модуль отвечает за логику раздела "Соединения".
-
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
+
+function renderCallHistory(calls) {
+    if (!calls || calls.length === 0) {
+        return '<p>В этой сессии не было звонков.</p>';
+    }
+
+    return `<div class="call-history-list">` + calls.map((call, index) => `
+        <div class="call-card">
+            <div class="call-card-header">
+                <h5>Звонок #${index + 1} (${call.call_type || 'N/A'})</h5>
+                <span class="connection-type-badge">${call.connection_type || 'N/A'}</span>
+            </div>
+            <div class="call-card-body">
+                <p><strong>Начало:</strong> ${formatDate(call.call_started_at)}</p>
+                <p><strong>Длительность:</strong> ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'Активен'}</p>
+                <p><strong>Участник 1:</strong> ${call.participant1_ip || 'N/A'}</p>
+                <p><strong>Участник 2:</strong> ${call.participant2_ip || 'N/A'}</p>
+            </div>
+        </div>
+    `).join('') + `</div>`;
+}
 
 async function loadConnections() {
     const date = connectionsDateInput.value;
@@ -15,19 +34,12 @@ async function loadConnections() {
     const sessions = await fetchData(`connections?date=${date}`);
     
     if (!sessions || sessions.length === 0) {
-        connectionsListContainer.innerHTML = '<p class="empty-list">Соединения за эту дату не найдены.</p>';
+        connectionsListContainer.innerHTML = '<p class="empty-list">Сессии за эту дату не найдены.</p>';
         return;
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const participantsHtml = session.participants.length > 0 
-            ? session.participants.map((p, index) => `
-                <div class="participant-card">
-                    <strong>Участник ${index + 1}</strong>
-                    <p><strong>IP:</strong> ${p.ip_address} (${p.country || 'N/A'}, ${p.city || 'N/A'})</p>
-                    <p><strong>Устройство:</strong> ${p.device_type}, ${p.os_info}, ${p.browser_info}</p>
-                </div>`).join('')
-            : '<p>Нет информации об участниках.</p>';
+        const callHistoryHtml = renderCallHistory(session.calls);
 
         return `
         <div class="connection-item">
@@ -35,19 +47,18 @@ async function loadConnections() {
                 <div class="summary-info">
                     <code>${session.room_id}</code>
                     <div class="meta">
-                       Тип: ${session.call_type || 'N/A'} | Длительность: ${session.duration_seconds !== null ? session.duration_seconds + ' сек' : 'N/A'}
+                       Создана: ${formatDate(session.created_at)}
                     </div>
                 </div>
                 <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
+                <h4>История звонков в сессии</h4>
+                ${callHistoryHtml}
+                <hr>
                 <h4>Детали сессии</h4>
-                <p><strong>Создана:</strong> ${formatDate(session.created_at)}</p>
                 ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
                 ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
-                <hr>
-                <h4>Участники</h4>
-                ${participantsHtml}
             </div>
         </div>`;
     }).join('');
