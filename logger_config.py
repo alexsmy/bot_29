@@ -1,3 +1,5 @@
+# logger_config.py
+
 import logging
 import sys
 
@@ -30,9 +32,9 @@ def setup_logger():
         logging.basicConfig()
         logging.error(f"Не удалось настроить файловый логгер: {e}")
 
-    # --- НОВАЯ СТРОКА ---
     # Понижаем уровень логирования для "шумных" библиотек
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("twilio").setLevel(logging.WARNING) # <-- ДОБАВЛЕНО
 
     return logger
 
