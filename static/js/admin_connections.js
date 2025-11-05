@@ -1,9 +1,16 @@
+
 // static/js/admin_connections.js
 
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
+
+function getDeviceIcon(deviceType) {
+    if (deviceType === 'Mobile' || deviceType === 'Tablet') return '📱';
+    if (deviceType === 'Desktop') return '🖥️';
+    return '⚙️';
+}
 
 function renderParticipantDetails(ip, connections) {
     if (!ip) return '<p><strong>IP:</strong> N/A</p>';
@@ -16,8 +23,8 @@ function renderParticipantDetails(ip, connections) {
     return `
         <p><strong>IP:</strong> ${ip}</p>
         <div class="participant-details">
-            ${conn.country || 'N/A'}, ${conn.city || 'N/A'}<br>
-            ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}
+            <span>${getDeviceIcon(conn.device_type)} ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
+            <span>📌 ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
         </div>
     `;
 }
@@ -27,28 +34,34 @@ function renderCallHistory(calls, connections) {
         return '<p>В этой сессии не было звонков.</p>';
     }
 
-    return `<div class="call-history-list">` + calls.map((call, index) => `
+    return `<div class="call-history-list">` + calls.map((call, index) => {
+        const callTypeIcon = call.call_type === 'video' ? '📹' : '🔈';
+        
+        return `
         <div class="call-card">
             <div class="call-card-header">
-                <h5>Звонок #${index + 1} (${call.call_type || 'N/A'})</h5>
+                <div class="call-header-main">
+                    <span class="call-type-icon">${callTypeIcon}</span>
+                    <h5>Звонок #${index + 1}</h5>
+                    <div class="call-header-meta">
+                        <span>Начало: ${formatDate(call.call_started_at)}</span>
+                        <span>Длительность: ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</span>
+                    </div>
+                </div>
                 <span class="connection-type-badge ${call.connection_type?.toLowerCase()}">${call.connection_type || 'N/A'}</span>
             </div>
-            <div class="call-card-body">
-                <div>
-                    <p><strong>Начало:</strong> ${formatDate(call.call_started_at)}</p>
-                    <p><strong>Длительность:</strong> ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</p>
-                </div>
-                <div>
-                    <p><strong>Участник 1:</strong></p>
+            <div class="call-card-body participants-grid">
+                <div class="participant-column">
+                    <h6>Участник 1</h6>
                     ${renderParticipantDetails(call.participant1_ip, connections)}
                 </div>
-                <div>
-                    <p><strong>Участник 2:</strong></p>
+                <div class="participant-column">
+                    <h6>Участник 2</h6>
                     ${renderParticipantDetails(call.participant2_ip, connections)}
                 </div>
             </div>
         </div>
-    `).join('') + `</div>`;
+    `}).join('') + `</div>`;
 }
 
 async function loadConnections() {
@@ -66,16 +79,21 @@ async function loadConnections() {
     connectionsListContainer.innerHTML = sessions.map(session => {
         const callHistoryHtml = renderCallHistory(session.calls, session.connections);
         const closureInfo = session.closed_at 
-            ? `<div class="summary-meta-details">Закрыта: ${formatDate(session.closed_at)} (${session.close_reason || 'N/A'})</div>` 
-            : '';
+            ? `<div class="timestamp-item"><strong>Закрыта:</strong><span>${formatDate(session.closed_at)}</span><small>${session.close_reason || 'N/A'}</small></div>`
+            : '<div class="timestamp-item"></div>'; // Placeholder for alignment
 
         return `
         <div class="connection-item">
             <div class="connection-summary">
                 <div class="summary-info">
                     <code>${session.room_id}</code>
-                    <div class="meta">Создана: ${formatDate(session.created_at)}</div>
-                    ${closureInfo}
+                    <div class="summary-timestamps">
+                        <div class="timestamp-item">
+                            <strong>Создана:</strong>
+                            <span>${formatDate(session.created_at)}</span>
+                        </div>
+                        ${closureInfo}
+                    </div>
                 </div>
                 <span class="status ${session.status}">${session.status}</span>
             </div>
