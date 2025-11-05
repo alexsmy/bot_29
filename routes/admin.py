@@ -2,7 +2,7 @@
 
 import glob
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Depends, HTTPException, status
 from fastapi.responses import HTMLResponse, FileResponse, PlainTextResponse, Response
 
@@ -10,7 +10,8 @@ import database
 from config import PRIVATE_ROOM_LIFETIME_HOURS
 from core.schemas import NotificationSettings
 from logger_config import logger, LOG_FILE_PATH
-from main import CustomJSONResponse, templates, LOGS_DIR  # Импортируем общие компоненты из main
+# v-- ИЗМЕНЕНИЕ: Импортируем общие компоненты из нового файла --v
+from core.app_setup import CustomJSONResponse, templates, LOGS_DIR
 from websocket_manager import manager
 
 router = APIRouter()
@@ -70,7 +71,7 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
         lifetime_seconds = (expires_at - created_at).total_seconds()
         lifetime_hours = round(lifetime_seconds / 3600)
         
-        remaining_seconds = (expires_at - datetime.now(datetime.timezone.utc)).total_seconds()
+        remaining_seconds = (expires_at - datetime.now(timezone.utc)).total_seconds()
         
         is_admin_room = lifetime_hours > PRIVATE_ROOM_LIFETIME_HOURS
         

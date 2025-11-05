@@ -2,47 +2,28 @@
 
 import asyncio
 import os
-import json
-from datetime import datetime, date, timezone
-from typing import Any
 from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.responses import HTMLResponse, Response, FileResponse
+from fastapi.responses import HTMLResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 
-import database
 import ice_provider
 import notifier
 from logger_config import logger
 from websocket_manager import manager
 from routes.websocket import router as websocket_router
-from routes.admin import router as admin_router  # <-- ДОБАВЛЕНИЕ: Импортируем админ-роутер
-from core.schemas import ClientLog, ConnectionLog  # <-- ИЗМЕНЕНИЕ: Импортируем схемы
-
-LOGS_DIR = "connection_logs"
-
-class CustomJSONResponse(Response):
-    media_type = "application/json"
-
-    def render(self, content: Any) -> bytes:
-        return json.dumps(
-            content,
-            ensure_ascii=False,
-            allow_nan=False,
-            indent=None,
-            separators=(",", ":"),
-            default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
-        ).encode("utf-8")
+from routes.admin import router as admin_router
+# v-- ИЗМЕНЕНИЕ: Импортируем общие компоненты из нового файла --v
+from core.app_setup import templates, CustomJSONResponse
+from core.schemas import ClientLog, ConnectionLog
 
 app = FastAPI()
 
 # Подключаем роутеры
 app.include_router(websocket_router)
-app.include_router(admin_router) # <-- ДОБАВЛЕНИЕ: Подключаем админ-роутер
+app.include_router(admin_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
@@ -56,7 +37,7 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
         )
     return await http_exception_handler(request, exc)
 
-# --- УДАЛЕНИЕ: Pydantic-модели перенесены в core/schemas.py ---
+# --- УДАЛЕНИЕ: CustomJSONResponse и templates перенесены в core/app_setup.py ---
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
@@ -65,6 +46,7 @@ async def receive_log(log: ClientLog):
 
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
+    from core.app_setup import LOGS_DIR # Импортируем здесь, чтобы избежать проблем при инициализации
     try:
         os.makedirs(LOGS_DIR, exist_ok=True)
         
@@ -134,8 +116,6 @@ async def close_room_endpoint(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
-
-# --- УДАЛЕНИЕ: Все эндпоинты /admin/ и /api/admin/ перенесены в routes/admin.py ---
 
 @app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
 async def catch_all_invalid_paths(request: Request, full_path: str):
