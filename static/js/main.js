@@ -50,11 +50,6 @@ let isEndingCall = false;
 let remoteMuteToastTimeout = null;
 let connectionToastTimeout = null;
 
-// --- НОВАЯ ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ ---
-/**
- * Проверяет, является ли текущее устройство устройством на базе iOS.
- * @returns {boolean}
- */
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
@@ -164,7 +159,10 @@ function initializePrivateCallMode() {
         updateConnectionQualityIcon: updateConnectionQualityIcon,
         showConnectionToast: showConnectionToast,
         getIceServerDetails: () => iceServerDetails,
-        getRtcConfig: () => rtcConfig
+        getRtcConfig: () => rtcConfig,
+        onConnectionEstablished: (type) => {
+            sendMessage({ type: 'connection_established', data: { type: type } });
+        }
     });
 
     const webrtcCallbacks = {
@@ -194,7 +192,6 @@ function initializePrivateCallMode() {
 async function runPreCallCheck() {
     showScreen('pre-call-check');
 
-    // --- ИЗМЕНЕНИЕ: Показываем уведомление для iOS ---
     const iosNote = document.getElementById('ios-audio-permission-note');
     if (isIOS()) {
         iosNote.style.display = 'block';
@@ -203,7 +200,7 @@ async function runPreCallCheck() {
     const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
     if (!hasCameraAccess || !hasMicrophoneAccess) {
-        displayMediaErrors({ name: 'NotFoundError' }); // Simplified error display
+        displayMediaErrors({ name: 'NotFoundError' });
         continueSpectatorBtn.style.display = 'block';
     }
 
@@ -242,7 +239,6 @@ function displayMediaErrors(error) {
     } else {
         message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
     }
-    // Placeholder for a more elegant error display
     console.error(message);
 }
 
@@ -571,7 +567,6 @@ function setupLocalVideoInteraction() {
     localVideoContainer.addEventListener('touchstart', onDragStart, { passive: true });
 }
 
-// --- ОСНОВНЫЕ ИЗМЕНЕНИЯ ЗДЕСЬ ---
 async function initializeLocalMedia(callType) {
     if (isSpectator) {
         logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
@@ -582,11 +577,10 @@ async function initializeLocalMedia(callType) {
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     let isVideoCall = callType === 'video';
     
-    // Наш "умный" режим для iOS
     const isIOSAudioCall = isIOS() && callType === 'audio';
     if (isIOSAudioCall) {
         logToScreen("[MEDIA_IOS] Audio call on iOS detected. Requesting video to force speakerphone.");
-        isVideoCall = true; // Технически запрашиваем видео
+        isVideoCall = true;
     }
 
     const constraints = {
@@ -597,7 +591,6 @@ async function initializeLocalMedia(callType) {
     const result = await media.getStreamForCall(constraints, localVideo, localAudio);
     
     if (result.stream) {
-        // Если это был "фейковый" видео-запрос для аудиозвонка на iOS
         if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
             logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
             result.stream.getVideoTracks()[0].enabled = false;
@@ -643,12 +636,10 @@ function updateCallUI() {
     const isVideoCall = currentCallType === 'video';
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     
-    // Показываем кнопку управления видео только если это НАСТОЯЩИЙ видеозвонок
     videoControlItem.style.display = isVideoCall && hasCameraAccess ? 'flex' : 'none';
     muteBtn.parentElement.style.display = hasMicrophoneAccess ? 'flex' : 'none';
     screenShareControlItem.style.display = isVideoCall && !isMobileDevice() ? 'flex' : 'none';
     
-    // Показываем видео элементы только для НАСТОЯЩИХ видеозвонков
     remoteVideo.style.display = isVideoCall ? 'block' : 'none';
     
     callScreen.classList.toggle('video-call-active', isVideoCall);
@@ -896,7 +887,7 @@ function showConnectionToast(type, message) {
     }
     
     connectionToast.textContent = finalMessage;
-    connectionToast.className = 'toast-notification'; // Reset classes
+    connectionToast.className = 'toast-notification';
     connectionToast.classList.add(`toast-${type}`);
     
     connectionToast.classList.add('visible');

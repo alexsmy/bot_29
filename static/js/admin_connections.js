@@ -5,7 +5,24 @@ import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 
-function renderCallHistory(calls) {
+function renderParticipantDetails(ip, connections) {
+    if (!ip) return '<p><strong>IP:</strong> N/A</p>';
+
+    const conn = connections.find(c => c.ip_address === ip);
+    if (!conn) {
+        return `<p><strong>IP:</strong> ${ip}</p>`;
+    }
+
+    return `
+        <p><strong>IP:</strong> ${ip}</p>
+        <div class="participant-details">
+            ${conn.country || 'N/A'}, ${conn.city || 'N/A'}<br>
+            ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}
+        </div>
+    `;
+}
+
+function renderCallHistory(calls, connections) {
     if (!calls || calls.length === 0) {
         return '<p>В этой сессии не было звонков.</p>';
     }
@@ -17,10 +34,18 @@ function renderCallHistory(calls) {
                 <span class="connection-type-badge">${call.connection_type || 'N/A'}</span>
             </div>
             <div class="call-card-body">
-                <p><strong>Начало:</strong> ${formatDate(call.call_started_at)}</p>
-                <p><strong>Длительность:</strong> ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'Активен'}</p>
-                <p><strong>Участник 1:</strong> ${call.participant1_ip || 'N/A'}</p>
-                <p><strong>Участник 2:</strong> ${call.participant2_ip || 'N/A'}</p>
+                <div>
+                    <p><strong>Начало:</strong> ${formatDate(call.call_started_at)}</p>
+                    <p><strong>Длительность:</strong> ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</p>
+                </div>
+                <div>
+                    <p><strong>Участник 1:</strong></p>
+                    ${renderParticipantDetails(call.participant1_ip, connections)}
+                </div>
+                <div>
+                    <p><strong>Участник 2:</strong></p>
+                    ${renderParticipantDetails(call.participant2_ip, connections)}
+                </div>
             </div>
         </div>
     `).join('') + `</div>`;
@@ -39,7 +64,7 @@ async function loadConnections() {
     }
     
     connectionsListContainer.innerHTML = sessions.map(session => {
-        const callHistoryHtml = renderCallHistory(session.calls);
+        const callHistoryHtml = renderCallHistory(session.calls, session.connections);
 
         return `
         <div class="connection-item">

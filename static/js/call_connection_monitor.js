@@ -7,12 +7,14 @@ let updateConnectionQualityIcon = () => {};
 let showConnectionToast = () => {};
 let getIceServerDetails = () => ({});
 let getRtcConfig = () => ({});
+let onConnectionEstablished = () => {};
 
 let lastRtcStats = null;
 let currentConnectionDetails = null;
 let connectionStatsInterval = null;
 let initialConnectionToastShown = false;
 let currentConnectionType = 'unknown';
+let connectionTypeReported = false;
 
 export function init(callbacks) {
     log = callbacks.log;
@@ -22,6 +24,7 @@ export function init(callbacks) {
     showConnectionToast = callbacks.showConnectionToast;
     getIceServerDetails = callbacks.getIceServerDetails;
     getRtcConfig = callbacks.getRtcConfig;
+    onConnectionEstablished = callbacks.onConnectionEstablished;
 }
 
 export const connectionLogger = {
@@ -77,23 +80,17 @@ export const connectionLogger = {
             if (activePair) {
                 const local = statsMap.get(activePair.localCandidateId);
                 const remote = statsMap.get(activePair.remoteCandidateId);
-                const rtt = activePair.currentRoundTripTime * 1000;
+                const rtt = activePair.currentRoundTripTime;
                 let explanation = 'Не удалось определить причину выбора.';
-                
-                // --- НОВАЯ ЛОГИКА: ОПРЕДЕЛЕНИЕ ТИПА СОЕДИНЕНИЯ ---
-                let finalType = 'p2p'; // По умолчанию P2P
-                if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
-                    finalType = 'relay';
-                    explanation = 'Выбран запасной вариант: соединение через ретрансляционный TURN-сервер (relay). Прямое соединение невозможно, трафик пойдет через посредника, что может увеличить задержку.';
-                } else if (local.candidateType === 'host' && remote.candidateType === 'host') {
-                    finalType = 'local';
+
+                if (local.candidateType === 'host' && remote.candidateType === 'host') {
                     explanation = 'Выбран наилучший путь: прямое соединение в локальной сети (host-to-host). Это обеспечивает минимальную задержку.';
+                } else if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
+                    explanation = 'Выбран запасной вариант: соединение через ретрансляционный TURN-сервер (relay). Прямое соединение невозможно, трафик пойдет через посредника, что может увеличить задержку.';
                 } else if (['srflx', 'prflx'].includes(local.candidateType) || ['srflx', 'prflx'].includes(remote.candidateType)) {
-                    if (rtt < 20) {
-                        finalType = 'local'; // Считаем быстрый P2P как локальный
+                    if (rtt * 1000 < 20) {
                         explanation = 'Выбран быстрый P2P-путь, характерный для сложных локальных сетей (например, с VPN или Docker). Низкий RTT подтверждает, что трафик не покидает локальную сеть.';
                     } else {
-                        finalType = 'p2p';
                         explanation = 'Выбран оптимальный путь: прямое P2P соединение через интернет. STUN-сервер или сам пир помог устройствам "увидеть" друг друга за NAT.';
                     }
                 }
@@ -110,9 +107,8 @@ export const connectionLogger = {
                         address: `${remote.address || remote.ip}:${remote.port}`,
                         protocol: remote.protocol,
                     },
-                    rtt: activePair.currentRoundTripTime,
-                    explanation: explanation,
-                    type: finalType // <-- ДОБАВЛЕНО ПОЛЕ С ТИПОМ СОЕДИНЕНИЯ
+                    rtt: rtt,
+                    explanation: explanation
                 };
             }
 
@@ -238,7 +234,7 @@ async function monitorConnectionStats() {
                 } 
                 else if (localType === 'host' && remoteType === 'host') {
                     connectionTypeForIcon = 'local';
-                    currentConnectionType = 'local'; // ИСПРАВЛЕНО: было p2p
+                    currentConnectionType = 'p2p'; 
                     currentConnectionDetails = { region: 'local', provider: 'network' };
                 }
                 else {
@@ -256,6 +252,11 @@ async function monitorConnectionStats() {
                 }
                 
                 updateConnectionIcon(connectionTypeForIcon);
+
+                if (!connectionTypeReported) {
+                    onConnectionEstablished(currentConnectionType);
+                    connectionTypeReported = true;
+                }
 
                 if (!initialConnectionToastShown && peerConnection.iceConnectionState === 'connected') {
                     initialConnectionToastShown = true;
@@ -303,6 +304,7 @@ export function startConnectionMonitoring() {
     if (connectionStatsInterval) clearInterval(connectionStatsInterval);
     connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
     initialConnectionToastShown = false;
+    connectionTypeReported = false;
     updateConnectionIcon('unknown');
     updateConnectionQualityIcon('unknown');
 }
@@ -314,6 +316,7 @@ export function stopConnectionMonitoring() {
     currentConnectionDetails = null;
     currentConnectionType = 'unknown';
     initialConnectionToastShown = false;
+    connectionTypeReported = false;
     updateConnectionQualityIcon('unknown');
     updateConnectionIcon('unknown');
 }

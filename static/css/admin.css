@@ -1,3 +1,5 @@
+/* static/css/admin.css */
+
 :root {
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -443,14 +445,20 @@ details summary span {
     font-size: 0.9em;
     color: var(--text-secondary);
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
 }
 .call-card-body p {
     margin: 0;
 }
 .call-card-body strong {
     color: var(--text-primary);
+}
+.participant-details {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    padding-left: 0.5rem;
+    margin-top: 0.25rem;
 }
 .connection-type-badge {
     padding: 0.2rem 0.5rem;
@@ -461,16 +469,8 @@ details summary span {
     background-color: var(--border-color);
     color: var(--text-secondary);
 }
-.connection-type-badge.p2p, .connection-type-badge.local {
-    background-color: var(--success-color);
-    color: white;
-}
-.connection-type-badge.relay {
-    background-color: var(--pending-color);
-    color: var(--base-bg);
-}
-html.dark .connection-type-badge.relay {
-    color: #18181b;
+html.dark .connection-type-badge {
+    background-color: #4f4f52;
 }
 
 .status {
@@ -677,6 +677,6 @@ html.dark .connection-type-badge.relay {
         font-size: 0.8rem;
     }
     .call-card-body {
-        grid-template-columns: 1fr; /* В одну колонку на мобильных */
+        grid-template-columns: 1fr;
     }
 }
