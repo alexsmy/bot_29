@@ -65,25 +65,23 @@ async function loadConnections() {
     
     connectionsListContainer.innerHTML = sessions.map(session => {
         const callHistoryHtml = renderCallHistory(session.calls, session.connections);
+        const closureInfo = session.closed_at 
+            ? `<div class="summary-meta-details">Закрыта: ${formatDate(session.closed_at)} (${session.close_reason || 'N/A'})</div>` 
+            : '';
 
         return `
         <div class="connection-item">
             <div class="connection-summary">
                 <div class="summary-info">
                     <code>${session.room_id}</code>
-                    <div class="meta">
-                       Создана: ${formatDate(session.created_at)}
-                    </div>
+                    <div class="meta">Создана: ${formatDate(session.created_at)}</div>
+                    ${closureInfo}
                 </div>
                 <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
                 <h4>История звонков в сессии</h4>
                 ${callHistoryHtml}
-                <hr>
-                <h4>Детали сессии</h4>
-                ${session.closed_at ? `<p><strong>Закрыта:</strong> ${formatDate(session.closed_at)}</p>` : ''}
-                ${session.close_reason ? `<p><strong>Причина:</strong> ${session.close_reason}</p>` : ''}
             </div>
         </div>`;
     }).join('');
