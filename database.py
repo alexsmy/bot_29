@@ -51,20 +51,13 @@ async def init_db():
                 generated_by_user_id BIGINT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
+                call_type TEXT,
+                call_started_at TIMESTAMPTZ,
+                call_ended_at TIMESTAMPTZ,
+                duration_seconds INTEGER,
                 status TEXT DEFAULT 'pending',
                 closed_at TIMESTAMPTZ,
                 close_reason TEXT
-            )
-        ''')
-        await conn.execute('''
-            CREATE TABLE IF NOT EXISTS call_history (
-                history_id SERIAL PRIMARY KEY,
-                room_id TEXT NOT NULL REFERENCES call_sessions(room_id) ON DELETE CASCADE,
-                call_type TEXT,
-                call_started_at TIMESTAMPTZ NOT NULL,
-                call_ended_at TIMESTAMPTZ,
-                duration_seconds INTEGER,
-                status TEXT NOT NULL
             )
         ''')
         await conn.execute('''
@@ -150,28 +143,21 @@ async def log_call_start(room_id, call_type):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            """
-            INSERT INTO call_history (room_id, call_type, call_started_at, status)
-            VALUES ($1, $2, $3, 'active')
-            """,
-            room_id, call_type, datetime.now(timezone.utc)
-        )
-        await conn.execute(
-            "UPDATE call_sessions SET status = 'active' WHERE room_id = $1",
-            room_id
+            "UPDATE call_sessions SET call_type = $1, call_started_at = $2, status = 'active' WHERE room_id = $3",
+            call_type, datetime.now(timezone.utc), room_id
         )
 
 async def log_call_end(room_id):
     pool = await get_pool()
     async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT history_id, call_started_at FROM call_history WHERE room_id = $1 AND status = 'active' ORDER BY call_started_at DESC LIMIT 1", room_id)
+        row = await conn.fetchrow("SELECT call_started_at FROM call_sessions WHERE room_id = $1 AND status = 'active'", room_id)
         if row and row['call_started_at']:
             start_time = row['call_started_at']
             end_time = datetime.now(timezone.utc)
             duration = int((end_time - start_time).total_seconds())
             await conn.execute(
-                "UPDATE call_history SET call_ended_at = $1, duration_seconds = $2, status = 'completed' WHERE history_id = $3",
-                end_time, duration, row['history_id']
+                "UPDATE call_sessions SET call_ended_at = $1, duration_seconds = $2, status = 'completed' WHERE room_id = $3",
+                end_time, duration, room_id
             )
 
 async def log_room_closure(room_id, reason):
@@ -211,7 +197,7 @@ async def get_stats(period):
         total_users = await conn.fetchval(f"SELECT COUNT(*) FROM users {date_filter}")
         total_actions = await conn.fetchval("SELECT COUNT(*) FROM bot_actions")
         total_sessions = await conn.fetchval("SELECT COUNT(*) FROM call_sessions")
-        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_history WHERE status = 'completed'")
+        completed_calls_data = await conn.fetchrow("SELECT COUNT(*) as count, AVG(duration_seconds) as avg_duration FROM call_sessions WHERE status = 'completed'")
         active_rooms_count = await conn.fetchval("SELECT COUNT(*) FROM call_sessions WHERE expires_at > NOW() AND closed_at IS NULL")
         return {
             "total_users": total_users or 0,
@@ -238,25 +224,17 @@ async def get_connections_info(date_obj: date):
     pool = await get_pool()
     async with pool.acquire() as conn:
         sessions = await conn.fetch(
-            "SELECT room_id, created_at, status, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
+            "SELECT room_id, created_at, status, call_type, duration_seconds, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []
         for session in sessions:
             session_dict = dict(session)
-            
             connections = await conn.fetch(
                 "SELECT ip_address, device_type, os_info, browser_info, country, city FROM connections WHERE room_id = $1",
                 session_dict['room_id']
             )
             session_dict['participants'] = [dict(conn) for conn in connections]
-            
-            history = await conn.fetch(
-                "SELECT call_type, call_started_at, duration_seconds FROM call_history WHERE room_id = $1 AND status = 'completed' ORDER BY call_started_at DESC",
-                session_dict['room_id']
-            )
-            session_dict['call_history'] = [dict(h) for h in history]
-            
             results.append(session_dict)
         return results
 
@@ -289,41 +267,17 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_history, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE admin_tokens, connections, bot_actions, call_sessions, users, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
-
-async def drop_all_tables():
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        # --- ИСПРАВЛЕНИЕ: Добавлены все возможные имена таблиц для полного удаления ---
-        await conn.execute("""
-            DROP TABLE IF EXISTS 
-            admin_settings, admin_tokens, bot_actions, call_history, 
-            connections, call_sessions, users, call_connections, call_events,
-            call_connections_history CASCADE;
-        """)
-        logger.critical("ВСЕ ТАБЛИЦЫ БАЗЫ ДАННЫХ БЫЛИ УДАЛЕНЫ (DROP).")
 
 async def get_all_active_sessions():
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT 
-                cs.room_id, 
-                cs.created_at, 
-                cs.expires_at, 
-                cs.status, 
-                ch.call_type
-            FROM call_sessions cs
-            LEFT JOIN LATERAL (
-                SELECT call_type
-                FROM call_history
-                WHERE room_id = cs.room_id
-                ORDER BY call_started_at DESC
-                LIMIT 1
-            ) ch ON true
-            WHERE cs.expires_at > NOW() AND cs.closed_at IS NULL
-            ORDER BY cs.created_at DESC
+            SELECT room_id, created_at, expires_at, status, call_type
+            FROM call_sessions
+            WHERE expires_at > NOW() AND closed_at IS NULL
+            ORDER BY created_at DESC
         """
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
