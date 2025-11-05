@@ -360,13 +360,15 @@ details summary span {
 
 /* --- NEW STYLES FOR CONNECTIONS --- */
 .connections-list {
-    padding-bottom: 1rem; /* Fix for last item being cut off */
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
 }
 .connection-item {
     background: linear-gradient(180deg, var(--surface-bg) 0%, var(--base-bg) 150%);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    margin-bottom: 1rem;
+    margin-bottom: 0; /* Replaced by gap */
     overflow: hidden;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
     transition: box-shadow 0.2s ease-in-out;
@@ -411,22 +413,26 @@ html.dark .connection-summary:hover {
 }
 .summary-timestamps {
     display: flex;
-    gap: 1.5rem;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 1rem;
     font-size: 0.85em;
     color: var(--text-secondary);
     font-family: var(--font-sans);
 }
 .timestamp-item {
-    display: flex;
-    flex-direction: column;
+    white-space: nowrap;
+}
+.timestamp-item.reason {
+    font-style: italic;
+    opacity: 0.8;
+    margin-left: auto;
+    text-align: right;
 }
 .timestamp-item strong {
     color: var(--text-primary);
     font-weight: 500;
-}
-.timestamp-item small {
-    font-style: italic;
-    opacity: 0.8;
 }
 .connection-details {
     padding: 0 1.25rem;
@@ -469,10 +475,13 @@ html.dark .connection-summary:hover {
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1rem;
-    background-color: var(--base-bg);
+    background: linear-gradient(180deg, #fdfdff, #f5f7fa);
     border-bottom: 1px solid var(--border-color);
     flex-wrap: wrap;
     gap: 0.5rem;
+}
+html.dark .call-card-header {
+    background: linear-gradient(180deg, #3a3a3e, #2e2e31);
 }
 .call-header-main {
     display: flex;
@@ -763,5 +772,10 @@ html.dark .connection-type-badge.relay {
     .summary-timestamps {
         flex-direction: column;
         gap: 0.5rem;
+        align-items: flex-start;
+    }
+    .timestamp-item.reason {
+        margin-left: 0;
+        text-align: left;
     }
 }

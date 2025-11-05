@@ -78,9 +78,15 @@ async function loadConnections() {
     
     connectionsListContainer.innerHTML = sessions.map(session => {
         const callHistoryHtml = renderCallHistory(session.calls, session.connections);
-        const closureInfo = session.closed_at 
-            ? `<div class="timestamp-item"><strong>Закрыта:</strong><span>${formatDate(session.closed_at)}</span><small>${session.close_reason || 'N/A'}</small></div>`
-            : '<div class="timestamp-item"></div>'; // Placeholder for alignment
+        
+        const createdInfo = `<strong>Создана:</strong>&nbsp;${formatDate(session.created_at)}`;
+        let closedInfo = '';
+        let reasonInfo = '';
+
+        if (session.closed_at) {
+            closedInfo = `<strong>Закрыта:</strong>&nbsp;${formatDate(session.closed_at)}`;
+            reasonInfo = `<small>${session.close_reason || 'N/A'}</small>`;
+        }
 
         return `
         <div class="connection-item">
@@ -88,11 +94,9 @@ async function loadConnections() {
                 <div class="summary-info">
                     <code>${session.room_id}</code>
                     <div class="summary-timestamps">
-                        <div class="timestamp-item">
-                            <strong>Создана:</strong>
-                            <span>${formatDate(session.created_at)}</span>
-                        </div>
-                        ${closureInfo}
+                        <div class="timestamp-item created">${createdInfo}</div>
+                        <div class="timestamp-item closed">${closedInfo}</div>
+                        <div class="timestamp-item reason">${reasonInfo}</div>
                     </div>
                 </div>
                 <span class="status ${session.status}">${session.status}</span>
