@@ -56,12 +56,21 @@ class ClientLog(BaseModel):
     room_id: str
     message: str
 
+# --- ИЗМЕНЕННЫЕ МОДЕЛИ Pydantic ---
+class SelectedConnectionDetails(BaseModel):
+    local: Dict[str, Any]
+    remote: Dict[str, Any]
+    rtt: float
+    explanation: str
+    type: Optional[str] = None # Добавлено поле для типа соединения
+
 class ConnectionLog(BaseModel):
     roomId: str
     userId: str
     isCallInitiator: bool
     probeResults: List[Dict[str, Any]]
-    selectedConnection: Optional[Dict[str, Any]] = None
+    selectedConnection: Optional[SelectedConnectionDetails] = None
+# ------------------------------------
 
 class NotificationSettings(BaseModel):
     notify_on_room_creation: bool
@@ -241,11 +250,12 @@ async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
     return CustomJSONResponse(content={"status": "logged"}, status_code=200)
 
+# --- ИЗМЕНЕННЫЙ ЭНДПОИНТ ---
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
     try:
+        # 1. Сохранение HTML-отчета (без изменений)
         os.makedirs(LOGS_DIR, exist_ok=True)
-        
         timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
         filename = f"conn_log_{timestamp}_room_{log_data.roomId[:8]}.html"
         filepath = os.path.join(LOGS_DIR, filename)
@@ -261,9 +271,18 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
 
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(rendered_html)
-
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
         
+        # 2. Обновление записи в базе данных (НОВАЯ ЛОГИКА)
+        if log_data.selectedConnection and log_data.selectedConnection.type:
+            asyncio.create_task(
+                database.update_call_connection_type(
+                    log_data.roomId, 
+                    log_data.selectedConnection.type
+                )
+            )
+
+        # 3. Отправка уведомления администратору (без изменений)
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
             f"<b>Room ID:</b> <code>{log_data.roomId}</code>"

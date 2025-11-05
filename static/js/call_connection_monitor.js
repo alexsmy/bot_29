@@ -79,15 +79,21 @@ export const connectionLogger = {
                 const remote = statsMap.get(activePair.remoteCandidateId);
                 const rtt = activePair.currentRoundTripTime * 1000;
                 let explanation = 'Не удалось определить причину выбора.';
-
-                if (local.candidateType === 'host' && remote.candidateType === 'host') {
-                    explanation = 'Выбран наилучший путь: прямое соединение в локальной сети (host-to-host). Это обеспечивает минимальную задержку.';
-                } else if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
+                
+                // --- НОВАЯ ЛОГИКА: ОПРЕДЕЛЕНИЕ ТИПА СОЕДИНЕНИЯ ---
+                let finalType = 'p2p'; // По умолчанию P2P
+                if (local.candidateType === 'relay' || remote.candidateType === 'relay') {
+                    finalType = 'relay';
                     explanation = 'Выбран запасной вариант: соединение через ретрансляционный TURN-сервер (relay). Прямое соединение невозможно, трафик пойдет через посредника, что может увеличить задержку.';
+                } else if (local.candidateType === 'host' && remote.candidateType === 'host') {
+                    finalType = 'local';
+                    explanation = 'Выбран наилучший путь: прямое соединение в локальной сети (host-to-host). Это обеспечивает минимальную задержку.';
                 } else if (['srflx', 'prflx'].includes(local.candidateType) || ['srflx', 'prflx'].includes(remote.candidateType)) {
                     if (rtt < 20) {
+                        finalType = 'local'; // Считаем быстрый P2P как локальный
                         explanation = 'Выбран быстрый P2P-путь, характерный для сложных локальных сетей (например, с VPN или Docker). Низкий RTT подтверждает, что трафик не покидает локальную сеть.';
                     } else {
+                        finalType = 'p2p';
                         explanation = 'Выбран оптимальный путь: прямое P2P соединение через интернет. STUN-сервер или сам пир помог устройствам "увидеть" друг друга за NAT.';
                     }
                 }
@@ -105,7 +111,8 @@ export const connectionLogger = {
                         protocol: remote.protocol,
                     },
                     rtt: activePair.currentRoundTripTime,
-                    explanation: explanation
+                    explanation: explanation,
+                    type: finalType // <-- ДОБАВЛЕНО ПОЛЕ С ТИПОМ СОЕДИНЕНИЯ
                 };
             }
 
@@ -231,7 +238,7 @@ async function monitorConnectionStats() {
                 } 
                 else if (localType === 'host' && remoteType === 'host') {
                     connectionTypeForIcon = 'local';
-                    currentConnectionType = 'p2p'; 
+                    currentConnectionType = 'local'; // ИСПРАВЛЕНО: было p2p
                     currentConnectionDetails = { region: 'local', provider: 'network' };
                 }
                 else {
