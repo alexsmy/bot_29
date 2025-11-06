@@ -4,7 +4,6 @@ import asyncio
 import os
 import json
 import glob
-import uuid
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, HTTPException, Depends, status
@@ -20,8 +19,8 @@ import ice_provider
 import notifier
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from websocket_manager import manager
-from routes.websocket import router as websocket_router
+from websocket_manager import manager  # <-- ИЗМЕНЕНИЕ: Импортируем manager из нового файла
+from routes.websocket import router as websocket_router # <-- ДОБАВЛЕНИЕ: Импортируем роутер
 
 LOGS_DIR = "connection_logs"
 
@@ -40,7 +39,8 @@ class CustomJSONResponse(Response):
 
 app = FastAPI()
 
-app.include_router(websocket_router)
+# Подключаем роутеры
+app.include_router(websocket_router) # <-- ДОБАВЛЕНИЕ: Подключаем WebSocket роутер
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -75,18 +75,8 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-# --- НОВЫЕ МОДЕЛИ ДЛЯ MINI APP ---
-class UserRequest(BaseModel):
-    user_id: int
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    username: Optional[str] = None
-
-class RoomResponse(BaseModel):
-    room_id: str
-    expires_at: datetime
-# --- КОНЕЦ НОВЫХ МОДЕЛЕЙ ---
-
+# --- УДАЛЕНИЕ: Классы RoomManager и ConnectionManager перенесены в websocket_manager.py ---
+# --- УДАЛЕНИЕ: Экземпляр manager = ConnectionManager() перенесен в websocket_manager.py ---
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
@@ -144,45 +134,6 @@ async def get_welcome(request: Request):
     bot_username = os.environ.get("BOT_USERNAME", "")
     return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
 
-@app.get("/app", response_class=HTMLResponse)
-async def get_mini_app(request: Request):
-    return templates.TemplateResponse("mini_app.html", {"request": request})
-
-# --- ИЗМЕНЕННЫЕ МАРШРУТЫ ДЛЯ MINI APP ---
-@app.post("/api/room/status", response_model=RoomResponse)
-async def get_room_status(user_request: UserRequest):
-    logger.info(f"Mini App: Получен запрос статуса комнаты. Данные: {user_request.dict()}")
-    active_room = await database.get_active_room_by_user(user_request.user_id)
-    
-    if not active_room:
-        logger.info(f"Mini App: Активная комната для user_id {user_request.user_id} не найдена.")
-        raise HTTPException(status_code=404, detail="Active room not found for this user")
-    
-    logger.info(f"Mini App: Найдена активная комната {active_room['room_id']} для user_id {user_request.user_id}")
-    return RoomResponse(**active_room)
-
-@app.post("/api/room/create", response_model=RoomResponse)
-async def create_room_from_app(user_request: UserRequest):
-    user_id = user_request.user_id
-    logger.info(f"Mini App: Получен запрос на создание комнаты. Данные: {user_request.dict()}")
-
-    # Логируем пользователя, если он новый
-    await database.log_user(user_id, user_request.first_name, user_request.last_name, user_request.username)
-    await database.log_bot_action(user_id, "create_room_from_mini_app")
-
-    room_id = str(uuid.uuid4())
-    lifetime_hours = PRIVATE_ROOM_LIFETIME_HOURS
-    
-    await manager.get_or_create_room(room_id, lifetime_hours=lifetime_hours)
-
-    created_at = datetime.now(timezone.utc)
-    expires_at = created_at + timedelta(hours=lifetime_hours)
-    await database.log_call_session(room_id, user_id, created_at, expires_at)
-
-    logger.info(f"Mini App: Успешно создана комната {room_id} для user_id: {user_id}")
-    return RoomResponse(room_id=room_id, expires_at=expires_at)
-# --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
     servers = ice_provider.get_ice_servers()
@@ -203,6 +154,8 @@ async def close_room_endpoint(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
+
+# --- УДАЛЕНИЕ: handle_websocket_logic и @app.websocket перенесены в routes/websocket.py ---
 
 async def verify_admin_token(request: Request, token: str):
     expires_at = await database.get_admin_token_expiry(token)
