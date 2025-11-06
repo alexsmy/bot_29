@@ -8,6 +8,8 @@ document.addEventListener('DOMContentLoaded', function() {
         activeRoom: document.getElementById('active-room-view'),
         error: document.getElementById('error-view'),
     };
+    const userInfoEl = document.getElementById('user-info');
+    const userGreetingEls = document.querySelectorAll('.user-greeting');
     const createRoomBtn = document.getElementById('create-room-btn');
     const goToRoomBtn = document.getElementById('go-to-room-btn');
     const shareLinkBtn = document.getElementById('share-link-btn');
@@ -55,17 +57,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const expiryDate = new Date(expiryDateISO);
 
-        countdownInterval = setInterval(() => {
+        const updateTimer = () => {
             const remainingSeconds = (expiryDate - new Date()) / 1000;
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 roomTimerEl.textContent = "00:00:00";
-                // Когда время вышло, снова проверяем статус, чтобы UI обновился
+                console.log("Countdown finished. Checking room status again.");
                 checkRoomStatus(); 
             } else {
                 roomTimerEl.textContent = formatTime(remainingSeconds);
             }
-        }, 1000);
+        };
+        
+        updateTimer(); // Вызываем сразу, чтобы не было задержки в 1 секунду
+        countdownInterval = setInterval(updateTimer, 1000);
     }
 
     /**
@@ -75,6 +80,13 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateUI(roomData) {
         activeRoomData = roomData;
         if (countdownInterval) clearInterval(countdownInterval);
+
+        // Обновляем информацию о пользователе в UI
+        const userName = currentUser.first_name || currentUser.username || 'Пользователь';
+        userInfoEl.textContent = `User: ${userName} (ID: ${currentUser.id})`;
+        userGreetingEls.forEach(el => {
+            el.textContent = `Привет, ${userName}!`;
+        });
 
         if (roomData) {
             showView('activeRoom');
@@ -92,21 +104,27 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("User data not available for status check.");
             return;
         }
-        console.log(`Checking room status for user ${currentUser.id}`);
+        
+        const payload = {
+            user_id: currentUser.id,
+            first_name: currentUser.first_name,
+            username: currentUser.username
+        };
+        console.log('API Call: /api/room/status. Payload:', payload);
 
         try {
             const response = await fetch('/api/room/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: currentUser.id })
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
                 const roomData = await response.json();
-                console.log("Active room found:", roomData);
+                console.log("API Response: Active room found:", roomData);
                 updateUI(roomData);
             } else if (response.status === 404) {
-                console.log("No active room found for user.");
+                console.log("API Response: No active room found for user.");
                 updateUI(null);
             } else {
                 throw new Error(`Server error: ${response.status}`);
@@ -123,22 +141,24 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function createRoom() {
         showView('loading');
-        console.log(`Requesting room creation for user ${currentUser.id}`);
+        const payload = {
+            user_id: currentUser.id,
+            first_name: currentUser.first_name,
+            last_name: currentUser.last_name,
+            username: currentUser.username
+        };
+        console.log('API Call: /api/room/create. Payload:', payload);
+
         try {
             const response = await fetch('/api/room/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    user_id: currentUser.id,
-                    first_name: currentUser.first_name,
-                    last_name: currentUser.last_name,
-                    username: currentUser.username
-                })
+                body: JSON.stringify(payload)
             });
 
             if (response.ok) {
                 const newRoomData = await response.json();
-                console.log("Room created successfully:", newRoomData);
+                console.log("API Response: Room created successfully:", newRoomData);
                 updateUI(newRoomData);
             } else {
                 throw new Error(`Server error: ${response.status}`);
@@ -155,35 +175,37 @@ document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     tg.expand();
 
-    // currentUser = tg.initDataUnsafe.user;
-    // Для локального тестирования в браузере раскомментируйте строку ниже
-    currentUser = tg.initDataUnsafe.user || { id: 123456789, first_name: "Тест", username: "testuser" };
-
+    currentUser = tg.initDataUnsafe.user;
 
     if (!currentUser || !currentUser.id) {
+        console.error("CRITICAL: Could not get user data from Telegram. App cannot start.");
         errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
         showView('error');
         return;
     }
+    
+    console.log('TMA Init: User data received', currentUser);
 
     // --- Привязка событий ---
     createRoomBtn.addEventListener('click', createRoom);
 
     goToRoomBtn.addEventListener('click', () => {
         if (activeRoomData) {
-            tg.openLink(`${window.location.origin}/call/${activeRoomData.room_id}`);
+            const roomUrl = `${window.location.origin}/call/${activeRoomData.room_id}`;
+            console.log(`Opening link: ${roomUrl}`);
+            tg.openLink(roomUrl);
         }
     });
 
     shareLinkBtn.addEventListener('click', () => {
         if (activeRoomData) {
+            console.log(`Switching to inline query with room_id: ${activeRoomData.room_id}`);
             tg.switchInlineQuery(activeRoomData.room_id);
         }
     });
 
     // --- Запуск ---
     checkRoomStatus();
-    // Устанавливаем периодическую проверку статуса (например, каждые 15 секунд)
     if (statusCheckInterval) clearInterval(statusCheckInterval);
     statusCheckInterval = setInterval(checkRoomStatus, 15000);
 });

@@ -75,7 +75,7 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-# --- НОВЫЕ МОДЕЛИ ДЛЯ MINI APP ---
+# --- МОДЕЛИ ДЛЯ MINI APP ---
 class UserRequest(BaseModel):
     user_id: int
     first_name: Optional[str] = None
@@ -85,7 +85,7 @@ class UserRequest(BaseModel):
 class RoomResponse(BaseModel):
     room_id: str
     expires_at: datetime
-# --- КОНЕЦ НОВЫХ МОДЕЛЕЙ ---
+# --- КОНЕЦ МОДЕЛЕЙ ---
 
 
 @app.post("/log")
@@ -148,10 +148,10 @@ async def get_welcome(request: Request):
 async def get_mini_app(request: Request):
     return templates.TemplateResponse("mini_app.html", {"request": request})
 
-# --- НОВЫЕ МАРШРУТЫ ДЛЯ MINI APP ---
+# --- МАРШРУТЫ ДЛЯ MINI APP ---
 @app.post("/api/room/status", response_model=RoomResponse)
 async def get_room_status(user_request: UserRequest):
-    logger.info(f"Mini App: Запрос статуса комнаты для user_id: {user_request.user_id}")
+    logger.info(f"Mini App: Запрос статуса комнаты для user: {user_request.user_id} ({user_request.first_name} / @{user_request.username or 'N/A'})")
     active_room = await database.get_active_room_by_user(user_request.user_id)
     if not active_room:
         raise HTTPException(status_code=404, detail="Active room not found for this user")
@@ -160,7 +160,7 @@ async def get_room_status(user_request: UserRequest):
 @app.post("/api/room/create", response_model=RoomResponse)
 async def create_room_from_app(user_request: UserRequest):
     user_id = user_request.user_id
-    logger.info(f"Mini App: Запрос на создание комнаты от user_id: {user_id}")
+    logger.info(f"Mini App: Запрос на создание комнаты от user: {user_id} ({user_request.first_name} / @{user_request.username or 'N/A'})")
 
     # Логируем пользователя, если он новый
     await database.log_user(user_id, user_request.first_name, user_request.last_name, user_request.username)
@@ -177,7 +177,7 @@ async def create_room_from_app(user_request: UserRequest):
 
     logger.info(f"Mini App: Создана комната {room_id} для user_id: {user_id}")
     return RoomResponse(room_id=room_id, expires_at=expires_at)
-# --- КОНЕЦ НОВЫХ МАРШРУТОВ ---
+# --- КОНЕЦ МАРШРУТОВ ---
 
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
