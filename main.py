@@ -7,7 +7,7 @@ import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from urllib.parse import parse_qsl
-from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi import FastAPI, Request, HTTPException, Depends, status, Body
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
@@ -81,9 +81,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-class InitDataModel(BaseModel):
-    initData: str
-
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
@@ -145,12 +142,14 @@ async def get_mini_app(request: Request):
     return templates.TemplateResponse("mini_app.html", {"request": request})
 
 @app.post("/api/user/state")
-async def get_user_state(payload: InitDataModel):
-    if not utils.validate_init_data(payload.initData):
+async def get_user_state(request: Request):
+    init_data_str = (await request.body()).decode('utf-8')
+
+    if not utils.validate_init_data(init_data_str):
         logger.warning("Failed initData validation. Request is forbidden.")
         raise HTTPException(status_code=403, detail="Invalid initData")
 
-    init_data_dict = dict(parse_qsl(payload.initData))
+    init_data_dict = dict(parse_qsl(init_data_str))
     user_data_json = init_data_dict.get("user", "{}")
     user_data = json.loads(user_data_json)
     user_id = user_data.get("id")

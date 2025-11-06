@@ -92,8 +92,8 @@ document.addEventListener('DOMContentLoaded', function() {
         try {
             const response = await fetch('/api/user/state', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ initData: tg.initData })
+                headers: { 'Content-Type': 'text/plain' },
+                body: tg.initData
             });
 
             if (!response.ok) {
