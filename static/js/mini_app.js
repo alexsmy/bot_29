@@ -20,10 +20,6 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchWithInitData = async (url, options = {}) => {
-        if (!tg.initData) {
-            throw new Error("Telegram initData is not available.");
-        }
-        
         const body = {
             ...(options.body || {}),
             initData: tg.initData
