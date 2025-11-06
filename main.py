@@ -47,8 +47,11 @@ templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    # Если это не API-запрос и код ошибки 404 или 403, показываем кастомную страницу.
-    if not request.url.path.startswith("/api/") and exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
+    # ИСПРАВЛЕНО: API-запросы должны возвращать JSON, а не HTML
+    if request.url.path.startswith("/api/"):
+        return await http_exception_handler(request, exc)
+        
+    if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
         logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
         bot_username = os.environ.get("BOT_USERNAME", "")
         return templates.TemplateResponse(
@@ -56,8 +59,6 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
             {"request": request, "bot_username": bot_username},
             status_code=exc.status_code
         )
-    # Во всех остальных случаях (включая ошибки API) используем стандартный обработчик FastAPI,
-    # который вернет корректный JSON-ответ.
     return await http_exception_handler(request, exc)
 
 class ClientLog(BaseModel):
