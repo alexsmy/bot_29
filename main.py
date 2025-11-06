@@ -1,15 +1,12 @@
-# `main.py`
+# main.py
 
 import asyncio
 import os
 import json
 import glob
-import hmac
-import hashlib
-from urllib.parse import parse_qsl
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request, HTTPException, Depends, status, Header
+from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
@@ -20,11 +17,10 @@ import database
 import utils
 import ice_provider
 import notifier
-from services import room_service
 from logger_config import logger, LOG_FILE_PATH
-from config import PRIVATE_ROOM_LIFETIME_HOURS, BOT_TOKEN
-from websocket_manager import manager
-from routes.websocket import router as websocket_router
+from config import PRIVATE_ROOM_LIFETIME_HOURS
+from websocket_manager import manager  # <-- ИЗМЕНЕНИЕ: Импортируем manager из нового файла
+from routes.websocket import router as websocket_router # <-- ДОБАВЛЕНИЕ: Импортируем роутер
 
 LOGS_DIR = "connection_logs"
 
@@ -41,35 +37,13 @@ class CustomJSONResponse(Response):
             default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
         ).encode("utf-8")
 
-app = FastAPI(default_response_class=CustomJSONResponse)
+app = FastAPI()
 
-app.include_router(websocket_router)
+# Подключаем роутеры
+app.include_router(websocket_router) # <-- ДОБАВЛЕНИЕ: Подключаем WebSocket роутер
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
-async def validate_init_data(x_telegram_init_data: str = Header(...)):
-    try:
-        parsed_data = dict(parse_qsl(x_telegram_init_data))
-        hash_from_request = parsed_data.pop("hash")
-        
-        data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items()))
-        
-        secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
-        calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-
-        if calculated_hash != hash_from_request:
-            raise HTTPException(status_code=403, detail="Invalid initData hash")
-        
-        user_data = json.loads(parsed_data.get("user", "{}"))
-        if not user_data:
-            raise HTTPException(status_code=403, detail="User data not found in initData")
-            
-        return user_data
-
-    except Exception as e:
-        logger.error(f"initData validation failed: {e}")
-        raise HTTPException(status_code=403, detail="Invalid initData")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
@@ -101,43 +75,13 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-@app.get("/mini-app", response_class=HTMLResponse)
-async def get_mini_app_page(request: Request):
-    return templates.TemplateResponse("mini_app.html", {"request": request})
-
-@app.post("/api/mini-app/user-status")
-async def get_user_status(user_data: dict = Depends(validate_init_data)):
-    user_id = user_data.get("id")
-    first_name = user_data.get("first_name", "")
-    last_name = user_data.get("last_name", "")
-    username = user_data.get("username", "")
-
-    await database.log_user(user_id, first_name, last_name, username)
-    
-    active_session = await database.get_active_session_by_user_id(user_id)
-    
-    return {
-        "user_id": user_id,
-        "first_name": first_name,
-        "active_room": active_session
-    }
-
-@app.post("/api/mini-app/create-room")
-async def create_room_from_mini_app(user_data: dict = Depends(validate_init_data)):
-    user_id = user_data.get("id")
-    
-    active_session = await database.get_active_session_by_user_id(user_id)
-    if active_session:
-        raise HTTPException(status_code=409, detail="User already has an active room")
-
-    room_id = await room_service.create_room_and_get_id(user_id, PRIVATE_ROOM_LIFETIME_HOURS)
-    
-    return {"room_id": room_id}
+# --- УДАЛЕНИЕ: Классы RoomManager и ConnectionManager перенесены в websocket_manager.py ---
+# --- УДАЛЕНИЕ: Экземпляр manager = ConnectionManager() перенесен в websocket_manager.py ---
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
-    return {"status": "logged"}
+    return CustomJSONResponse(content={"status": "logged"}, status_code=200)
 
 @app.post("/api/log/connection-details")
 async def save_connection_log(log_data: ConnectionLog, request: Request):
@@ -170,7 +114,7 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
             notifier.send_admin_notification(message_to_admin, 'send_connection_report', file_path=filepath)
         )
 
-        return {"status": "log saved", "filename": filename}
+        return CustomJSONResponse(content={"status": "log saved", "filename": filename})
     except Exception as e:
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
@@ -183,7 +127,7 @@ async def get_room_lifetime(room_id: str):
     
     expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
     remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
-    return {"remaining_seconds": max(0, remaining_seconds)}
+    return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
 
 @app.get("/", response_class=HTMLResponse)
 async def get_welcome(request: Request):
@@ -193,7 +137,7 @@ async def get_welcome(request: Request):
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
     servers = ice_provider.get_ice_servers()
-    return servers
+    return CustomJSONResponse(content=servers)
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
 async def get_call_page(request: Request, room_id: str):
@@ -209,7 +153,9 @@ async def close_room_endpoint(room_id: str):
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
-    return {"status": "closing"}
+    return CustomJSONResponse(content={"status": "closing"})
+
+# --- УДАЛЕНИЕ: handle_websocket_logic и @app.websocket перенесены в routes/websocket.py ---
 
 async def verify_admin_token(request: Request, token: str):
     expires_at = await database.get_admin_token_expiry(token)
@@ -226,17 +172,17 @@ async def get_admin_page(request: Request, token: str = Depends(verify_admin_tok
 @app.get("/api/admin/stats")
 async def get_admin_stats(period: str = "all", token: str = Depends(verify_admin_token)):
     stats = await database.get_stats(period)
-    return stats
+    return CustomJSONResponse(content=stats)
 
 @app.get("/api/admin/users")
 async def get_admin_users(token: str = Depends(verify_admin_token)):
     users = await database.get_users_info()
-    return users
+    return CustomJSONResponse(content=users)
 
 @app.get("/api/admin/user_actions/{user_id}")
 async def get_admin_user_actions(user_id: int, token: str = Depends(verify_admin_token)):
     actions = await database.get_user_actions(user_id)
-    return actions
+    return CustomJSONResponse(content=actions)
 
 @app.get("/api/admin/connections")
 async def get_admin_connections(date: str, token: str = Depends(verify_admin_token)):
@@ -246,7 +192,7 @@ async def get_admin_connections(date: str, token: str = Depends(verify_admin_tok
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD.")
     
     connections = await database.get_connections_info(date_obj)
-    return connections
+    return CustomJSONResponse(content=connections)
 
 @app.get("/api/admin/active_rooms")
 async def get_active_rooms(token: str = Depends(verify_admin_token)):
@@ -279,7 +225,7 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
             "call_type": session.get('call_type')
         })
         
-    return active_rooms_info
+    return CustomJSONResponse(content=active_rooms_info)
 
 @app.delete("/api/admin/room/{room_id}")
 async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_token)):
@@ -290,17 +236,17 @@ async def close_room_by_admin(room_id: str, token: str = Depends(verify_admin_to
         logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
         await database.log_room_closure(room_id, "Closed by admin")
         
-    return {"status": "room closed", "room_id": room_id}
+    return CustomJSONResponse(content={"status": "room closed", "room_id": room_id})
 
 @app.get("/api/admin/notification_settings")
 async def get_notification_settings_endpoint(token: str = Depends(verify_admin_token)):
     settings = await database.get_notification_settings()
-    return settings
+    return CustomJSONResponse(content=settings)
 
 @app.post("/api/admin/notification_settings")
 async def update_notification_settings_endpoint(settings: NotificationSettings, token: str = Depends(verify_admin_token)):
     await database.update_notification_settings(settings.dict())
-    return {"status": "ok"}
+    return CustomJSONResponse(content={"status": "ok"})
 
 def sanitize_filename(filename: str):
     if ".." in filename or "/" in filename or "\\" in filename:
@@ -312,7 +258,7 @@ async def list_reports(token: str = Depends(verify_admin_token)):
     try:
         files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
         filenames = sorted([os.path.basename(f) for f in files], reverse=True)
-        return filenames
+        return CustomJSONResponse(content=filenames)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list reports: {e}")
 
@@ -337,7 +283,7 @@ async def delete_report(filename: str, token: str = Depends(verify_admin_token))
         raise HTTPException(status_code=404, detail="Report not found.")
     try:
         os.remove(filepath)
-        return {"status": "deleted", "filename": safe_filename}
+        return CustomJSONResponse(content={"status": "deleted", "filename": safe_filename})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete report: {e}")
 
@@ -347,7 +293,7 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
         files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
         for f in files:
             os.remove(f)
-        return {"status": "all deleted", "count": len(files)}
+        return CustomJSONResponse(content={"status": "all deleted", "count": len(files)})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
 
@@ -385,8 +331,8 @@ async def clear_app_logs(token: str = Depends(verify_admin_token)):
             with open(LOG_FILE_PATH, 'w') as f:
                 f.truncate(0)
             logger.info("Файл логов был очищен администратором.")
-            return {"status": "log file cleared"}
-        return {"status": "log file not found"}
+            return CustomJSONResponse(content={"status": "log file cleared"})
+        return CustomJSONResponse(content={"status": "log file not found"})
     except Exception as e:
         logger.error(f"Ошибка при очистке файла логов: {e}")
         raise HTTPException(status_code=500, detail="Could not clear log file.")
@@ -395,7 +341,7 @@ async def clear_app_logs(token: str = Depends(verify_admin_token)):
 async def clear_database(token: str = Depends(verify_admin_token)):
     try:
         await database.clear_all_data()
-        return {"status": "database cleared successfully"}
+        return CustomJSONResponse(content={"status": "database cleared successfully"})
     except Exception as e:
         logger.error(f"Ошибка при очистке базы данных: {e}")
         raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")
