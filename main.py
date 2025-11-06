@@ -23,6 +23,19 @@ from config import PRIVATE_ROOM_LIFETIME_HOURS
 from websocket_manager import manager
 from routes.websocket import router as websocket_router
 
+# --- ИСПРАВЛЕНИЕ: Инициализируем приложение и его основные компоненты в самом начале ---
+app = FastAPI()
+
+# 1. Подключаем статические файлы
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# 2. Подключаем шаблоны
+templates = Jinja2Templates(directory="templates")
+
+# 3. Подключаем роутеры
+app.include_router(websocket_router)
+# --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
 LOGS_DIR = "connection_logs"
 
 class CustomJSONResponse(Response):
@@ -37,13 +50,6 @@ class CustomJSONResponse(Response):
             separators=(",", ":"),
             default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
         ).encode("utf-8")
-
-app = FastAPI()
-
-app.include_router(websocket_router)
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
