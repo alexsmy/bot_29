@@ -155,10 +155,8 @@ document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     tg.expand();
 
-    // currentUser = tg.initDataUnsafe.user;
-    // Для локального тестирования в браузере раскомментируйте строку ниже
-    currentUser = tg.initDataUnsafe.user || { id: 123456789, first_name: "Тест", username: "testuser" };
-
+    // Получаем данные пользователя ИСКЛЮЧИТЕЛЬНО из Telegram
+    currentUser = tg.initDataUnsafe.user;
 
     if (!currentUser || !currentUser.id) {
         errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
