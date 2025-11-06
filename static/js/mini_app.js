@@ -1,5 +1,8 @@
+
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
 
     const loader = document.getElementById('loader');
     const welcomeScreen = document.getElementById('welcome-screen');
@@ -20,21 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchWithInitData = async (url, options = {}) => {
-        const body = {
-            ...(options.body || {}),
-            initData: tg.initData
+        const headers = {
+            ...options.headers,
+            'X-Telegram-Init-Data': tg.initData,
         };
-
-        const response = await fetch(url, {
-            ...options,
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...options.headers,
-            },
-            body: JSON.stringify(body)
-        });
-
+        const response = await fetch(url, { ...options, headers });
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
@@ -44,7 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initializeApp = async () => {
         try {
-            const data = await fetchWithInitData('/api/mini-app/user-status');
+            const data = await fetchWithInitData('/api/mini-app/user-status', { method: 'POST' });
             welcomeTitle.textContent = `Привет, ${data.first_name}!`;
 
             if (data.active_room && data.active_room.room_id) {
@@ -64,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createRoomBtn.disabled = true;
         createRoomBtn.textContent = 'Создание...';
         try {
-            const data = await fetchWithInitData('/api/mini-app/create-room');
+            const data = await fetchWithInitData('/api/mini-app/create-room', { method: 'POST' });
             currentRoomId = data.room_id;
             showScreen(roomCreatedScreen);
         } catch (error) {
@@ -88,13 +81,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const showModalWithContent = (contentId) => {
-        const contentElement = document.getElementById(contentId);
-        if (contentElement) {
-            modalBody.innerHTML = contentElement.innerHTML;
+    const showModalWithContent = async (contentUrl) => {
+        try {
+            const response = await fetch(`/templates/${contentUrl}`);
+            const htmlContent = await response.text();
+            modalBody.innerHTML = htmlContent;
             modalContainer.classList.add('active');
-        } else {
-            console.error(`Content for modal with id ${contentId} not found.`);
+        } catch (error) {
+            console.error('Failed to load modal content:', error);
             tg.showAlert('Не удалось загрузить информацию.');
         }
     };
@@ -107,16 +101,13 @@ document.addEventListener('DOMContentLoaded', () => {
     enterRoomBtn.addEventListener('click', enterRoom);
     shareBtn.addEventListener('click', shareRoom);
     
-    document.getElementById('instructions-btn').addEventListener('click', () => showModalWithContent('instructions-content'));
-    document.getElementById('faq-btn').addEventListener('click', () => showModalWithContent('faq-content'));
-    document.getElementById('instructions-btn-2').addEventListener('click', () => showModalWithContent('instructions-content'));
-    document.getElementById('faq-btn-2').addEventListener('click', () => showModalWithContent('faq-content'));
+    document.getElementById('instructions-btn').addEventListener('click', () => showModalWithContent('instructions_bot.html'));
+    document.getElementById('faq-btn').addEventListener('click', () => showModalWithContent('faq_bot.html'));
+    document.getElementById('instructions-btn-2').addEventListener('click', () => showModalWithContent('instructions_bot.html'));
+    document.getElementById('faq-btn-2').addEventListener('click', () => showModalWithContent('faq_bot.html'));
 
     modalCloseBtn.addEventListener('click', closeModal);
     modalContainer.querySelector('.modal-overlay').addEventListener('click', closeModal);
 
-    tg.ready(() => {
-        tg.expand();
-        initializeApp();
-    });
+    initializeApp();
 });

@@ -1,15 +1,16 @@
+# `bot.py`
+
 import os
 import sys
 import asyncio
 import uvicorn
-from telegram import BotCommand, Update
+from telegram import BotCommand
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
 import notifier
 from main import app as fastapi_app
 from logger_config import logger
-from config import WEB_APP_URL, BOT_TOKEN
 
 from handlers import public_handlers, admin_handlers, inline_handlers
 
@@ -22,21 +23,17 @@ async def post_init(application: Application) -> None:
     await application.bot.set_my_commands(public_commands)
     logger.info("Меню публичных команд успешно установлено.")
 
-    webhook_url = f"{WEB_APP_URL}webhook/{BOT_TOKEN}"
-    await application.bot.set_webhook(url=webhook_url)
-    logger.info(f"Вебхук успешно установлен по адресу: {webhook_url}")
-
-
 async def main() -> None:
     global bot_app_instance
-    if not BOT_TOKEN:
+    bot_token = os.environ.get("BOT_TOKEN")
+    if not bot_token:
         logger.critical("Токен бота (BOT_TOKEN) не найден.")
         sys.exit(1)
 
     await database.get_pool()
     await database.init_db()
 
-    application = Application.builder().token(BOT_TOKEN).post_init(post_init).build()
+    application = Application.builder().token(bot_token).post_init(post_init).build()
     
     notifier.set_bot_instance(application)
 
@@ -53,15 +50,18 @@ async def main() -> None:
 
     bot_app_instance = application
 
-    port = int(os.environ.get("PORT", 8080))
+    port = int(os.environ.get("PORT", 8000))
     config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_config=None)
     server = uvicorn.Server(config)
 
     async with application:
         await application.start()
-        logger.info("Telegram бот запускается в режиме вебхука...")
+        logger.info("Telegram бот запускается...")
         
-        await server.serve()
+        server_task = asyncio.create_task(server.serve())
+        bot_task = asyncio.create_task(application.updater.start_polling())
+        
+        await asyncio.gather(server_task, bot_task)
         
         await application.stop()
     

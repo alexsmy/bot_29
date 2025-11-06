@@ -1,3 +1,5 @@
+# `main.py`
+
 import asyncio
 import os
 import json
@@ -7,20 +9,18 @@ import hashlib
 from urllib.parse import parse_qsl
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request, HTTPException, Depends, status, Response as FastAPIResponse
+from fastapi import FastAPI, Request, HTTPException, Depends, status, Header
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
-from telegram import Update
+from pydantic import BaseModel
 
 import database
 import utils
 import ice_provider
 import notifier
 from services import room_service
-from bot_utils import read_template_content
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS, BOT_TOKEN
 from websocket_manager import manager
@@ -41,16 +41,18 @@ class CustomJSONResponse(Response):
             default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
         ).encode("utf-8")
 
-class InitDataModel(BaseModel):
-    init_data: str = Field(..., alias='initData')
+app = FastAPI(default_response_class=CustomJSONResponse)
 
-def validate_init_data(payload: InitDataModel):
+app.include_router(websocket_router)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+
+async def validate_init_data(x_telegram_init_data: str = Header(...)):
     try:
-        parsed_data = dict(parse_qsl(payload.init_data))
-        hash_from_request = parsed_data.pop("hash", None)
-        if not hash_from_request:
-            raise ValueError("'hash' not found in initData")
-
+        parsed_data = dict(parse_qsl(x_telegram_init_data))
+        hash_from_request = parsed_data.pop("hash")
+        
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items()))
         
         secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
@@ -68,31 +70,6 @@ def validate_init_data(payload: InitDataModel):
     except Exception as e:
         logger.error(f"initData validation failed: {e}")
         raise HTTPException(status_code=403, detail="Invalid initData")
-
-app = FastAPI(default_response_class=CustomJSONResponse)
-
-@app.post("/webhook/{token}")
-async def telegram_webhook(request: Request, token: str):
-    if token != BOT_TOKEN:
-        raise HTTPException(status_code=403, detail="Invalid token")
-    
-    from bot import bot_app_instance
-    if not bot_app_instance:
-        raise HTTPException(status_code=503, detail="Bot application not initialized")
-
-    try:
-        data = await request.json()
-        update = Update.de_json(data, bot_app_instance.bot)
-        await bot_app_instance.update_queue.put(update)
-        return FastAPIResponse(status_code=200)
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=400, detail="Invalid JSON")
-
-
-app.include_router(websocket_router)
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
@@ -126,14 +103,7 @@ class NotificationSettings(BaseModel):
 
 @app.get("/mini-app", response_class=HTMLResponse)
 async def get_mini_app_page(request: Request):
-    instructions_content = read_template_content("instructions_bot.html")
-    faq_content = read_template_content("faq_bot.html", {"LIFETIME_HOURS": PRIVATE_ROOM_LIFETIME_HOURS})
-    context = {
-        "request": request,
-        "instructions_content": instructions_content,
-        "faq_content": faq_content
-    }
-    return templates.TemplateResponse("mini_app.html", context)
+    return templates.TemplateResponse("mini_app.html", {"request": request})
 
 @app.post("/api/mini-app/user-status")
 async def get_user_status(user_data: dict = Depends(validate_init_data)):
