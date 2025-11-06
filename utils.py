@@ -1,12 +1,15 @@
 import httpx
 import hmac
 import hashlib
+import os
 from urllib.parse import parse_qsl
 from user_agents import parse
 
-from config import BOT_TOKEN
-
 def validate_init_data(init_data: str) -> bool:
+    bot_token = os.environ.get("BOT_TOKEN")
+    if not bot_token:
+        return False
+        
     try:
         parsed_data = dict(parse_qsl(init_data))
     except ValueError:
@@ -22,7 +25,7 @@ def validate_init_data(init_data: str) -> bool:
     )
 
     secret_key = hmac.new(
-        "WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256
+        "WebAppData".encode(), bot_token.encode(), hashlib.sha256
     ).digest()
     
     calculated_hash = hmac.new(
