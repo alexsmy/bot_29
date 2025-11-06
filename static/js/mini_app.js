@@ -73,6 +73,22 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchUserState() {
         console.log('Fetching user state...');
         showScreen('loading');
+
+        if (!tg.initData) {
+            console.error('Validation Error: Telegram initData is missing.');
+            errorMessage.textContent = 'Ошибка: данные Telegram недоступны. Пожалуйста, убедитесь, что вы открыли приложение внутри Telegram.';
+            showScreen('error');
+            return;
+        }
+        
+        const params = new URLSearchParams(tg.initData);
+        if (!params.has('hash')) {
+            console.error('Validation Error: Hash is missing in initData. App might be opened outside of Telegram.');
+            errorMessage.textContent = 'Ошибка аутентификации. Пожалуйста, запускайте приложение только из клиента Telegram.';
+            showScreen('error');
+            return;
+        }
+
         try {
             const response = await fetch('/api/user/state', {
                 method: 'POST',
@@ -81,7 +97,8 @@ document.addEventListener('DOMContentLoaded', function() {
             });
 
             if (!response.ok) {
-                throw new Error(`API Error: ${response.statusText}`);
+                const errorData = await response.json();
+                throw new Error(`API Error: ${errorData.detail || response.statusText}`);
             }
 
             const state = await response.json();
