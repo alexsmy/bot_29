@@ -1,4 +1,4 @@
-// static/js/main.js
+
 
 import {
     preCallCheckScreen, previewVideo, micLevelBars, cameraStatus, cameraStatusText,
@@ -291,9 +291,9 @@ function proceedToCall(asSpectator = false) {
         },
         onRoomClosed: () => {
             alert("Комната для звонков была закрыта.");
-            redirectToInvalidLink();
+            redirectToMiniApp();
         },
-        onFatalError: redirectToInvalidLink
+        onFatalError: redirectToMiniApp
     };
     initializeWebSocket(roomId, wsHandlers, logToScreen);
 
@@ -451,10 +451,8 @@ async function endCall(isInitiator, reason) {
     
     stopTimer();
     showModal('incoming-call', false);
-    showScreen('pre-call');
-
-    targetUser = {};
-    resetCallControls();
+    
+    redirectToMiniApp();
 }
 
 function setupEventListeners() {
@@ -799,7 +797,7 @@ async function updateRoomLifetime() {
             lifetimeTimer.textContent = "00:00";
             clearInterval(lifetimeTimerInterval);
             alert("Время жизни ссылки истекло.");
-            redirectToInvalidLink();
+            redirectToMiniApp();
         } else {
             const hours = Math.floor(remainingSeconds / 3600);
             const minutes = Math.floor((remainingSeconds % 3600) / 60);
@@ -823,9 +821,9 @@ async function closeSession() {
     }
 }
 
-function redirectToInvalidLink() {
+function redirectToMiniApp() {
     setGracefulDisconnect(true);
-    window.location.reload();
+    window.location.href = '/mini-app';
 }
 
 function updateConnectionIcon(type) {

@@ -1,0 +1,225 @@
+
+:root {
+    --tg-theme-bg-color: var(--tg-bg-color, #ffffff);
+    --tg-theme-text-color: var(--tg-text-color, #000000);
+    --tg-theme-hint-color: var(--tg-hint-color, #999999);
+    --tg-theme-link-color: var(--tg-link-color, #2481cc);
+    --tg-theme-button-color: var(--tg-button-color, #2481cc);
+    --tg-theme-button-text-color: var(--tg-button-text-color, #ffffff);
+    --tg-theme-secondary-bg-color: var(--tg-secondary-bg-color, #f4f4f4);
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--tg-theme-bg-color);
+    color: var(--tg-theme-text-color);
+    overflow: hidden;
+}
+
+#app-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.screen.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+#loader {
+    justify-content: center;
+}
+
+.spinner {
+    border: 4px solid rgba(128, 128, 128, 0.3);
+    border-left-color: var(--tg-theme-text-color);
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.content {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+}
+
+h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    margin: 0 0 15px;
+}
+
+p {
+    font-size: 1rem;
+    color: var(--tg-theme-hint-color);
+    line-height: 1.5;
+    margin: 0 0 30px;
+}
+
+.main-action-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+    transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.main-action-btn:active {
+    transform: scale(0.97);
+    opacity: 0.9;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.secondary-action-btn {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    font-weight: 500;
+    border: 1px solid var(--tg-theme-button-color);
+    border-radius: 12px;
+    cursor: pointer;
+    background-color: transparent;
+    color: var(--tg-theme-button-color);
+    transition: background-color 0.15s ease;
+}
+
+.secondary-action-btn:active {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+
+.footer-nav {
+    flex-shrink: 0;
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.footer-nav button {
+    background: none;
+    border: none;
+    color: var(--tg-theme-link-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.modal-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s ease, visibility 0.25s;
+}
+
+.modal-container.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    position: relative;
+    background-color: var(--tg-theme-secondary-bg-color);
+    border-radius: 15px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    box-sizing: border-box;
+    transform: scale(0.95);
+    transition: transform 0.25s ease;
+}
+
+.modal-container.active .modal-content {
+    transform: scale(1);
+}
+
+.modal-body {
+    overflow-y: auto;
+    text-align: left;
+    margin-bottom: 20px;
+}
+
+.modal-body h4 {
+    color: var(--tg-theme-text-color);
+    margin-top: 1em;
+    margin-bottom: 0.5em;
+}
+
+.modal-body p, .modal-body li {
+    color: var(--tg-theme-hint-color);
+    line-height: 1.6;
+}
+
+.modal-close-btn {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    background-color: var(--tg-theme-button-color);
+    color: var(--tg-theme-button-text-color);
+}
