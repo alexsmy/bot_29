@@ -1,5 +1,3 @@
-# `main.py`
-
 import asyncio
 import os
 import json
@@ -9,12 +7,12 @@ import hashlib
 from urllib.parse import parse_qsl
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request, HTTPException, Depends, status, Header
+from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 import database
 import utils
@@ -41,18 +39,16 @@ class CustomJSONResponse(Response):
             default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
         ).encode("utf-8")
 
-app = FastAPI(default_response_class=CustomJSONResponse)
+class InitDataModel(BaseModel):
+    init_data: str = Field(..., alias='initData')
 
-app.include_router(websocket_router)
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-templates = Jinja2Templates(directory="templates")
-
-async def validate_init_data(x_telegram_init_data: str = Header(...)):
+def validate_init_data(payload: InitDataModel):
     try:
-        parsed_data = dict(parse_qsl(x_telegram_init_data))
-        hash_from_request = parsed_data.pop("hash")
-        
+        parsed_data = dict(parse_qsl(payload.init_data))
+        hash_from_request = parsed_data.pop("hash", None)
+        if not hash_from_request:
+            raise ValueError("'hash' not found in initData")
+
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed_data.items()))
         
         secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
@@ -70,6 +66,13 @@ async def validate_init_data(x_telegram_init_data: str = Header(...)):
     except Exception as e:
         logger.error(f"initData validation failed: {e}")
         raise HTTPException(status_code=403, detail="Invalid initData")
+
+app = FastAPI(default_response_class=CustomJSONResponse)
+
+app.include_router(websocket_router)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):

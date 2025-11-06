@@ -1,4 +1,3 @@
-
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
     tg.ready();
@@ -23,11 +22,25 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchWithInitData = async (url, options = {}) => {
-        const headers = {
-            ...options.headers,
-            'X-Telegram-Init-Data': tg.initData,
+        if (!tg.initData) {
+            throw new Error("Telegram initData is not available.");
+        }
+        
+        const body = {
+            ...options.body,
+            initData: tg.initData
         };
-        const response = await fetch(url, { ...options, headers });
+
+        const response = await fetch(url, {
+            ...options,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers,
+            },
+            body: JSON.stringify(body)
+        });
+
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
@@ -37,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initializeApp = async () => {
         try {
-            const data = await fetchWithInitData('/api/mini-app/user-status', { method: 'POST' });
+            const data = await fetchWithInitData('/api/mini-app/user-status');
             welcomeTitle.textContent = `Привет, ${data.first_name}!`;
 
             if (data.active_room && data.active_room.room_id) {
@@ -57,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createRoomBtn.disabled = true;
         createRoomBtn.textContent = 'Создание...';
         try {
-            const data = await fetchWithInitData('/api/mini-app/create-room', { method: 'POST' });
+            const data = await fetchWithInitData('/api/mini-app/create-room');
             currentRoomId = data.room_id;
             showScreen(roomCreatedScreen);
         } catch (error) {
