@@ -19,8 +19,8 @@ import ice_provider
 import notifier
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from websocket_manager import manager  # <-- ИЗМЕНЕНИЕ: Импортируем manager из нового файла
-from routes.websocket import router as websocket_router # <-- ДОБАВЛЕНИЕ: Импортируем роутер
+from websocket_manager import manager
+from routes.websocket import router as websocket_router
 
 LOGS_DIR = "connection_logs"
 
@@ -39,8 +39,7 @@ class CustomJSONResponse(Response):
 
 app = FastAPI()
 
-# Подключаем роутеры
-app.include_router(websocket_router) # <-- ДОБАВЛЕНИЕ: Подключаем WebSocket роутер
+app.include_router(websocket_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -74,9 +73,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
-
-# --- УДАЛЕНИЕ: Классы RoomManager и ConnectionManager перенесены в websocket_manager.py ---
-# --- УДАЛЕНИЕ: Экземпляр manager = ConnectionManager() перенесен в websocket_manager.py ---
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
@@ -134,6 +130,10 @@ async def get_welcome(request: Request):
     bot_username = os.environ.get("BOT_USERNAME", "")
     return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
 
+@app.get("/app", response_class=HTMLResponse)
+async def get_mini_app(request: Request):
+    return templates.TemplateResponse("mini_app.html", {"request": request})
+
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
     servers = ice_provider.get_ice_servers()
@@ -154,8 +154,6 @@ async def close_room_endpoint(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
-
-# --- УДАЛЕНИЕ: handle_websocket_logic и @app.websocket перенесены в routes/websocket.py ---
 
 async def verify_admin_token(request: Request, token: str):
     expires_at = await database.get_admin_token_expiry(token)
