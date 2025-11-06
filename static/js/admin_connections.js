@@ -1,4 +1,3 @@
-
 // static/js/admin_connections.js
 
 import { fetchData } from './admin_api.js';
@@ -93,6 +92,7 @@ async function loadConnections() {
             <div class="connection-summary">
                 <div class="summary-info">
                     <code>${session.room_id}</code>
+                    <div class="creator-info">Создал: ${session.generated_by_user_id || 'N/A'}</div>
                     <div class="summary-timestamps">
                         <div class="timestamp-item created">${createdInfo}</div>
                         <div class="timestamp-item closed">${closedInfo}</div>
@@ -114,7 +114,7 @@ export function initConnections() {
     searchConnectionsBtn = document.getElementById('search-connections-btn');
     connectionsListContainer = document.getElementById('connections-list');
     
-    connectionsDateInput.value = new Date().toISOString().split('T')[0];
+    connectionsDateInput.value = new Date().toISOString().split('T');
 
     searchConnectionsBtn.addEventListener('click', loadConnections);
     

@@ -37,13 +37,16 @@ function renderRooms() {
             container.innerHTML = '<p class="empty-list">Активных комнат этого типа нет.</p>';
             return;
         }
-        container.innerHTML = list.map(room => `
+        container.innerHTML = list.map(room => {
+            const creatorInfo = room.is_admin_room ? '' : `<div class="creator-info">Создал: ${room.generated_by_user_id || 'N/A'}</div>`;
+            return `
             <div class="room-item">
                 <div class="room-info">
                     <div class="room-id-line">
                         <code>${room.room_id}</code>
                         ${getCallStatusIcon(room.user_count, room.call_status, room.call_type)}
                     </div>
+                    ${creatorInfo}
                     <div class="meta">
                         <span>Осталось: ${formatRemainingTime(room.remaining_seconds)}</span> | 
                         <span>Участников: ${room.user_count}</span>
@@ -51,7 +54,7 @@ function renderRooms() {
                 </div>
                 <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
             </div>
-        `).join('');
+        `}).join('');
     };
     renderList(adminRoomsContainer, adminRooms);
     renderList(userRoomsContainer, userRooms);

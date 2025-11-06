@@ -1,4 +1,3 @@
-# database.py
 
 import os
 import asyncpg
@@ -164,8 +163,8 @@ async def log_call_start(room_id, call_type):
         session_id = session_row['session_id']
 
         ip_rows = await conn.fetch("SELECT ip_address FROM connections WHERE room_id = $1 ORDER BY connected_at DESC LIMIT 2", room_id)
-        p1_ip = ip_rows[0]['ip_address'] if len(ip_rows) > 0 else None
-        p2_ip = ip_rows[1]['ip_address'] if len(ip_rows) > 1 else None
+        p1_ip = ip_rows['ip_address'] if len(ip_rows) > 0 else None
+        p2_ip = ip_rows['ip_address'] if len(ip_rows) > 1 else None
 
         await conn.execute(
             """
@@ -294,7 +293,7 @@ async def get_connections_info(date_obj: date) -> List[Dict[str, Any]]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         sessions = await conn.fetch(
-            "SELECT session_id, room_id, created_at, status, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
+            "SELECT session_id, room_id, generated_by_user_id, created_at, status, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
             date_obj
         )
         results = []
@@ -358,7 +357,7 @@ async def get_all_active_sessions():
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT cs.room_id, cs.created_at, cs.expires_at, cs.status, ch.call_type
+            SELECT cs.room_id, cs.created_at, cs.expires_at, cs.status, cs.generated_by_user_id, ch.call_type
             FROM call_sessions cs
             LEFT JOIN (
                 SELECT session_id, call_type, ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY call_started_at DESC) as rn
