@@ -1,7 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
     const tg = window.Telegram.WebApp;
-    tg.ready();
-    tg.expand();
 
     const loader = document.getElementById('loader');
     const welcomeScreen = document.getElementById('welcome-screen');
@@ -122,5 +120,8 @@ document.addEventListener('DOMContentLoaded', () => {
     modalCloseBtn.addEventListener('click', closeModal);
     modalContainer.querySelector('.modal-overlay').addEventListener('click', closeModal);
 
-    initializeApp();
+    tg.ready(() => {
+        tg.expand();
+        initializeApp();
+    });
 });
