@@ -47,7 +47,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 roomTimerEl.textContent = "00:00:00";
-                checkRoomStatus();
+                // Просто переключаем на вид "нет комнаты", т.к. она истекла
+                updateUI(null);
             } else {
                 roomTimerEl.textContent = formatTime(remainingSeconds);
             }
@@ -65,38 +66,6 @@ document.addEventListener('DOMContentLoaded', function() {
             startCountdown(roomData.expires_at);
         } else {
             showView('noRoom');
-        }
-    }
-
-    async function checkRoomStatus() {
-        if (!currentUser) {
-            console.error("User data not available for status check.");
-            return;
-        }
-        console.log(`Checking room status for user ${currentUser.id}`);
-
-        try {
-            const response = await fetch('/api/room/status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ user_id: currentUser.id })
-            });
-
-            if (response.ok) {
-                const roomData = await response.json();
-                console.log("Active room found:", roomData);
-                updateUI(roomData);
-            } else if (response.status === 404) {
-                console.log("No active room found for user.");
-                updateUI(null);
-            } else {
-                const errorData = await response.json();
-                throw new Error(`Server error: ${response.status} - ${errorData.detail}`);
-            }
-        } catch (error) {
-            console.error("Failed to check room status:", error);
-            errorMessageEl.textContent = "Не удалось проверить статус комнаты. Проверьте интернет-соединение.";
-            showView('error');
         }
     }
 
@@ -136,11 +105,9 @@ document.addEventListener('DOMContentLoaded', function() {
     function initializeApp() {
         tg.expand();
 
-        // Отображаем информацию о пользователе
         const displayName = currentUser.first_name || currentUser.username || 'User';
         userInfoEl.textContent = `Пользователь: ${displayName} (ID: ${currentUser.id})`;
 
-        // Привязываем события к кнопкам
         createRoomBtn.addEventListener('click', createRoom);
         goToRoomBtn.addEventListener('click', () => {
             if (activeRoomData) {
@@ -152,39 +119,41 @@ document.addEventListener('DOMContentLoaded', function() {
                 tg.switchInlineQuery(activeRoomData.room_id);
             }
         });
-
-        // Запускаем проверку статуса и периодические обновления
-        checkRoomStatus();
-        if (statusCheckInterval) clearInterval(statusCheckInterval);
-        statusCheckInterval = setInterval(checkRoomStatus, 15000);
     }
 
     // --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 
-    // ИСПОЛЬЗУЕМ tg.ready() ДЛЯ ГАРАНТИРОВАННОЙ ИНИЦИАЛИЗАЦИИ
     tg.ready();
 
-    // Пытаемся получить данные пользователя.
-    // tg.ready() гарантирует, что объект tg существует, но не гарантирует, что initDataUnsafe.user уже заполнен.
-    // Поэтому добавляем небольшую задержку и проверку.
-    let attempts = 0;
-    const maxAttempts = 10;
-
-    function tryToGetUser() {
-        attempts++;
-        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
-            currentUser = tg.initDataUnsafe.user;
-            console.log("Successfully got user data:", currentUser);
-            initializeApp();
-        } else if (attempts < maxAttempts) {
-            console.warn(`Attempt ${attempts}: User data not ready, retrying in 100ms...`);
-            setTimeout(tryToGetUser, 100);
-        } else {
-            console.error("Failed to get user data after multiple attempts.");
-            errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
-            showView('error');
-        }
+    // Проверяем, есть ли вообще initData. Если нет, приложение открыто не через Telegram.
+    if (!tg.initData) {
+        console.error("Telegram initData is missing. App was likely opened outside of Telegram.");
+        errorMessageEl.textContent = "Не удалось получить данные пользователя. Пожалуйста, откройте приложение через бота в Telegram.";
+        showView('error');
+        return;
     }
 
-    tryToGetUser();
+    // Отправляем initData на бэкенд для валидации и получения состояния
+    fetch('/api/auth/validate_user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ initData: tg.initData })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Validation failed with status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log("Server validation successful. Data received:", data);
+        currentUser = data.user;
+        initializeApp();
+        updateUI(data.room);
+    })
+    .catch(error => {
+        console.error("Initialization failed:", error);
+        errorMessageEl.textContent = "Ошибка аутентификации. Попробуйте перезапустить приложение из бота.";
+        showView('error');
+    });
 });

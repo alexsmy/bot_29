@@ -5,6 +5,9 @@ import os
 import json
 import glob
 import uuid
+import hmac
+import hashlib
+from urllib.parse import unquote
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, HTTPException, Depends, status
@@ -19,7 +22,7 @@ import utils
 import ice_provider
 import notifier
 from logger_config import logger, LOG_FILE_PATH
-from config import PRIVATE_ROOM_LIFETIME_HOURS
+from config import PRIVATE_ROOM_LIFETIME_HOURS, BOT_TOKEN
 from websocket_manager import manager
 from routes.websocket import router as websocket_router
 
@@ -47,7 +50,6 @@ templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    # ИСПРАВЛЕНО: API-запросы должны возвращать JSON, а не HTML
     if request.url.path.startswith("/api/"):
         return await http_exception_handler(request, exc)
         
@@ -79,7 +81,7 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-# --- НОВЫЕ МОДЕЛИ ДЛЯ MINI APP ---
+# --- МОДЕЛИ ДЛЯ MINI APP ---
 class UserRequest(BaseModel):
     user_id: int
     first_name: Optional[str] = None
@@ -89,8 +91,46 @@ class UserRequest(BaseModel):
 class RoomResponse(BaseModel):
     room_id: str
     expires_at: datetime
-# --- КОНЕЦ НОВЫХ МОДЕЛЕЙ ---
 
+class InitDataRequest(BaseModel):
+    initData: str
+
+class UserData(BaseModel):
+    id: int
+    first_name: str
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+
+class ValidationResponse(BaseModel):
+    user: UserData
+    room: Optional[RoomResponse] = None
+# --- КОНЕЦ МОДЕЛЕЙ ---
+
+def is_valid_init_data(init_data: str, bot_token: str) -> Optional[dict]:
+    """
+    Проверяет подлинность данных, полученных от Telegram Mini App.
+    """
+    try:
+        # Разбираем строку initData
+        parsed_data = dict(param.split('=', 1) for param in init_data.split('&'))
+        hash_from_telegram = parsed_data.pop('hash')
+
+        # Сортируем ключи и формируем строку для проверки
+        sorted_keys = sorted(parsed_data.keys())
+        check_string = "\n".join(f"{key}={unquote(parsed_data[key])}" for key in sorted_keys)
+
+        # Вычисляем хэш
+        secret_key = hmac.new("WebAppData".encode(), bot_token.encode(), hashlib.sha256).digest()
+        calculated_hash = hmac.new(secret_key, check_string.encode(), hashlib.sha256).hexdigest()
+
+        # Сравниваем хэши
+        if calculated_hash == hash_from_telegram:
+            user_data = json.loads(unquote(parsed_data['user']))
+            return user_data
+        return None
+    except Exception as e:
+        logger.error(f"Ошибка валидации initData: {e}")
+        return None
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
@@ -152,7 +192,26 @@ async def get_welcome(request: Request):
 async def get_mini_app(request: Request):
     return templates.TemplateResponse("mini_app.html", {"request": request})
 
-# --- НОВЫЕ МАРШРУТЫ ДЛЯ MINI APP ---
+# --- ОБНОВЛЕННЫЕ МАРШРУТЫ ДЛЯ MINI APP ---
+@app.post("/api/auth/validate_user", response_model=ValidationResponse)
+async def validate_user_data(request: InitDataRequest):
+    user_data = is_valid_init_data(request.initData, BOT_TOKEN)
+    
+    if not user_data:
+        logger.warning("Mini App: Попытка входа с невалидными данными.")
+        raise HTTPException(status_code=403, detail="Invalid or outdated data")
+
+    user_id = user_data['id']
+    logger.info(f"Mini App: Успешная валидация для user_id: {user_id}")
+    
+    # Проверяем наличие активной комнаты
+    active_room = await database.get_active_room_by_user(user_id)
+    
+    return ValidationResponse(
+        user=UserData(**user_data),
+        room=RoomResponse(**active_room) if active_room else None
+    )
+
 @app.post("/api/room/status", response_model=RoomResponse)
 async def get_room_status(user_request: UserRequest):
     logger.info(f"Mini App: Запрос статуса комнаты для user_id: {user_request.user_id}")
@@ -166,7 +225,6 @@ async def create_room_from_app(user_request: UserRequest):
     user_id = user_request.user_id
     logger.info(f"Mini App: Запрос на создание комнаты от user_id: {user_id}")
 
-    # Логируем пользователя, если он новый
     await database.log_user(user_id, user_request.first_name, user_request.last_name, user_request.username)
     await database.log_bot_action(user_id, "create_room_from_mini_app")
 
@@ -181,7 +239,7 @@ async def create_room_from_app(user_request: UserRequest):
 
     logger.info(f"Mini App: Создана комната {room_id} для user_id: {user_id}")
     return RoomResponse(room_id=room_id, expires_at=expires_at)
-# --- КОНЕЦ НОВЫХ МАРШРУТОВ ---
+# --- КОНЕЦ ОБНОВЛЕННЫХ МАРШРУТОВ ---
 
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
