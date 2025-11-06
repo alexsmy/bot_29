@@ -8,13 +8,12 @@ document.addEventListener('DOMContentLoaded', function() {
         activeRoom: document.getElementById('active-room-view'),
         error: document.getElementById('error-view'),
     };
-    const userInfoEl = document.getElementById('user-info');
-    const userGreetingEls = document.querySelectorAll('.user-greeting');
     const createRoomBtn = document.getElementById('create-room-btn');
     const goToRoomBtn = document.getElementById('go-to-room-btn');
     const shareLinkBtn = document.getElementById('share-link-btn');
     const roomTimerEl = document.getElementById('room-timer');
     const errorMessageEl = document.getElementById('error-message');
+    const userInfoEl = document.getElementById('user-info');
 
     // --- Глобальное состояние ---
     let currentUser = null;
@@ -62,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 roomTimerEl.textContent = "00:00:00";
-                console.log("Countdown finished. Checking room status again.");
                 checkRoomStatus(); 
             } else {
                 roomTimerEl.textContent = formatTime(remainingSeconds);
@@ -81,13 +79,6 @@ document.addEventListener('DOMContentLoaded', function() {
         activeRoomData = roomData;
         if (countdownInterval) clearInterval(countdownInterval);
 
-        // Обновляем информацию о пользователе в UI
-        const userName = currentUser.first_name || currentUser.username || 'Пользователь';
-        userInfoEl.textContent = `User: ${userName} (ID: ${currentUser.id})`;
-        userGreetingEls.forEach(el => {
-            el.textContent = `Привет, ${userName}!`;
-        });
-
         if (roomData) {
             showView('activeRoom');
             startCountdown(roomData.expires_at);
@@ -104,33 +95,31 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error("User data not available for status check.");
             return;
         }
-        
-        const payload = {
-            user_id: currentUser.id,
-            first_name: currentUser.first_name,
-            username: currentUser.username
-        };
-        console.log('API Call: /api/room/status. Payload:', payload);
+        console.log(`[API] Отправка запроса статуса для пользователя:`, currentUser);
 
         try {
             const response = await fetch('/api/room/status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({ 
+                    user_id: currentUser.id,
+                    first_name: currentUser.first_name,
+                    username: currentUser.username
+                })
             });
 
             if (response.ok) {
                 const roomData = await response.json();
-                console.log("API Response: Active room found:", roomData);
+                console.log("[API] Ответ: Найдена активная комната:", roomData);
                 updateUI(roomData);
             } else if (response.status === 404) {
-                console.log("API Response: No active room found for user.");
+                console.log("[API] Ответ: Активная комната не найдена.");
                 updateUI(null);
             } else {
                 throw new Error(`Server error: ${response.status}`);
             }
         } catch (error) {
-            console.error("Failed to check room status:", error);
+            console.error("[API] Ошибка при проверке статуса комнаты:", error);
             errorMessageEl.textContent = "Не удалось проверить статус комнаты. Проверьте интернет-соединение.";
             showView('error');
         }
@@ -141,30 +130,28 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     async function createRoom() {
         showView('loading');
-        const payload = {
-            user_id: currentUser.id,
-            first_name: currentUser.first_name,
-            last_name: currentUser.last_name,
-            username: currentUser.username
-        };
-        console.log('API Call: /api/room/create. Payload:', payload);
-
+        console.log(`[API] Отправка запроса на создание комнаты для пользователя:`, currentUser);
         try {
             const response = await fetch('/api/room/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
+                body: JSON.stringify({
+                    user_id: currentUser.id,
+                    first_name: currentUser.first_name,
+                    last_name: currentUser.last_name,
+                    username: currentUser.username
+                })
             });
 
             if (response.ok) {
                 const newRoomData = await response.json();
-                console.log("API Response: Room created successfully:", newRoomData);
+                console.log("[API] Ответ: Комната успешно создана:", newRoomData);
                 updateUI(newRoomData);
             } else {
                 throw new Error(`Server error: ${response.status}`);
             }
         } catch (error) {
-            console.error("Failed to create room:", error);
+            console.error("[API] Ошибка при создании комнаты:", error);
             errorMessageEl.textContent = "Не удалось создать комнату. Попробуйте еще раз.";
             showView('error');
         }
@@ -178,28 +165,32 @@ document.addEventListener('DOMContentLoaded', function() {
     currentUser = tg.initDataUnsafe.user;
 
     if (!currentUser || !currentUser.id) {
-        console.error("CRITICAL: Could not get user data from Telegram. App cannot start.");
+        console.error("CRITICAL: Не удалось получить данные пользователя из Telegram. initDataUnsafe.user is empty.", tg.initDataUnsafe);
         errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
+        userInfoEl.textContent = "Пользователь: Не определен";
         showView('error');
         return;
     }
     
-    console.log('TMA Init: User data received', currentUser);
+    // Отображаем информацию о пользователе в футере
+    const displayName = currentUser.first_name + (currentUser.last_name ? ` ${currentUser.last_name}` : '');
+    userInfoEl.textContent = `Пользователь: ${displayName} (ID: ${currentUser.id})`;
+    console.log("Приложение инициализировано для пользователя:", currentUser);
+
 
     // --- Привязка событий ---
     createRoomBtn.addEventListener('click', createRoom);
 
     goToRoomBtn.addEventListener('click', () => {
         if (activeRoomData) {
-            const roomUrl = `${window.location.origin}/call/${activeRoomData.room_id}`;
-            console.log(`Opening link: ${roomUrl}`);
-            tg.openLink(roomUrl);
+            console.log(`Переход в комнату: ${activeRoomData.room_id}`);
+            tg.openLink(`${window.location.origin}/call/${activeRoomData.room_id}`);
         }
     });
 
     shareLinkBtn.addEventListener('click', () => {
         if (activeRoomData) {
-            console.log(`Switching to inline query with room_id: ${activeRoomData.room_id}`);
+            console.log(`Поделиться комнатой: ${activeRoomData.room_id}`);
             tg.switchInlineQuery(activeRoomData.room_id);
         }
     });

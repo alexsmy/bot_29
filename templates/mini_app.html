@@ -9,8 +9,6 @@
 </head>
 <body>
     <div id="app-container">
-        <div id="user-info" class="user-info"></div>
-
         <!-- Экран загрузки -->
         <div id="loading-view" class="view">
             <div class="spinner"></div>
@@ -20,8 +18,8 @@
         <!-- Экран, если нет активной комнаты -->
         <div id="no-room-view" class="view hidden">
             <div class="content-block">
-                <h1 class="user-greeting"></h1>
-                <p>У вас нет активной комнаты. Нажмите кнопку ниже, чтобы сгенерировать новую приватную ссылку для звонка.</p>
+                <h1>Комната для звонка не создана</h1>
+                <p>Нажмите кнопку ниже, чтобы сгенерировать новую приватную ссылку для звонка.</p>
                 <button id="create-room-btn" class="action-btn primary">Создать комнату</button>
             </div>
         </div>
@@ -46,6 +44,10 @@
                 <p id="error-message">Не удалось загрузить данные. Попробуйте перезапустить приложение.</p>
             </div>
         </div>
+
+        <footer>
+            <p id="user-info">Загрузка пользователя...</p>
+        </footer>
     </div>
     <script src="/static/js/mini_app.js"></script>
 </body>
