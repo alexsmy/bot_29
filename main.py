@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from urllib.parse import parse_qsl
 from fastapi import FastAPI, Request, HTTPException, Depends, status
-from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -47,6 +47,12 @@ templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    if request.url.path.startswith("/api/"):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail}
+        )
+    
     if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
         logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
         bot_username = os.environ.get("BOT_USERNAME", "")
@@ -141,7 +147,7 @@ async def get_mini_app(request: Request):
 @app.post("/api/user/state")
 async def get_user_state(payload: InitDataModel):
     if not utils.validate_init_data(payload.initData):
-        logger.warning("Failed initData validation.")
+        logger.warning("Failed initData validation. Request is forbidden.")
         raise HTTPException(status_code=403, detail="Invalid initData")
 
     init_data_dict = dict(parse_qsl(payload.initData))

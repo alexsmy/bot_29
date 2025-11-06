@@ -34,7 +34,7 @@ async def main() -> None:
     await database.get_pool()
     await database.init_db()
 
-    application = Application.builder().token(bot_token).post_init(post_init).build()
+    application = Application.builder().token(bot_token).post_init(post_init).drop_pending_updates(True).build()
     
     notifier.set_bot_instance(application)
 
