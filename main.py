@@ -6,7 +6,6 @@ import json
 import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from urllib.parse import parse_qs
 from fastapi import FastAPI, Request, HTTPException, Depends, status
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -23,19 +22,6 @@ from config import PRIVATE_ROOM_LIFETIME_HOURS
 from websocket_manager import manager
 from routes.websocket import router as websocket_router
 
-# --- ИСПРАВЛЕНИЕ: Инициализируем приложение и его основные компоненты в самом начале ---
-app = FastAPI()
-
-# 1. Подключаем статические файлы
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# 2. Подключаем шаблоны
-templates = Jinja2Templates(directory="templates")
-
-# 3. Подключаем роутеры
-app.include_router(websocket_router)
-# --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-
 LOGS_DIR = "connection_logs"
 
 class CustomJSONResponse(Response):
@@ -50,6 +36,13 @@ class CustomJSONResponse(Response):
             separators=(",", ":"),
             default=lambda o: o.isoformat() if isinstance(o, (datetime, date)) else None,
         ).encode("utf-8")
+
+app = FastAPI()
+
+app.include_router(websocket_router)
+
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
@@ -80,9 +73,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
-
-class UserStateRequest(BaseModel):
-    init_data: str
 
 @app.post("/log")
 async def receive_log(log: ClientLog):
@@ -124,41 +114,6 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
     except Exception as e:
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
-
-@app.post("/api/user/state", response_class=CustomJSONResponse)
-async def get_user_state(request_data: UserStateRequest):
-    try:
-        parsed_data = parse_qs(request_data.init_data)
-        user_data_str = parsed_data.get('user', [None])[0]
-        if not user_data_str:
-            raise HTTPException(status_code=400, detail="User data not found in initData")
-
-        user_data = json.loads(user_data_str)
-        user_id = user_data.get('id')
-        if not user_id:
-            raise HTTPException(status_code=400, detail="User ID not found in user data")
-        
-        logger.info(f"Запрос состояния для пользователя ID: {user_id}")
-        
-        active_session = await database.get_user_active_session(user_id)
-        
-        if active_session:
-            logger.info(f"Найдена активная комната {active_session['room_id']} для пользователя {user_id}")
-            return {
-                "has_active_room": True,
-                "room_id": active_session['room_id'],
-                "expires_at": active_session['expires_at']
-            }
-        else:
-            logger.info(f"Активных комнат для пользователя {user_id} не найдено")
-            return {"has_active_room": False}
-
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
-        logger.error(f"Ошибка парсинга initData: {e}")
-        raise HTTPException(status_code=400, detail="Invalid initData format")
-    except Exception as e:
-        logger.error(f"Неожиданная ошибка при получении состояния пользователя: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):

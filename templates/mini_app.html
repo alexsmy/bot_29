@@ -4,45 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Приложение для звонков</title>
-    <link rel="stylesheet" href="{{ url_for('static', path='css/mini_app.css') }}">
+    <link rel="stylesheet" href="/static/css/mini_app.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <div id="app-container">
-        <div id="user-greeting"></div>
-
-        <div id="loading-screen" class="screen active">
-            <div class="spinner"></div>
-            <p>Загрузка данных...</p>
-        </div>
-
-        <div id="home-screen" class="screen">
-            <div class="content-block">
-                <h2>Новый звонок</h2>
-                <p>Создайте приватную комнату для звонка. Ссылка будет действительна 3 часа.</p>
-                <button id="create-room-btn" class="main-action-btn">Создать комнату</button>
-            </div>
-            <div class="footer-menu">
-                <button class="footer-btn">Инструкции</button>
-                <button class="footer-btn">FAQ</button>
-            </div>
-        </div>
-
-        <div id="room-active-screen" class="screen">
-             <div class="content-block">
-                <h2>Комната создана!</h2>
-                <p>У вас уже есть активная комната. Вы можете перейти в нее или поделиться ссылкой.</p>
-                <p class="room-id-display">ID: <code id="active-room-id"></code></p>
-                <button id="join-room-btn" class="main-action-btn">Перейти в комнату</button>
-                <button id="share-room-btn" class="secondary-action-btn">Поделиться</button>
-            </div>
-             <div class="footer-menu">
-                <button class="footer-btn">Инструкции</button>
-                <button class="footer-btn">FAQ</button>
-            </div>
-        </div>
-
+        <h1>Привет из Mini App!</h1>
+        <p>Если вы видите это, значит, базовый запуск прошел успешно.</p>
     </div>
-    <script src="{{ url_for('static', path='js/mini_app.js') }}"></script>
+    <script src="/static/js/mini_app.js"></script>
 </body>
 </html>
