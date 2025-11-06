@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const body = {
-            ...options.body,
+            ...(options.body || {}),
             initData: tg.initData
         };
 
