@@ -34,7 +34,7 @@ async def main() -> None:
     await database.get_pool()
     await database.init_db()
 
-    application = Application.builder().token(bot_token).post_init(post_init).drop_pending_updates(True).build()
+    application = Application.builder().token(bot_token).post_init(post_init).build()
     
     notifier.set_bot_instance(application)
 
@@ -64,7 +64,7 @@ async def main() -> None:
         logger.info("Telegram бот запускается...")
         
         server_task = asyncio.create_task(server.serve())
-        bot_task = asyncio.create_task(application.updater.start_polling())
+        bot_task = asyncio.create_task(application.updater.start_polling(drop_pending_updates=True))
         
         await asyncio.gather(server_task, bot_task)
         
