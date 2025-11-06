@@ -2,16 +2,94 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Приложение для звонков</title>
     <link rel="stylesheet" href="/static/css/mini_app.css">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
     <div id="app-container">
-        <h1>Привет из Mini App!</h1>
-        <p>Если вы видите это, значит, базовый запуск прошел успешно.</p>
+        
+        <div class="screen" id="loading-screen">
+            <div class="spinner"></div>
+            <p>Загрузка...</p>
+        </div>
+
+        <div class="screen" id="home-screen">
+            <div class="header">
+                <h1 id="welcome-message">Добро пожаловать!</h1>
+                <p>Создавайте приватные и безопасные аудио/видео звонки прямо в Telegram.</p>
+            </div>
+            <div class="main-action">
+                <button class="btn btn-primary" id="create-room-btn">Создать комнату для звонка</button>
+            </div>
+            <div class="footer-actions">
+                <button class="btn btn-secondary" id="show-instructions-btn">Инструкции</button>
+                <button class="btn btn-secondary" id="show-faq-btn">FAQ</button>
+            </div>
+        </div>
+
+        <div class="screen" id="active-room-screen">
+            <div class="header">
+                <h1>У вас есть активная комната</h1>
+                <p>Вы можете вернуться в нее или поделиться ссылкой с собеседником.</p>
+                <div class="timer-box">
+                    <span>Осталось времени:</span>
+                    <strong id="active-room-timer">--:--:--</strong>
+                </div>
+            </div>
+            <div class="main-action">
+                <button class="btn btn-primary" id="go-to-room-btn">Перейти в комнату</button>
+                <button class="btn btn-secondary" id="share-room-btn">Поделиться</button>
+            </div>
+             <div class="footer-actions">
+                <button class="btn btn-secondary" id="show-instructions-btn-active">Инструкции</button>
+                <button class="btn btn-secondary" id="show-faq-btn-active">FAQ</button>
+            </div>
+        </div>
+
+        <div class="screen" id="error-screen">
+            <h1>Ошибка</h1>
+            <p id="error-message">Не удалось загрузить данные. Пожалуйста, попробуйте перезапустить приложение.</p>
+        </div>
+
     </div>
+
+    <div class="modal" id="instructions-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Инструкции</h2>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4>Как это работает?</h4>
+                <p>1. Нажмите "Создать комнату для звонка".</p>
+                <p>2. На следующем экране нажмите "Поделиться", чтобы отправить приглашение собеседнику через личные сообщения или в группе.</p>
+                <p>3. Нажмите "Перейти в комнату", чтобы открыть экран звонка.</p>
+                <p>4. Как только ваш собеседник присоединится, вы сможете начать аудио- или видеозвонок.</p>
+                <h4>Безопасность</h4>
+                <p>Все звонки используют сквозное шифрование (end-to-end encryption) по протоколу WebRTC. Это значит, что никто, включая нас, не может прослушать ваш разговор.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="faq-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Частые вопросы (FAQ)</h2>
+                <button class="close-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <h4>Сколько действует ссылка?</h4>
+                <p>Стандартная ссылка на комнату действительна в течение 3 часов с момента создания.</p>
+                <h4>Это бесплатно?</h4>
+                <p>Да, использование бота и звонков полностью бесплатно.</p>
+                <h4>Нужно ли что-то скачивать?</h4>
+                <p>Нет, все работает прямо в браузере (или внутри этого Mini App) без установки дополнительных приложений.</p>
+            </div>
+        </div>
+    </div>
+
     <script src="/static/js/mini_app.js"></script>
 </body>
 </html>
