@@ -19,6 +19,7 @@ import utils
 import ice_provider
 import notifier
 from services import room_service
+from bot_utils import read_template_content
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS, BOT_TOKEN
 from websocket_manager import manager
@@ -106,7 +107,14 @@ class NotificationSettings(BaseModel):
 
 @app.get("/mini-app", response_class=HTMLResponse)
 async def get_mini_app_page(request: Request):
-    return templates.TemplateResponse("mini_app.html", {"request": request})
+    instructions_content = read_template_content("instructions_bot.html")
+    faq_content = read_template_content("faq_bot.html", {"LIFETIME_HOURS": PRIVATE_ROOM_LIFETIME_HOURS})
+    context = {
+        "request": request,
+        "instructions_content": instructions_content,
+        "faq_content": faq_content
+    }
+    return templates.TemplateResponse("mini_app.html", context)
 
 @app.post("/api/mini-app/user-status")
 async def get_user_status(user_data: dict = Depends(validate_init_data)):

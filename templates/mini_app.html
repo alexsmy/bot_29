@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -50,6 +48,10 @@
             <button id="modal-close-btn" class="modal-close-btn">Закрыть</button>
         </div>
     </div>
+
+    <div id="instructions-content" style="display: none;">{{ instructions_content|safe }}</div>
+    <div id="faq-content" style="display: none;">{{ faq_content|safe }}</div>
+
 </body>
 <script src="/static/js/mini_app.js"></script>
 </html>

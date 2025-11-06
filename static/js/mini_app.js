@@ -92,14 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const showModalWithContent = async (contentUrl) => {
-        try {
-            const response = await fetch(`/templates/${contentUrl}`);
-            const htmlContent = await response.text();
-            modalBody.innerHTML = htmlContent;
+    const showModalWithContent = (contentId) => {
+        const contentElement = document.getElementById(contentId);
+        if (contentElement) {
+            modalBody.innerHTML = contentElement.innerHTML;
             modalContainer.classList.add('active');
-        } catch (error) {
-            console.error('Failed to load modal content:', error);
+        } else {
+            console.error(`Content for modal with id ${contentId} not found.`);
             tg.showAlert('Не удалось загрузить информацию.');
         }
     };
@@ -112,10 +111,10 @@ document.addEventListener('DOMContentLoaded', () => {
     enterRoomBtn.addEventListener('click', enterRoom);
     shareBtn.addEventListener('click', shareRoom);
     
-    document.getElementById('instructions-btn').addEventListener('click', () => showModalWithContent('instructions_bot.html'));
-    document.getElementById('faq-btn').addEventListener('click', () => showModalWithContent('faq_bot.html'));
-    document.getElementById('instructions-btn-2').addEventListener('click', () => showModalWithContent('instructions_bot.html'));
-    document.getElementById('faq-btn-2').addEventListener('click', () => showModalWithContent('faq_bot.html'));
+    document.getElementById('instructions-btn').addEventListener('click', () => showModalWithContent('instructions-content'));
+    document.getElementById('faq-btn').addEventListener('click', () => showModalWithContent('faq-content'));
+    document.getElementById('instructions-btn-2').addEventListener('click', () => showModalWithContent('instructions-content'));
+    document.getElementById('faq-btn-2').addEventListener('click', () => showModalWithContent('faq-content'));
 
     modalCloseBtn.addEventListener('click', closeModal);
     modalContainer.querySelector('.modal-overlay').addEventListener('click', closeModal);
