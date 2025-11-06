@@ -1,72 +1,119 @@
 document.addEventListener('DOMContentLoaded', function() {
     const tg = window.Telegram.WebApp;
 
-    // Сообщаем Telegram, что приложение готово к отображению
-    tg.ready();
+    // Элементы UI
+    const loader = document.getElementById('loader');
+    const noRoomState = document.getElementById('no-room-state');
+    const activeRoomState = document.getElementById('active-room-state');
+    const createRoomBtn = document.getElementById('create-room-btn');
+    const goToRoomBtn = document.getElementById('go-to-room-btn');
+    const shareRoomBtn = document.getElementById('share-room-btn');
+    const roomTimerSpan = document.getElementById('room-timer');
 
-    // Расширяем приложение на весь экран
-    tg.expand();
+    let userId = null;
+    let activeRoomId = null;
+    let countdownInterval = null;
+    let statusCheckInterval = null;
 
-    console.log('Mini App script loaded.');
-    console.log('Telegram WebApp object:', tg);
+    // --- Функции ---
 
-    // --- НАЧАЛО ИЗМЕНЕНИЙ ---
+    function showState(state) {
+        loader.style.display = 'none';
+        noRoomState.style.display = state === 'no-room' ? 'flex' : 'none';
+        activeRoomState.style.display = state === 'active-room' ? 'flex' : 'none';
+    }
 
-    /**
-     * Асинхронная функция для проверки состояния пользователя на бэкенде.
-     * Отправляет initData для валидации и получения информации об активной комнате.
-     */
-    async function checkUserState() {
-        const appContainer = document.getElementById('app-container');
-        
-        if (!tg.initData) {
-            console.error('Telegram initData is not available.');
-            appContainer.innerHTML = '<h1>Ошибка</h1><p>Не удалось получить данные пользователя. Пожалуйста, попробуйте перезапустить приложение.</p>';
-            return;
-        }
+    function startCountdown(expiresAtISO) {
+        if (countdownInterval) clearInterval(countdownInterval);
 
-        console.log('Sending initData to backend for validation and state check...');
+        const expiresAt = new Date(expiresAtISO);
 
-        try {
-            const response = await fetch('/api/user/state', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ init_data: tg.initData }),
-            });
+        countdownInterval = setInterval(() => {
+            const now = new Date();
+            const remaining = expiresAt - now;
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Server responded with ${response.status}: ${errorText}`);
+            if (remaining <= 0) {
+                roomTimerSpan.textContent = '00:00:00';
+                clearInterval(countdownInterval);
+                // Когда таймер истек, снова проверяем статус, чтобы UI обновился
+                fetchRoomStatus();
+                return;
             }
 
-            const data = await response.json();
-            console.log('Received user state from backend:', data);
+            const hours = Math.floor(remaining / (1000 * 60 * 60)).toString().padStart(2, '0');
+            const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+            const seconds = Math.floor((remaining % (1000 * 60)) / 1000).toString().padStart(2, '0');
+            
+            roomTimerSpan.textContent = `${hours}:${minutes}:${seconds}`;
+        }, 1000);
+    }
 
-            // Пока что просто выводим информацию.
-            // На следующем шаге мы будем здесь рендерить разный интерфейс.
-            if (data.has_active_room) {
-                appContainer.innerHTML = `
-                    <h1>У вас есть активная комната!</h1>
-                    <p>Room ID: ${data.room_id}</p>
-                    <p>Осталось времени: ${Math.round(data.remaining_seconds / 60)} мин.</p>
-                `;
-            } else {
-                appContainer.innerHTML = `
-                    <h1>Комната для звонка</h1>
-                    <p>У вас нет активных комнат. Готовы создать новую?</p>
-                `;
-            }
-
-        } catch (error) {
-            console.error('Failed to check user state:', error);
-            appContainer.innerHTML = '<h1>Ошибка сети</h1><p>Не удалось связаться с сервером. Проверьте ваше интернет-соединение.</p>';
+    function updateUI(data) {
+        if (data && data.room) {
+            // Есть активная комната
+            activeRoomId = data.room.room_id;
+            showState('active-room');
+            startCountdown(data.room.expires_at);
+        } else {
+            // Нет активной комнаты
+            activeRoomId = null;
+            if (countdownInterval) clearInterval(countdownInterval);
+            showState('no-room');
         }
     }
 
-    // Вызываем проверку состояния пользователя сразу после инициализации
-    checkUserState();
+    async function fetchRoomStatus() {
+        if (!userId) {
+            console.error("User ID not available.");
+            // Можно показать ошибку пользователю
+            return;
+        }
+        console.log(`[TMA] Fetching room status for user: ${userId}`);
+        try {
+            const response = await fetch(`/api/tma/room-status?user_id=${userId}`);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            console.log("[TMA] Received data:", data);
+            updateUI(data);
+        } catch (error) {
+            console.error("Failed to fetch room status:", error);
+            // Можно показать ошибку пользователю
+        }
+    }
 
-    // --- КОНЕЦ ИЗМЕНЕНИЙ ---
+    // --- Инициализация ---
+
+    tg.ready();
+    tg.expand();
+
+    // Получаем ID пользователя. В реальном приложении нужна проверка на подлинность.
+    userId = tg.initDataUnsafe.user?.id;
+    
+    // Для тестирования в браузере
+    if (!userId) {
+        console.warn("Telegram User ID not found. Using a test ID.");
+        userId = '123456789'; // Замените на ID для теста
+    }
+
+    // Обработчики событий
+    goToRoomBtn.addEventListener('click', () => {
+        if (activeRoomId) {
+            tg.openLink(`/call/${activeRoomId}`);
+        }
+    });
+
+    shareRoomBtn.addEventListener('click', () => {
+        if (activeRoomId) {
+            tg.switchInlineQuery(activeRoomId);
+        }
+    });
+
+    // Начинаем проверку статуса
+    fetchRoomStatus();
+    // Устанавливаем периодическую проверку каждые 15 секунд
+    statusCheckInterval = setInterval(fetchRoomStatus, 15000);
+
+    console.log('Mini App script loaded and initialized.');
 });

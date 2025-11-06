@@ -333,16 +333,14 @@ async def get_call_session_details(room_id: str):
         row = await conn.fetchrow(query, room_id)
         return dict(row) if row else None
 
-# --- НАЧАЛО ИЗМЕНЕНИЙ ---
-
 async def get_active_room_by_user(user_id: int) -> Optional[Dict[str, Any]]:
     """
-    Находит самую последнюю активную комнату для указанного пользователя.
+    Находит последнюю активную (не истекшую и не закрытую) комнату для пользователя.
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT room_id, created_at, expires_at
+            SELECT room_id, expires_at
             FROM call_sessions
             WHERE generated_by_user_id = $1
               AND expires_at > NOW()
@@ -352,8 +350,6 @@ async def get_active_room_by_user(user_id: int) -> Optional[Dict[str, Any]]:
         """
         row = await conn.fetchrow(query, user_id)
         return dict(row) if row else None
-
-# --- КОНЕЦ ИЗМЕНЕНИЙ ---
 
 async def get_room_lifetime_hours(room_id: str) -> int:
     pool = await get_pool()

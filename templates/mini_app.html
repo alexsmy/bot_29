@@ -9,8 +9,27 @@
 </head>
 <body>
     <div id="app-container">
-        <h1>Привет из Mini App!</h1>
-        <p>Если вы видите это, значит, базовый запуск прошел успешно.</p>
+        <div id="loader" class="loader"></div>
+
+        <!-- Состояние, когда комната не создана -->
+        <div id="no-room-state" class="state-container" style="display: none;">
+            <div class="icon-placeholder"></div>
+            <h1>Комната не создана</h1>
+            <p>Создайте приватную комнату для начала звонка.</p>
+            <button id="create-room-btn" class="action-button">Создать комнату</button>
+        </div>
+
+        <!-- Состояние, когда комната активна -->
+        <div id="active-room-state" class="state-container" style="display: none;">
+            <div class="icon-placeholder"></div>
+            <h1>Комната активна</h1>
+            <p>Ссылка действительна еще: <strong id="room-timer">--:--:--</strong></p>
+            <div class="button-group">
+                <button id="go-to-room-btn" class="action-button primary">Перейти в комнату</button>
+                <button id="share-room-btn" class="action-button">Поделиться</button>
+            </div>
+        </div>
+
     </div>
     <script src="/static/js/mini_app.js"></script>
 </body>

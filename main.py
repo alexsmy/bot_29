@@ -74,13 +74,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-# --- НАЧАЛО ИЗМЕНЕНИЙ ---
-
-class InitData(BaseModel):
-    init_data: str
-
-# --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
@@ -122,36 +115,6 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
         logger.error(f"Ошибка при сохранении лога соединения: {e}")
         raise HTTPException(status_code=500, detail="Failed to save connection log")
 
-# --- НАЧАЛО ИЗМЕНЕНИЙ ---
-
-@app.post("/api/user/state")
-async def get_user_state(data: InitData):
-    user_data = await utils.validate_init_data(data.init_data)
-    if not user_data:
-        logger.warning("Запрос к /api/user/state с невалидными initData.")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid initData")
-
-    user_id = user_data.get('id')
-    if not user_id:
-        logger.error("Не удалось извлечь user_id из валидных initData.")
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID not found in initData")
-
-    logger.info(f"Запрос состояния для пользователя {user_id}.")
-    
-    room = await database.get_active_room_by_user(user_id)
-
-    if room:
-        remaining_seconds = (room['expires_at'] - datetime.now(timezone.utc)).total_seconds()
-        return CustomJSONResponse(content={
-            "has_active_room": True,
-            "room_id": room['room_id'],
-            "remaining_seconds": max(0, remaining_seconds)
-        })
-    else:
-        return CustomJSONResponse(content={"has_active_room": False})
-
-# --- КОНЕЦ ИЗМЕНЕНИЙ ---
-
 @app.get("/room/lifetime/{room_id}")
 async def get_room_lifetime(room_id: str):
     room = await manager.get_or_restore_room(room_id)
@@ -175,6 +138,26 @@ async def get_mini_app(request: Request):
 async def get_ice_servers_endpoint():
     servers = ice_provider.get_ice_servers()
     return CustomJSONResponse(content=servers)
+
+# --- НОВЫЙ МАРШРУТ ДЛЯ MINI APP ---
+@app.get("/api/tma/room-status")
+async def get_tma_room_status(user_id: int):
+    """
+    Проверяет наличие активной комнаты для пользователя Telegram Mini App.
+    """
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    
+    logger.info(f"[TMA] Запрос статуса комнаты для user_id: {user_id}")
+    room_data = await database.get_active_room_by_user(user_id)
+    
+    if room_data:
+        logger.info(f"[TMA] Найдена активная комната {room_data['room_id']} для user_id: {user_id}")
+        return CustomJSONResponse(content={"room": room_data})
+    else:
+        logger.info(f"[TMA] Активных комнат для user_id: {user_id} не найдено.")
+        return CustomJSONResponse(content={"room": None})
+# --- КОНЕЦ НОВОГО МАРШРУТА ---
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
 async def get_call_page(request: Request, room_id: str):
