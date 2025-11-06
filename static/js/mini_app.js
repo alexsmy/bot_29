@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const goToRoomBtn = document.getElementById('go-to-room-btn');
     const shareRoomBtn = document.getElementById('share-room-btn');
     const roomTimerSpan = document.getElementById('room-timer');
+    const userInfoSpan = document.getElementById('user-info');
 
     let userId = null;
     let activeRoomId = null;
@@ -28,14 +29,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const expiresAt = new Date(expiresAtISO);
 
-        countdownInterval = setInterval(() => {
+        const updateTimer = () => {
             const now = new Date();
             const remaining = expiresAt - now;
 
             if (remaining <= 0) {
                 roomTimerSpan.textContent = '00:00:00';
                 clearInterval(countdownInterval);
-                // Когда таймер истек, снова проверяем статус, чтобы UI обновился
                 fetchRoomStatus();
                 return;
             }
@@ -45,17 +45,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const seconds = Math.floor((remaining % (1000 * 60)) / 1000).toString().padStart(2, '0');
             
             roomTimerSpan.textContent = `${hours}:${minutes}:${seconds}`;
-        }, 1000);
+        };
+        
+        updateTimer(); // Вызываем сразу, чтобы не было задержки в 1 секунду
+        countdownInterval = setInterval(updateTimer, 1000);
     }
 
     function updateUI(data) {
         if (data && data.room) {
-            // Есть активная комната
             activeRoomId = data.room.room_id;
             showState('active-room');
             startCountdown(data.room.expires_at);
         } else {
-            // Нет активной комнаты
             activeRoomId = null;
             if (countdownInterval) clearInterval(countdownInterval);
             showState('no-room');
@@ -65,7 +66,8 @@ document.addEventListener('DOMContentLoaded', function() {
     async function fetchRoomStatus() {
         if (!userId) {
             console.error("User ID not available.");
-            // Можно показать ошибку пользователю
+            userInfoSpan.textContent = "Ошибка: не удалось определить пользователя.";
+            showState('no-room'); // Показываем базовое состояние при ошибке
             return;
         }
         console.log(`[TMA] Fetching room status for user: ${userId}`);
@@ -79,7 +81,7 @@ document.addEventListener('DOMContentLoaded', function() {
             updateUI(data);
         } catch (error) {
             console.error("Failed to fetch room status:", error);
-            // Можно показать ошибку пользователю
+            userInfoSpan.textContent = "Ошибка: не удалось загрузить статус.";
         }
     }
 
@@ -88,19 +90,22 @@ document.addEventListener('DOMContentLoaded', function() {
     tg.ready();
     tg.expand();
 
-    // Получаем ID пользователя. В реальном приложении нужна проверка на подлинность.
-    userId = tg.initDataUnsafe.user?.id;
-    
-    // Для тестирования в браузере
-    if (!userId) {
-        console.warn("Telegram User ID not found. Using a test ID.");
-        userId = '123456789'; // Замените на ID для теста
+    // ИСПРАВЛЕНО: Получаем ID пользователя из Telegram, а не используем тестовый.
+    if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+        userId = tg.initDataUnsafe.user.id;
+        const userFirstName = tg.initDataUnsafe.user.first_name;
+        userInfoSpan.textContent = `Пользователь: ${userFirstName} (ID: ${userId})`;
+    } else {
+        console.warn("Telegram User ID not found. This app is intended to be run inside Telegram.");
+        userInfoSpan.textContent = "Запустите приложение внутри Telegram";
+        showState('no-room');
+        return; // Прерываем выполнение, если мы не в Telegram
     }
 
     // Обработчики событий
     goToRoomBtn.addEventListener('click', () => {
         if (activeRoomId) {
-            tg.openLink(`/call/${activeRoomId}`);
+            tg.openLink(`${window.location.origin}/call/${activeRoomId}`);
         }
     });
 
@@ -112,7 +117,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Начинаем проверку статуса
     fetchRoomStatus();
-    // Устанавливаем периодическую проверку каждые 15 секунд
     statusCheckInterval = setInterval(fetchRoomStatus, 15000);
 
     console.log('Mini App script loaded and initialized.');
