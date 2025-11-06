@@ -6,9 +6,8 @@ import json
 import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from urllib.parse import parse_qsl
-from fastapi import FastAPI, Request, HTTPException, Depends, status, Body
-from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse, JSONResponse
+from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -47,12 +46,6 @@ templates = Jinja2Templates(directory="templates")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    if request.url.path.startswith("/api/"):
-        return JSONResponse(
-            status_code=exc.status_code,
-            content={"detail": exc.detail}
-        )
-    
     if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
         logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
         bot_username = os.environ.get("BOT_USERNAME", "")
@@ -140,34 +133,6 @@ async def get_welcome(request: Request):
 @app.get("/app", response_class=HTMLResponse)
 async def get_mini_app(request: Request):
     return templates.TemplateResponse("mini_app.html", {"request": request})
-
-@app.post("/api/user/state")
-async def get_user_state(request: Request):
-    init_data_str = (await request.body()).decode('utf-8')
-
-    if not utils.validate_init_data(init_data_str):
-        logger.warning("Failed initData validation. Request is forbidden.")
-        raise HTTPException(status_code=403, detail="Invalid initData")
-
-    init_data_dict = dict(parse_qsl(init_data_str))
-    user_data_json = init_data_dict.get("user", "{}")
-    user_data = json.loads(user_data_json)
-    user_id = user_data.get("id")
-
-    if not user_id:
-        raise HTTPException(status_code=400, detail="User ID not found in initData")
-
-    active_session = await database.get_active_session_for_user(user_id)
-
-    if active_session:
-        remaining_seconds = (active_session['expires_at'] - datetime.now(timezone.utc)).total_seconds()
-        return CustomJSONResponse(content={
-            "has_active_room": True,
-            "room_id": active_session['room_id'],
-            "remaining_seconds": max(0, remaining_seconds)
-        })
-    else:
-        return CustomJSONResponse(content={"has_active_room": False})
 
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():

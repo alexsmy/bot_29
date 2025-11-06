@@ -1,11 +1,8 @@
 :root {
     --tg-theme-bg-color: var(--tg-bg-color, #181818);
     --tg-theme-text-color: var(--tg-text-color, #ffffff);
-    --tg-theme-hint-color: var(--tg-hint-color, #aaaaaa);
-    --tg-theme-link-color: var(--tg-link-color, #5EABF2);
     --tg-theme-button-color: var(--tg-button-color, #2481cc);
     --tg-theme-button-text-color: var(--tg-button-text-color, #ffffff);
-    --tg-theme-secondary-bg-color: var(--tg-secondary-bg-color, #222222);
 }
 
 * {
@@ -21,170 +18,24 @@ body {
     overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    line-height: 1.5;
 }
 
 #app-container {
     display: flex;
     flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
     height: 100vh;
-    height: 100dvh;
     padding: 20px;
 }
 
-.screen {
-    display: none;
-    flex-direction: column;
-    justify-content: space-between;
-    align-items: center;
-    text-align: center;
-    flex-grow: 1;
-    width: 100%;
-}
-
-.screen.active {
-    display: flex;
-}
-
-.header {
-    margin-top: 10vh;
-}
-
 h1 {
-    font-size: 28px;
-    font-weight: 600;
-    margin-bottom: 12px;
+    font-size: 24px;
+    margin-bottom: 16px;
 }
 
 p {
     font-size: 16px;
-    color: var(--tg-theme-hint-color);
-    max-width: 400px;
-}
-
-.main-action {
-    width: 100%;
-    max-width: 400px;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-}
-
-.footer-actions {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    gap: 15px;
-    margin-bottom: 20px;
-}
-
-.btn {
-    width: 100%;
-    padding: 16px;
-    border-radius: 12px;
-    border: none;
-    font-size: 17px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: transform 0.1s ease, opacity 0.2s ease;
-}
-
-.btn:active {
-    transform: scale(0.97);
-}
-
-.btn-primary {
-    background-color: var(--tg-theme-button-color);
-    color: var(--tg-theme-button-text-color);
-}
-
-.btn-secondary {
-    background-color: var(--tg-theme-secondary-bg-color);
-    color: var(--tg-theme-text-color);
-}
-
-.timer-box {
-    margin-top: 20px;
-    padding: 10px 20px;
-    background-color: var(--tg-theme-secondary-bg-color);
-    border-radius: 12px;
-    font-size: 16px;
-}
-
-.timer-box strong {
-    color: var(--tg-theme-link-color);
-    font-size: 18px;
-    margin-left: 8px;
-}
-
-.spinner {
-    border: 4px solid var(--tg-theme-secondary-bg-color);
-    border-top: 4px solid var(--tg-theme-button-color);
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-    margin-bottom: 16px;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.modal {
-    display: none;
-    position: fixed;
-    z-index: 100;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0,0,0,0.6);
-    align-items: center;
-    justify-content: center;
-}
-
-.modal.active {
-    display: flex;
-}
-
-.modal-content {
-    background-color: var(--tg-theme-secondary-bg-color);
-    margin: auto;
-    padding: 20px;
-    border-radius: 14px;
-    width: 90%;
-    max-width: 500px;
-    color: var(--tg-theme-text-color);
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-}
-
-.modal-header h2 {
-    font-size: 20px;
-}
-
-.close-modal-btn {
-    color: var(--tg-theme-hint-color);
-    background: none;
-    border: none;
-    font-size: 28px;
-    cursor: pointer;
-}
-
-.modal-body h4 {
-    margin-top: 15px;
-    margin-bottom: 5px;
-}
-
-.modal-body p {
-    font-size: 15px;
-    margin-bottom: 10px;
+    color: var(--tg-theme-hint-color, #aaaaaa);
 }

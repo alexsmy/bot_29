@@ -64,7 +64,7 @@ async def main() -> None:
         logger.info("Telegram бот запускается...")
         
         server_task = asyncio.create_task(server.serve())
-        bot_task = asyncio.create_task(application.updater.start_polling(drop_pending_updates=True))
+        bot_task = asyncio.create_task(application.updater.start_polling())
         
         await asyncio.gather(server_task, bot_task)
         
