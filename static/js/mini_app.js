@@ -23,10 +23,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Функции ---
 
-    /**
-     * Показывает один из экранов и скрывает остальные
-     * @param {string} viewName - Ключ из объекта `views`
-     */
     function showView(viewName) {
         Object.values(views).forEach(view => view.classList.add('hidden'));
         if (views[viewName]) {
@@ -34,11 +30,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Форматирует оставшиеся секунды в строку HH:MM:SS
-     * @param {number} totalSeconds 
-     * @returns {string}
-     */
     function formatTime(totalSeconds) {
         if (totalSeconds < 0) totalSeconds = 0;
         const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
@@ -47,13 +38,8 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${hours}:${minutes}:${seconds}`;
     }
 
-    /**
-     * Запускает таймер обратного отсчета
-     * @param {string} expiryDateISO - Дата истечения в формате ISO
-     */
     function startCountdown(expiryDateISO) {
         if (countdownInterval) clearInterval(countdownInterval);
-
         const expiryDate = new Date(expiryDateISO);
 
         const updateTimer = () => {
@@ -61,20 +47,15 @@ document.addEventListener('DOMContentLoaded', function() {
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 roomTimerEl.textContent = "00:00:00";
-                checkRoomStatus(); 
+                checkRoomStatus();
             } else {
                 roomTimerEl.textContent = formatTime(remainingSeconds);
             }
         };
-        
-        updateTimer(); // Вызываем сразу, чтобы не было задержки в 1 секунду
+        updateTimer();
         countdownInterval = setInterval(updateTimer, 1000);
     }
 
-    /**
-     * Обновляет UI на основе данных о комнате
-     * @param {object|null} roomData 
-     */
     function updateUI(roomData) {
         activeRoomData = roomData;
         if (countdownInterval) clearInterval(countdownInterval);
@@ -87,9 +68,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Проверяет статус комнаты на сервере
-     */
     async function checkRoomStatus() {
         if (!currentUser) {
             console.error("User data not available for status check.");
@@ -122,9 +100,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Создает новую комнату
-     */
     async function createRoom() {
         showView('loading');
         console.log(`Requesting room creation for user ${currentUser.id}`);
@@ -155,42 +130,61 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- Инициализация ---
+    /**
+     * Основная функция инициализации приложения
+     */
+    function initializeApp() {
+        tg.expand();
 
-    tg.ready();
-    tg.expand();
+        // Отображаем информацию о пользователе
+        const displayName = currentUser.first_name || currentUser.username || 'User';
+        userInfoEl.textContent = `Пользователь: ${displayName} (ID: ${currentUser.id})`;
 
-    // ИСПРАВЛЕНО: Убрана тестовая заглушка. Теперь используются только реальные данные.
-    currentUser = tg.initDataUnsafe.user;
+        // Привязываем события к кнопкам
+        createRoomBtn.addEventListener('click', createRoom);
+        goToRoomBtn.addEventListener('click', () => {
+            if (activeRoomData) {
+                tg.openLink(`${window.location.origin}/call/${activeRoomData.room_id}`);
+            }
+        });
+        shareLinkBtn.addEventListener('click', () => {
+            if (activeRoomData) {
+                tg.switchInlineQuery(activeRoomData.room_id);
+            }
+        });
 
-    if (!currentUser || !currentUser.id) {
-        errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
-        showView('error');
-        return;
+        // Запускаем проверку статуса и периодические обновления
+        checkRoomStatus();
+        if (statusCheckInterval) clearInterval(statusCheckInterval);
+        statusCheckInterval = setInterval(checkRoomStatus, 15000);
     }
-    
-    // ИЗМЕНЕНО: Отображаем информацию о пользователе
-    const displayName = currentUser.first_name || currentUser.username || 'User';
-    userInfoEl.textContent = `Пользователь: ${displayName} (ID: ${currentUser.id})`;
 
+    // --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 
-    // --- Привязка событий ---
-    createRoomBtn.addEventListener('click', createRoom);
+    // ИСПОЛЬЗУЕМ tg.ready() ДЛЯ ГАРАНТИРОВАННОЙ ИНИЦИАЛИЗАЦИИ
+    tg.ready();
 
-    goToRoomBtn.addEventListener('click', () => {
-        if (activeRoomData) {
-            tg.openLink(`${window.location.origin}/call/${activeRoomData.room_id}`);
+    // Пытаемся получить данные пользователя.
+    // tg.ready() гарантирует, что объект tg существует, но не гарантирует, что initDataUnsafe.user уже заполнен.
+    // Поэтому добавляем небольшую задержку и проверку.
+    let attempts = 0;
+    const maxAttempts = 10;
+
+    function tryToGetUser() {
+        attempts++;
+        if (tg.initDataUnsafe && tg.initDataUnsafe.user && tg.initDataUnsafe.user.id) {
+            currentUser = tg.initDataUnsafe.user;
+            console.log("Successfully got user data:", currentUser);
+            initializeApp();
+        } else if (attempts < maxAttempts) {
+            console.warn(`Attempt ${attempts}: User data not ready, retrying in 100ms...`);
+            setTimeout(tryToGetUser, 100);
+        } else {
+            console.error("Failed to get user data after multiple attempts.");
+            errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
+            showView('error');
         }
-    });
+    }
 
-    shareLinkBtn.addEventListener('click', () => {
-        if (activeRoomData) {
-            tg.switchInlineQuery(activeRoomData.room_id);
-        }
-    });
-
-    // --- Запуск ---
-    checkRoomStatus();
-    if (statusCheckInterval) clearInterval(statusCheckInterval);
-    statusCheckInterval = setInterval(checkRoomStatus, 15000);
+    tryToGetUser();
 });
