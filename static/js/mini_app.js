@@ -19,7 +19,6 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentUser = null;
     let activeRoomData = null;
     let countdownInterval = null;
-    let statusCheckInterval = null;
 
     // --- Функции ---
 
@@ -47,8 +46,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 roomTimerEl.textContent = "00:00:00";
-                // Просто переключаем на вид "нет комнаты", т.к. она истекла
-                updateUI(null);
+                updateUI(null); // Комната истекла, показываем экран создания
             } else {
                 roomTimerEl.textContent = formatTime(remainingSeconds);
             }
@@ -99,9 +97,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    /**
-     * Основная функция инициализации приложения
-     */
     function initializeApp() {
         tg.expand();
 
@@ -123,17 +118,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- ЗАПУСК ПРИЛОЖЕНИЯ ---
 
+    // 1. Ждем, пока Telegram Web App API будет готово.
     tg.ready();
 
-    // Проверяем, есть ли вообще initData. Если нет, приложение открыто не через Telegram.
+    // 2. Проверяем наличие initData. Если его нет, значит, приложение открыто не из Telegram.
     if (!tg.initData) {
-        console.error("Telegram initData is missing. App was likely opened outside of Telegram.");
-        errorMessageEl.textContent = "Не удалось получить данные пользователя. Пожалуйста, откройте приложение через бота в Telegram.";
+        console.error("CRITICAL: Telegram.WebApp.initData is missing. App cannot be initialized.");
+        errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
         showView('error');
         return;
     }
 
-    // Отправляем initData на бэкенд для валидации и получения состояния
+    console.log("initData is present, sending to backend for validation...");
+
+    // 3. Отправляем initData на бэкенд для валидации и получения начального состояния.
     fetch('/api/auth/validate_user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -141,17 +139,24 @@ document.addEventListener('DOMContentLoaded', function() {
     })
     .then(response => {
         if (!response.ok) {
-            throw new Error(`Validation failed with status: ${response.status}`);
+            // Если бэкенд отверг данные, это критическая ошибка.
+            return response.json().then(err => {
+                throw new Error(`Validation failed: ${err.detail || response.statusText}`);
+            });
         }
         return response.json();
     })
     .then(data => {
+        // 4. Если валидация прошла успешно, мы получили доверенные данные.
         console.log("Server validation successful. Data received:", data);
         currentUser = data.user;
+        
+        // 5. Инициализируем приложение и отображаем интерфейс.
         initializeApp();
         updateUI(data.room);
     })
     .catch(error => {
+        // 6. Если на любом этапе произошла ошибка, показываем экран ошибки.
         console.error("Initialization failed:", error);
         errorMessageEl.textContent = "Ошибка аутентификации. Попробуйте перезапустить приложение из бота.";
         showView('error');
