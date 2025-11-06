@@ -8,7 +8,6 @@ document.addEventListener('DOMContentLoaded', function() {
         activeRoom: document.getElementById('active-room-view'),
         error: document.getElementById('error-view'),
     };
-    const userInfoEl = document.getElementById('user-info');
     const createRoomBtn = document.getElementById('create-room-btn');
     const goToRoomBtn = document.getElementById('go-to-room-btn');
     const shareLinkBtn = document.getElementById('share-link-btn');
@@ -19,9 +18,14 @@ document.addEventListener('DOMContentLoaded', function() {
     let currentUser = null;
     let activeRoomData = null;
     let countdownInterval = null;
+    let statusCheckInterval = null;
 
     // --- Функции ---
 
+    /**
+     * Показывает один из экранов и скрывает остальные
+     * @param {string} viewName - Ключ из объекта `views`
+     */
     function showView(viewName) {
         Object.values(views).forEach(view => view.classList.add('hidden'));
         if (views[viewName]) {
@@ -29,6 +33,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    /**
+     * Форматирует оставшиеся секунды в строку HH:MM:SS
+     * @param {number} totalSeconds 
+     * @returns {string}
+     */
     function formatTime(totalSeconds) {
         if (totalSeconds < 0) totalSeconds = 0;
         const hours = Math.floor(totalSeconds / 3600).toString().padStart(2, '0');
@@ -37,24 +46,32 @@ document.addEventListener('DOMContentLoaded', function() {
         return `${hours}:${minutes}:${seconds}`;
     }
 
+    /**
+     * Запускает таймер обратного отсчета
+     * @param {string} expiryDateISO - Дата истечения в формате ISO
+     */
     function startCountdown(expiryDateISO) {
         if (countdownInterval) clearInterval(countdownInterval);
+
         const expiryDate = new Date(expiryDateISO);
 
-        const updateTimer = () => {
+        countdownInterval = setInterval(() => {
             const remainingSeconds = (expiryDate - new Date()) / 1000;
             if (remainingSeconds <= 0) {
                 clearInterval(countdownInterval);
                 roomTimerEl.textContent = "00:00:00";
-                updateUI(null); // Комната истекла, показываем экран создания
+                // Когда время вышло, снова проверяем статус, чтобы UI обновился
+                checkRoomStatus(); 
             } else {
                 roomTimerEl.textContent = formatTime(remainingSeconds);
             }
-        };
-        updateTimer();
-        countdownInterval = setInterval(updateTimer, 1000);
+        }, 1000);
     }
 
+    /**
+     * Обновляет UI на основе данных о комнате
+     * @param {object|null} roomData 
+     */
     function updateUI(roomData) {
         activeRoomData = roomData;
         if (countdownInterval) clearInterval(countdownInterval);
@@ -67,6 +84,43 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    /**
+     * Проверяет статус комнаты на сервере
+     */
+    async function checkRoomStatus() {
+        if (!currentUser) {
+            console.error("User data not available for status check.");
+            return;
+        }
+        console.log(`Checking room status for user ${currentUser.id}`);
+
+        try {
+            const response = await fetch('/api/room/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: currentUser.id })
+            });
+
+            if (response.ok) {
+                const roomData = await response.json();
+                console.log("Active room found:", roomData);
+                updateUI(roomData);
+            } else if (response.status === 404) {
+                console.log("No active room found for user.");
+                updateUI(null);
+            } else {
+                throw new Error(`Server error: ${response.status}`);
+            }
+        } catch (error) {
+            console.error("Failed to check room status:", error);
+            errorMessageEl.textContent = "Не удалось проверить статус комнаты. Проверьте интернет-соединение.";
+            showView('error');
+        }
+    }
+
+    /**
+     * Создает новую комнату
+     */
     async function createRoom() {
         showView('loading');
         console.log(`Requesting room creation for user ${currentUser.id}`);
@@ -87,8 +141,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.log("Room created successfully:", newRoomData);
                 updateUI(newRoomData);
             } else {
-                const errorData = await response.json();
-                throw new Error(`Server error: ${response.status} - ${errorData.detail}`);
+                throw new Error(`Server error: ${response.status}`);
             }
         } catch (error) {
             console.error("Failed to create room:", error);
@@ -97,68 +150,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    function initializeApp() {
-        tg.expand();
+    // --- Инициализация ---
 
-        const displayName = currentUser.first_name || currentUser.username || 'User';
-        userInfoEl.textContent = `Пользователь: ${displayName} (ID: ${currentUser.id})`;
-
-        createRoomBtn.addEventListener('click', createRoom);
-        goToRoomBtn.addEventListener('click', () => {
-            if (activeRoomData) {
-                tg.openLink(`${window.location.origin}/call/${activeRoomData.room_id}`);
-            }
-        });
-        shareLinkBtn.addEventListener('click', () => {
-            if (activeRoomData) {
-                tg.switchInlineQuery(activeRoomData.room_id);
-            }
-        });
-    }
-
-    // --- ЗАПУСК ПРИЛОЖЕНИЯ ---
-
-    // 1. Ждем, пока Telegram Web App API будет готово.
     tg.ready();
+    tg.expand();
 
-    // 2. Проверяем наличие initData. Если его нет, значит, приложение открыто не из Telegram.
-    if (!tg.initData) {
-        console.error("CRITICAL: Telegram.WebApp.initData is missing. App cannot be initialized.");
+    // currentUser = tg.initDataUnsafe.user;
+    // Для локального тестирования в браузере раскомментируйте строку ниже
+    currentUser = tg.initDataUnsafe.user || { id: 123456789, first_name: "Тест", username: "testuser" };
+
+
+    if (!currentUser || !currentUser.id) {
         errorMessageEl.textContent = "Не удалось получить данные пользователя Telegram. Пожалуйста, откройте приложение через бота.";
         showView('error');
         return;
     }
 
-    console.log("initData is present, sending to backend for validation...");
+    // --- Привязка событий ---
+    createRoomBtn.addEventListener('click', createRoom);
 
-    // 3. Отправляем initData на бэкенд для валидации и получения начального состояния.
-    fetch('/api/auth/validate_user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ initData: tg.initData })
-    })
-    .then(response => {
-        if (!response.ok) {
-            // Если бэкенд отверг данные, это критическая ошибка.
-            return response.json().then(err => {
-                throw new Error(`Validation failed: ${err.detail || response.statusText}`);
-            });
+    goToRoomBtn.addEventListener('click', () => {
+        if (activeRoomData) {
+            tg.openLink(`${window.location.origin}/call/${activeRoomData.room_id}`);
         }
-        return response.json();
-    })
-    .then(data => {
-        // 4. Если валидация прошла успешно, мы получили доверенные данные.
-        console.log("Server validation successful. Data received:", data);
-        currentUser = data.user;
-        
-        // 5. Инициализируем приложение и отображаем интерфейс.
-        initializeApp();
-        updateUI(data.room);
-    })
-    .catch(error => {
-        // 6. Если на любом этапе произошла ошибка, показываем экран ошибки.
-        console.error("Initialization failed:", error);
-        errorMessageEl.textContent = "Ошибка аутентификации. Попробуйте перезапустить приложение из бота.";
-        showView('error');
     });
+
+    shareLinkBtn.addEventListener('click', () => {
+        if (activeRoomData) {
+            tg.switchInlineQuery(activeRoomData.room_id);
+        }
+    });
+
+    // --- Запуск ---
+    checkRoomStatus();
+    // Устанавливаем периодическую проверку статуса (например, каждые 15 секунд)
+    if (statusCheckInterval) clearInterval(statusCheckInterval);
+    statusCheckInterval = setInterval(checkRoomStatus, 15000);
 });
