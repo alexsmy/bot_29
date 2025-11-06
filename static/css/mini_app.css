@@ -1,11 +1,11 @@
-
 :root {
     --tg-theme-bg-color: var(--tg-bg-color, #181818);
     --tg-theme-text-color: var(--tg-text-color, #ffffff);
-    --tg-theme-hint-color: var(--tg-hint-color, #aaaaaa);
     --tg-theme-button-color: var(--tg-button-color, #2481cc);
     --tg-theme-button-text-color: var(--tg-button-text-color, #ffffff);
-    --tg-theme-secondary-bg-color: var(--tg-secondary-bg-color, #222222);
+    --tg-theme-hint-color: var(--tg-hint-color, #aaaaaa);
+    --accent-color: #007bff;
+    --secondary-color: #6c757d;
 }
 
 * {
@@ -22,97 +22,94 @@ body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     display: flex;
-    flex-direction: column; /* Изменено для футера */
     align-items: center;
     justify-content: center;
     height: 100vh;
-    text-align: center;
 }
 
 #app-container {
     width: 100%;
+    max-width: 400px;
     padding: 20px;
-    flex-grow: 1; /* Занимает все доступное место */
+    text-align: center;
+}
+
+.view {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
-.state-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
+.view.hidden {
+    display: none;
+}
+
+.content-block {
+    width: 100%;
 }
 
 h1 {
     font-size: 24px;
-    font-weight: 600;
+    margin-bottom: 12px;
 }
 
 p {
     font-size: 16px;
     color: var(--tg-theme-hint-color);
-    max-width: 300px;
+    margin-bottom: 24px;
+    line-height: 1.5;
 }
 
-.action-button {
+.timer {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent-color);
+    margin-bottom: 24px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.action-btn {
     width: 100%;
-    max-width: 320px;
-    padding: 14px;
+    padding: 15px;
+    font-size: 16px;
+    font-weight: 600;
     border: none;
     border-radius: 12px;
-    font-size: 16px;
-    font-weight: 500;
     cursor: pointer;
     transition: background-color 0.2s, transform 0.1s;
-    background-color: var(--tg-theme-secondary-bg-color);
-    color: var(--tg-theme-text-color);
 }
 
-.action-button.primary {
+.action-btn:active {
+    transform: scale(0.98);
+}
+
+.action-btn.primary {
     background-color: var(--tg-theme-button-color);
     color: var(--tg-theme-button-text-color);
 }
 
-.action-button:active {
-    transform: scale(0.98);
+.action-btn.secondary {
+    background-color: var(--secondary-color);
+    color: white;
 }
 
 .button-group {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    width: 100%;
-    align-items: center;
 }
 
-#room-timer {
-    font-family: monospace;
-    font-size: 1.1em;
-}
-
-.loader {
-    border: 4px solid var(--tg-theme-secondary-bg-color);
-    border-top: 4px solid var(--tg-theme-button-color);
+.spinner {
+    border: 4px solid rgba(255, 255, 255, 0.2);
+    border-left-color: var(--tg-theme-text-color);
     border-radius: 50%;
     width: 40px;
     height: 40px;
     animation: spin 1s linear infinite;
-    margin: 0 auto;
-}
-
-#user-info-container {
-    width: 100%;
-    padding: 10px;
-    font-size: 12px;
-    color: var(--tg-theme-hint-color);
-    position: fixed;
-    bottom: 0;
-    left: 0;
+    margin-bottom: 16px;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    to { transform: rotate(360deg); }
 }

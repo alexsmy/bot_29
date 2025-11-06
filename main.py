@@ -4,6 +4,7 @@ import asyncio
 import os
 import json
 import glob
+import uuid
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, HTTPException, Depends, status
@@ -74,6 +75,19 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
+# --- НОВЫЕ МОДЕЛИ ДЛЯ MINI APP ---
+class UserRequest(BaseModel):
+    user_id: int
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+
+class RoomResponse(BaseModel):
+    room_id: str
+    expires_at: datetime
+# --- КОНЕЦ НОВЫХ МОДЕЛЕЙ ---
+
+
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
@@ -134,30 +148,41 @@ async def get_welcome(request: Request):
 async def get_mini_app(request: Request):
     return templates.TemplateResponse("mini_app.html", {"request": request})
 
+# --- НОВЫЕ МАРШРУТЫ ДЛЯ MINI APP ---
+@app.post("/api/room/status", response_model=RoomResponse)
+async def get_room_status(user_request: UserRequest):
+    logger.info(f"Mini App: Запрос статуса комнаты для user_id: {user_request.user_id}")
+    active_room = await database.get_active_room_by_user(user_request.user_id)
+    if not active_room:
+        raise HTTPException(status_code=404, detail="Active room not found for this user")
+    return RoomResponse(**active_room)
+
+@app.post("/api/room/create", response_model=RoomResponse)
+async def create_room_from_app(user_request: UserRequest):
+    user_id = user_request.user_id
+    logger.info(f"Mini App: Запрос на создание комнаты от user_id: {user_id}")
+
+    # Логируем пользователя, если он новый
+    await database.log_user(user_id, user_request.first_name, user_request.last_name, user_request.username)
+    await database.log_bot_action(user_id, "create_room_from_mini_app")
+
+    room_id = str(uuid.uuid4())
+    lifetime_hours = PRIVATE_ROOM_LIFETIME_HOURS
+    
+    await manager.get_or_create_room(room_id, lifetime_hours=lifetime_hours)
+
+    created_at = datetime.now(timezone.utc)
+    expires_at = created_at + timedelta(hours=lifetime_hours)
+    await database.log_call_session(room_id, user_id, created_at, expires_at)
+
+    logger.info(f"Mini App: Создана комната {room_id} для user_id: {user_id}")
+    return RoomResponse(room_id=room_id, expires_at=expires_at)
+# --- КОНЕЦ НОВЫХ МАРШРУТОВ ---
+
 @app.get("/api/ice-servers")
 async def get_ice_servers_endpoint():
     servers = ice_provider.get_ice_servers()
     return CustomJSONResponse(content=servers)
-
-# --- НОВЫЙ МАРШРУТ ДЛЯ MINI APP ---
-@app.get("/api/tma/room-status")
-async def get_tma_room_status(user_id: int):
-    """
-    Проверяет наличие активной комнаты для пользователя Telegram Mini App.
-    """
-    if not user_id:
-        raise HTTPException(status_code=400, detail="user_id is required")
-    
-    logger.info(f"[TMA] Запрос статуса комнаты для user_id: {user_id}")
-    room_data = await database.get_active_room_by_user(user_id)
-    
-    if room_data:
-        logger.info(f"[TMA] Найдена активная комната {room_data['room_id']} для user_id: {user_id}")
-        return CustomJSONResponse(content={"room": room_data})
-    else:
-        logger.info(f"[TMA] Активных комнат для user_id: {user_id} не найдено.")
-        return CustomJSONResponse(content={"room": None})
-# --- КОНЕЦ НОВОГО МАРШРУТА ---
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
 async def get_call_page(request: Request, room_id: str):
