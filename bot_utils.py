@@ -35,7 +35,10 @@ def read_template_content(filename: str, replacements: dict = None) -> str:
 async def log_user_and_action(update: Update, action: str):
     """
     Логирует информацию о пользователе и его действии в базе данных.
+    ИСПРАВЛЕНО: теперь операции выполняются последовательно, чтобы избежать race condition.
     """
     user = update.effective_user
-    asyncio.create_task(database.log_user(user.id, user.first_name, user.last_name, user.username))
-    asyncio.create_task(database.log_bot_action(user.id, action))
+    # Сначала дожидаемся завершения записи пользователя в БД
+    await database.log_user(user.id, user.first_name, user.last_name, user.username)
+    # И только потом записываем его действие
+    await database.log_bot_action(user.id, action)
