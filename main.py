@@ -7,12 +7,13 @@ import hashlib
 from urllib.parse import parse_qsl
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi import FastAPI, Request, HTTPException, Depends, status, Response as FastAPIResponse
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, Field
+from telegram import Update
 
 import database
 import utils
@@ -69,6 +70,24 @@ def validate_init_data(payload: InitDataModel):
         raise HTTPException(status_code=403, detail="Invalid initData")
 
 app = FastAPI(default_response_class=CustomJSONResponse)
+
+@app.post("/webhook/{token}")
+async def telegram_webhook(request: Request, token: str):
+    if token != BOT_TOKEN:
+        raise HTTPException(status_code=403, detail="Invalid token")
+    
+    from bot import bot_app_instance
+    if not bot_app_instance:
+        raise HTTPException(status_code=503, detail="Bot application not initialized")
+
+    try:
+        data = await request.json()
+        update = Update.de_json(data, bot_app_instance.bot)
+        await bot_app_instance.update_queue.put(update)
+        return FastAPIResponse(status_code=200)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail="Invalid JSON")
+
 
 app.include_router(websocket_router)
 
