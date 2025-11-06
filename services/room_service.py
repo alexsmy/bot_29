@@ -1,5 +1,3 @@
-# `services/room_service.py`
-
 import os
 import uuid
 import asyncio
@@ -9,7 +7,7 @@ from telegram.ext import ContextTypes
 
 import database
 import notifier
-from main import manager
+from websocket_manager import manager
 from bot_utils import format_hours
 
 async def create_room_and_get_id(user_id: int, lifetime_hours: int) -> str:
