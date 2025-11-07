@@ -30,6 +30,8 @@
     --icon-color-ip: #007bff;
     --icon-color-device: #6f42c1;
     --icon-color-location: #fd7e14;
+    --initiator-color: #fd7e14;
+    --receiver-color: #6f42c1;
 }
 
 html.dark {
@@ -51,6 +53,8 @@ html.dark {
     --icon-color-ip: #58abff;
     --icon-color-device: #be95ff;
     --icon-color-location: #ff9a40;
+    --initiator-color: #ff9a40;
+    --receiver-color: #be95ff;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -561,6 +565,13 @@ html.dark .call-count-badge {
 .participant-column h6 .icon {
     width: 18px;
     height: 18px;
+    transition: color 0.2s;
+}
+.participant-column h6.initiator .icon {
+    color: var(--initiator-color);
+}
+.participant-column h6.receiver .icon {
+    color: var(--receiver-color);
 }
 .participant-details {
     font-size: 0.9em;
@@ -609,6 +620,7 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     margin-left: auto;
 }
 .status.active { background-color: var(--success-color); color: white; }
+.status.pending { background-color: var(--pending-color); color: white; }
 .status.closed { background-color: var(--text-secondary); color: var(--accent-text); }
 .status.expired { background-color: var(--pending-color); color: var(--accent-text); }
 

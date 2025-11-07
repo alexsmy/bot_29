@@ -3,24 +3,36 @@ import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 
-function renderParticipantDetails(ip, connections) {
+function renderParticipantDetails(ip, connections, isInitiator) {
     if (!ip) return '<p>N/A</p>';
 
     const conn = connections.find(c => c.ip_address === ip);
-    if (!conn) {
-        return `
-        <div class="participant-details">
-            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
-        </div>`;
-    }
+    const initiatorClass = isInitiator ? 'initiator' : 'receiver';
+
+    const detailsHtml = conn ? `
+        <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
+        <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
+    ` : '';
 
     return `
-        <div class="participant-details">
-            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
-            <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
-            <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
+        <div class="participant-column">
+            <h6 class="${initiatorClass}">
+                <span class="icon icon-person">${ICONS.person}</span>
+                <span>${isInitiator ? 'Инициатор' : 'Участник'}</span>
+            </h6>
+            <div class="participant-details">
+                <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
+                ${detailsHtml}
+            </div>
         </div>
     `;
+}
+
+function getCallTypeIcon(callType) {
+    const iconSvg = callType === 'video' 
+        ? `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" /></svg>`
+        : `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A3,3 0 0,0 9,6V12A3,3 0 0,0 12,15A3,3 0 0,0 15,12V6A3,3 0 0,0 12,3M19,12V13A7,7 0 0,1 5,13V12H3V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V12H19Z" /></svg>`;
+    return `<span class="call-status-icon" title="Тип звонка: ${callType}">${iconSvg}</span>`;
 }
 
 function renderCallHistory(calls, connections) {
@@ -31,11 +43,15 @@ function renderCallHistory(calls, connections) {
     return `<div class="call-history-list">` + calls.map((call, index) => {
         const duration = call.duration_seconds !== null ? `${call.duration_seconds} сек` : 'N/A';
         const connectionType = call.connection_type || 'N/A';
+        
+        const isP1Initiator = call.initiator_ip === call.participant1_ip;
+        const isP2Initiator = call.initiator_ip === call.participant2_ip;
 
         return `
         <div class="call-card">
             <div class="call-card-header">
                 <div class="call-header-main">
+                    ${getCallTypeIcon(call.call_type)}
                     <h5>#${index + 1}</h5>
                     <div class="call-meta">
                         <span><span class="icon icon-time">${ICONS.clock}</span> ${formatDate(call.call_started_at)}</span>
@@ -45,14 +61,8 @@ function renderCallHistory(calls, connections) {
                 <span class="connection-type-badge ${connectionType.toLowerCase()}">${connectionType}</span>
             </div>
             <div class="participants-grid">
-                <div class="participant-column">
-                    <h6><span class="icon icon-person">${ICONS.person}</span> 1</h6>
-                    ${renderParticipantDetails(call.participant1_ip, connections)}
-                </div>
-                <div class="participant-column">
-                    <h6><span class="icon icon-person">${ICONS.person}</span> 2</h6>
-                    ${renderParticipantDetails(call.participant2_ip, connections)}
-                </div>
+                ${renderParticipantDetails(call.participant1_ip, connections, isP1Initiator)}
+                ${renderParticipantDetails(call.participant2_ip, connections, isP2Initiator)}
             </div>
         </div>
     `}).join('') + `</div>`;

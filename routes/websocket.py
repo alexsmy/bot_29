@@ -1,4 +1,4 @@
-# routes/websocket.py
+# routes/websocket.py 49
 
 import asyncio
 import uuid
@@ -35,10 +35,25 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.start_call_timeout(user_id, target_id)
 
             elif message_type == "call_accepted":
-                target_id = message["data"]["target_id"]
+                target_id = message["data"]["target_id"] # target_id здесь - это инициатор звонка
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
+                    # Получаем IP участников из RoomManager для точного логирования
+                    initiator = room.users.get(target_id)
+                    receiver = room.users.get(user_id)
+                    
+                    p1_ip = initiator.get('ip_address') if initiator else None
+                    p2_ip = receiver.get('ip_address') if receiver else None
+                    initiator_ip = p1_ip
+
+                    asyncio.create_task(database.log_call_start(
+                        room.room_id, 
+                        room.pending_call_type,
+                        p1_ip,
+                        p2_ip,
+                        initiator_ip
+                    ))
+                    
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -120,7 +135,13 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     asyncio.create_task(log_connection_in_background())
 
     new_user_id = str(uuid.uuid4())
-    user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
+    # Сохраняем IP-адрес пользователя в его данных в RoomManager
+    user_data = {
+        "id": new_user_id, 
+        "first_name": "Собеседник", 
+        "last_name": "",
+        "ip_address": ip_address
+    }
     
     actual_user_id = await room.connect(websocket, user_data)
 

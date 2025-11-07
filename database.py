@@ -1,5 +1,4 @@
-
-# database.py 48_Исправление ошибки иконки звонка в БД и на админ странице
+# database.py 49
 
 import os
 import asyncpg
@@ -71,7 +70,8 @@ async def init_db():
                 duration_seconds INTEGER,
                 participant1_ip TEXT,
                 participant2_ip TEXT,
-                connection_type TEXT
+                connection_type TEXT,
+                initiator_ip TEXT
             )
         ''')
 
@@ -155,7 +155,7 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['country'], parsed_data['city']
         )
 
-async def log_call_start(room_id, call_type):
+async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_ip: Optional[str], initiator_ip: Optional[str]):
     pool = await get_pool()
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
@@ -164,17 +164,12 @@ async def log_call_start(room_id, call_type):
             return
         session_id = session_row['session_id']
 
-        ip_rows = await conn.fetch("SELECT ip_address FROM connections WHERE room_id = $1 ORDER BY connected_at DESC LIMIT 2", room_id)
-        # ИСПРАВЛЕНИЕ 1: Возвращена корректная логика доступа к элементам списка
-        p1_ip = ip_rows[0]['ip_address'] if len(ip_rows) > 0 else None
-        p2_ip = ip_rows[1]['ip_address'] if len(ip_rows) > 1 else None
-
         await conn.execute(
             """
-            INSERT INTO call_history (session_id, call_type, call_started_at, participant1_ip, participant2_ip)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO call_history (session_id, call_type, call_started_at, participant1_ip, participant2_ip, initiator_ip)
+            VALUES ($1, $2, $3, $4, $5, $6)
             """,
-            session_id, call_type, datetime.now(timezone.utc), p1_ip, p2_ip
+            session_id, call_type, datetime.now(timezone.utc), p1_ip, p2_ip, initiator_ip
         )
         await conn.execute("UPDATE call_sessions SET status = 'active' WHERE session_id = $1", session_id)
 
@@ -206,7 +201,6 @@ async def log_call_end(room_id):
                 "UPDATE call_history SET call_ended_at = $1, duration_seconds = $2 WHERE call_id = $3",
                 end_time, duration, call_row['call_id']
             )
-            # --- ИСПРАВЛЕНИЕ: Возвращаем статус сессии в 'pending' после завершения звонка ---
             await conn.execute(
                 "UPDATE call_sessions SET status = 'pending' WHERE session_id = $1",
                 session_id
@@ -300,7 +294,6 @@ async def get_user_actions(user_id):
 async def get_connections_info(date_obj: date) -> List[Dict[str, Any]]:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # ИСПРАВЛЕНИЕ 2: Добавлено поле generated_by_user_id в запрос
         sessions = await conn.fetch(
             "SELECT session_id, room_id, generated_by_user_id, created_at, status, closed_at, close_reason FROM call_sessions WHERE date(created_at) = $1 ORDER BY created_at DESC",
             date_obj
@@ -311,7 +304,7 @@ async def get_connections_info(date_obj: date) -> List[Dict[str, Any]]:
             
             calls = await conn.fetch(
                 """
-                SELECT call_type, call_started_at, duration_seconds, participant1_ip, participant2_ip, connection_type
+                SELECT call_type, call_started_at, duration_seconds, participant1_ip, participant2_ip, connection_type, initiator_ip
                 FROM call_history WHERE session_id = $1 ORDER BY call_started_at ASC
                 """,
                 session_dict['session_id']
