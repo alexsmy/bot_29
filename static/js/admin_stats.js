@@ -3,7 +3,6 @@
 // Этот модуль отвечает за логику раздела "Статистика".
 
 import { fetchData } from './admin_api.js';
-import { navigateToTab } from './admin_ui.js';
 
 let statsContainer;
 let statsPeriodSelect;
@@ -14,12 +13,12 @@ function renderStats(data) {
         return;
     }
     statsContainer.innerHTML = `
-        <div class="stat-card clickable" data-target="users"><div class="value">${data.total_users}</div><div class="label">Пользователей</div></div>
+        <div class="stat-card"><div class="value">${data.total_users}</div><div class="label">Пользователей</div></div>
         <div class="stat-card"><div class="value">${data.total_actions}</div><div class="label">Действий в боте</div></div>
         <div class="stat-card"><div class="value">${data.total_sessions_created}</div><div class="label">Ссылок создано</div></div>
-        <div class="stat-card clickable" data-target="connections"><div class="value">${data.completed_calls}</div><div class="label">Успешных звонков</div></div>
+        <div class="stat-card"><div class="value">${data.completed_calls}</div><div class="label">Успешных звонков</div></div>
         <div class="stat-card"><div class="value">${data.avg_call_duration}</div><div class="label">Средняя длит. (сек)</div></div>
-        <div class="stat-card clickable" data-target="rooms"><div class="value">${data.active_rooms_count}</div><div class="label">Активных комнат</div></div>
+        <div class="stat-card"><div class="value">${data.active_rooms_count}</div><div class="label">Активных комнат</div></div>
     `;
 }
 
@@ -34,16 +33,6 @@ export function initStats() {
     statsPeriodSelect = document.getElementById('stats-period');
     
     statsPeriodSelect.addEventListener('change', loadStats);
-
-    statsContainer.addEventListener('click', (e) => {
-        const card = e.target.closest('.stat-card.clickable');
-        if (card && card.dataset.target) {
-            // Небольшая задержка для срабатывания CSS :active (эффект нажатия)
-            setTimeout(() => {
-                navigateToTab(card.dataset.target);
-            }, 150);
-        }
-    });
     
     // Первоначальная загрузка
     loadStats();

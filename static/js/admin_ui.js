@@ -33,34 +33,21 @@ function setupThemeToggle() {
     });
 }
 
-/**
- * Программно переключает активную вкладку в админ-панели.
- * @param {string} targetId - ID секции, которую нужно сделать активной (например, 'users').
- */
-export function navigateToTab(targetId) {
-    const navLinks = document.querySelectorAll('.nav-link');
-    const contentSections = document.querySelectorAll('.content-section');
-
-    navLinks.forEach(link => {
-        const isActive = link.getAttribute('href') === `#${targetId}`;
-        link.classList.toggle('active', isActive);
-    });
-
-    contentSections.forEach(section => {
-        section.classList.toggle('active', section.id === targetId);
-    });
-    
-    window.scrollTo(0, 0);
-}
-
 function setupNavigation() {
     const navLinks = document.querySelectorAll('.nav-link');
+    const contentSections = document.querySelectorAll('.content-section');
     
     navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             const targetId = link.getAttribute('href').substring(1);
-            navigateToTab(targetId);
+
+            navLinks.forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+
+            contentSections.forEach(section => {
+                section.classList.toggle('active', section.id === targetId);
+            });
             
             if (window.innerWidth <= 768) {
                 closeMobileMenu();
@@ -69,22 +56,20 @@ function setupNavigation() {
     });
 }
 
-let sidebar, sidebarOverlay;
-
-function openMobileMenu() {
-    sidebar.classList.add('is-open');
-    sidebarOverlay.classList.add('is-visible');
-}
-
-function closeMobileMenu() {
-    sidebar.classList.remove('is-open');
-    sidebarOverlay.classList.remove('is-visible');
-}
-
 function setupMobileMenu() {
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-    sidebar = document.querySelector('.sidebar');
-    sidebarOverlay = document.getElementById('sidebar-overlay');
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+
+    const openMobileMenu = () => {
+        sidebar.classList.add('is-open');
+        sidebarOverlay.classList.add('is-visible');
+    };
+
+    const closeMobileMenu = () => {
+        sidebar.classList.remove('is-open');
+        sidebarOverlay.classList.remove('is-visible');
+    };
 
     mobileMenuBtn.addEventListener('click', () => {
         if (sidebar.classList.contains('is-open')) {
