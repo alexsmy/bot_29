@@ -1,4 +1,4 @@
-# main.py
+# main.py 49_1 исправление pydantic
 
 import asyncio
 import os
