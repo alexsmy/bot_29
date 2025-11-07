@@ -340,6 +340,9 @@ html.dark .stat-card.clickable {
     width: 18px;
     height: 18px;
 }
+.participants-icons.participants-online .icon {
+    color: var(--success-color);
+}
 
 .close-room-btn {
     border-color: var(--error-color) !important;
