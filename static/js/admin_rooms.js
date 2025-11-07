@@ -6,7 +6,7 @@ let adminRoomsContainer, userRoomsContainer, adminRoomCountEl, userRoomCountEl, 
 
 function getCallStatusIcon(userCount, callStatus, callType) {
     if (userCount === 2 && callStatus === 'active') {
-        const glowClass = 'glowing-icon';
+        const glowClass = 'glowing';
         if (callType === 'video') {
             return `<span class="call-status-icon ${glowClass}" title="Активный видеозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" /></svg></span>`;
         }
@@ -35,30 +35,30 @@ function renderRooms() {
             return;
         }
         container.innerHTML = list.map(room => {
-            const creatorBadgeHtml = room.is_admin_room
+            const creatorBadge = room.is_admin_room 
                 ? `<span class="creator-badge admin">admin</span>`
                 : `<span class="creator-badge user">${room.generated_by_user_id || 'N/A'}</span>`;
             
-            const participantIcons = Array.from({ length: room.user_count }, () => 
-                `<span class="icon icon-person">${ICONS.person}</span>`
-            ).join('');
+            const participantsIcons = room.user_count > 1 
+                ? `<span class="icon icon-person">${ICONS.person}</span><span class="icon icon-person">${ICONS.person}</span>`
+                : `<span class="icon icon-person">${ICONS.person}</span>`;
 
             return `
             <div class="room-item">
                 <div class="room-info">
                     <div class="room-id-line">
                         <code>${room.room_id}</code>
-                        ${creatorBadgeHtml}
+                        ${creatorBadge}
                         ${getCallStatusIcon(room.user_count, room.call_status, room.call_type)}
                     </div>
                     <div class="meta">
-                        <div class="meta-item">
-                           <span class="icon icon-hourglass">${ICONS.hourglass}</span>
-                           ${formatRemainingTime(room.remaining_seconds)}
-                        </div>
-                        <div class="meta-item">
-                           ${participantIcons}
-                        </div>
+                        <span class="meta-item">
+                            <span class="icon icon-time">${ICONS.hourglass}</span>
+                            ${formatRemainingTime(room.remaining_seconds)}
+                        </span>
+                        <span class="meta-item participants-icons">
+                            ${participantsIcons}
+                        </span>
                     </div>
                 </div>
                 <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
