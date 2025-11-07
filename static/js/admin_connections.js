@@ -1,5 +1,3 @@
-// static/js/admin_connections.js
-
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
@@ -40,22 +38,21 @@ function renderCallHistory(calls, connections) {
         <div class="call-card">
             <div class="call-card-header">
                 <div class="call-header-main">
-                    <span class="call-type-icon">${callTypeIcon}</span>
-                    <h5>Звонок #${index + 1}</h5>
+                    <h5>${callTypeIcon} #${index + 1}</h5>
                     <div class="call-header-meta">
-                        <span>Начало: ${formatDate(call.call_started_at)}</span>
-                        <span>Длительность: ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</span>
+                        <span>🕒 ${formatDate(call.call_started_at)}</span>
+                        <span>⏳ ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</span>
                     </div>
                 </div>
                 <span class="connection-type-badge ${call.connection_type?.toLowerCase()}">${call.connection_type || 'N/A'}</span>
             </div>
-            <div class="call-card-body participants-grid">
+            <div class="participants-grid">
                 <div class="participant-column">
-                    <h6>Участник 1</h6>
+                    <h6><span class="participant-icon">👤</span> 1</h6>
                     ${renderParticipantDetails(call.participant1_ip, connections)}
                 </div>
                 <div class="participant-column">
-                    <h6>Участник 2</h6>
+                    <h6><span class="participant-icon">👤</span> 2</h6>
                     ${renderParticipantDetails(call.participant2_ip, connections)}
                 </div>
             </div>
@@ -78,31 +75,35 @@ async function loadConnections() {
     connectionsListContainer.innerHTML = sessions.map(session => {
         const callHistoryHtml = renderCallHistory(session.calls, session.connections);
         
-        const createdInfo = `<strong>Создана:</strong>&nbsp;${formatDate(session.created_at)}`;
+        const createdInfo = `Создана: ${formatDate(session.created_at)}`;
         let closedInfo = '';
         let reasonInfo = '';
 
         if (session.closed_at) {
-            closedInfo = `<strong>Закрыта:</strong>&nbsp;${formatDate(session.closed_at)}`;
-            reasonInfo = `<small>${session.close_reason || 'N/A'}</small>`;
+            closedInfo = `Закрыта: ${formatDate(session.closed_at)}`;
+            if (session.close_reason) {
+                reasonInfo = `<div class="reason">${session.close_reason}</div>`;
+            }
         }
 
         return `
         <div class="connection-item">
             <div class="connection-summary">
-                <div class="summary-info">
+                <div class="summary-main">
+                    <span class="call-count-badge">${session.calls?.length || 0}</span>
                     <code>${session.room_id}</code>
-                    <div class="creator-info">Создал: ${session.generated_by_user_id || 'N/A'}</div>
+                    <span class="summary-creator">${session.generated_by_user_id || 'N/A'}</span>
+                </div>
+                <div class="summary-right">
                     <div class="summary-timestamps">
-                        <div class="timestamp-item created">${createdInfo}</div>
-                        <div class="timestamp-item closed">${closedInfo}</div>
-                        <div class="timestamp-item reason">${reasonInfo}</div>
+                        <div>${createdInfo}</div>
+                        <div>${closedInfo}</div>
+                        ${reasonInfo}
                     </div>
                 </div>
-                <span class="status ${session.status}">${session.status}</span>
+                 <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
-                <h4>История звонков в сессии</h4>
                 ${callHistoryHtml}
             </div>
         </div>`;
@@ -114,7 +115,7 @@ export function initConnections() {
     searchConnectionsBtn = document.getElementById('search-connections-btn');
     connectionsListContainer = document.getElementById('connections-list');
     
-    connectionsDateInput.value = new Date().toISOString().split('T');
+    connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
     searchConnectionsBtn.addEventListener('click', loadConnections);
     
