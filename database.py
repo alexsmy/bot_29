@@ -1,4 +1,4 @@
-# database.py
+# database.py версия из ai микс 2_44 и 46_7_5
 
 import os
 import asyncpg
