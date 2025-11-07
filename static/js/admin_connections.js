@@ -1,24 +1,30 @@
+// static/js/admin_connections.js 49_инициатор и IP устройств
+
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 
-function renderParticipantDetails(ip, connections) {
+function renderParticipantDetails(ip, connections, participantNumber, isInitiator) {
     if (!ip) return '<p>N/A</p>';
 
     const conn = connections.find(c => c.ip_address === ip);
-    if (!conn) {
-        return `
-        <div class="participant-details">
-            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
-        </div>`;
-    }
+    const initiatorClass = isInitiator ? 'initiator' : '';
+
+    const detailsHtml = conn 
+        ? `
+        <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
+        <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
+        ` 
+        : '';
 
     return `
-        <div class="participant-details">
-            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
-            <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
-            <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
+        <div class="participant-column">
+            <h6 class="${initiatorClass}"><span class="icon icon-person">${ICONS.person}</span> ${participantNumber}</h6>
+            <div class="participant-details">
+                <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
+                ${detailsHtml}
+            </div>
         </div>
     `;
 }
@@ -37,6 +43,7 @@ function renderCallHistory(calls, connections) {
             <div class="call-card-header">
                 <div class="call-header-main">
                     <h5>#${index + 1}</h5>
+                    <span class="call-type-badge">${call.call_type || 'N/A'}</span>
                     <div class="call-meta">
                         <span><span class="icon icon-time">${ICONS.clock}</span> ${formatDate(call.call_started_at)}</span>
                         <span><span class="icon icon-time">${ICONS.hourglass}</span> ${duration}</span>
@@ -45,14 +52,8 @@ function renderCallHistory(calls, connections) {
                 <span class="connection-type-badge ${connectionType.toLowerCase()}">${connectionType}</span>
             </div>
             <div class="participants-grid">
-                <div class="participant-column">
-                    <h6><span class="icon icon-person">${ICONS.person}</span> 1</h6>
-                    ${renderParticipantDetails(call.participant1_ip, connections)}
-                </div>
-                <div class="participant-column">
-                    <h6><span class="icon icon-person">${ICONS.person}</span> 2</h6>
-                    ${renderParticipantDetails(call.participant2_ip, connections)}
-                </div>
+                ${renderParticipantDetails(call.participant1_ip, connections, 1, call.participant1_ip === call.initiator_ip)}
+                ${renderParticipantDetails(call.participant2_ip, connections, 2, call.participant2_ip === call.initiator_ip)}
             </div>
         </div>
     `}).join('') + `</div>`;

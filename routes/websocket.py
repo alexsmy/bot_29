@@ -1,4 +1,4 @@
-# routes/websocket.py
+# routes/websocket.py 49_инициатор и IP устройств
 
 import asyncio
 import uuid
@@ -35,10 +35,24 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.start_call_timeout(user_id, target_id)
 
             elif message_type == "call_accepted":
-                target_id = message["data"]["target_id"]
+                target_id = message["data"]["target_id"] # target_id это инициатор звонка
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
+                    
+                    initiator = room.users.get(target_id, {})
+                    receiver = room.users.get(user_id, {})
+                    
+                    initiator_ip = initiator.get('ip_address')
+                    receiver_ip = receiver.get('ip_address')
+
+                    asyncio.create_task(database.log_call_start(
+                        room.room_id,
+                        room.pending_call_type,
+                        initiator_ip,
+                        receiver_ip,
+                        initiator_ip  # Передаем IP инициатора
+                    ))
+                    
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -122,7 +136,7 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     new_user_id = str(uuid.uuid4())
     user_data = {"id": new_user_id, "first_name": "Собеседник", "last_name": ""}
     
-    actual_user_id = await room.connect(websocket, user_data)
+    actual_user_id = await room.connect(websocket, user_data, ip_address, user_agent)
 
     if actual_user_id:
         await handle_websocket_logic(websocket, room, actual_user_id)
