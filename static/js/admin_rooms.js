@@ -4,8 +4,8 @@ import { formatRemainingTime } from './admin_utils.js';
 let allRoomsData = [];
 let adminRoomsContainer, userRoomsContainer, adminRoomCountEl, userRoomCountEl, roomSearchInput;
 
-function getCallStatusIcon(userCount, callStatus, callType) {
-    if (callStatus !== 'active' || userCount < 2) {
+function getCallStatusIcon(callStatus, callType) {
+    if (callStatus !== 'active') {
         return '';
     }
 
@@ -58,7 +58,7 @@ function renderRooms() {
                     <div class="room-id-line">
                         <code>${room.room_id}</code>
                         ${creatorBadge}
-                        ${getCallStatusIcon(room.user_count, room.call_status, room.call_type)}
+                        ${getCallStatusIcon(room.call_status, room.call_type)}
                     </div>
                     <div class="meta">
                         <span class="meta-item">
