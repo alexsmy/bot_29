@@ -3,54 +3,57 @@ import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 
+function getDeviceIcon(deviceType) {
+    if (deviceType === 'Mobile' || deviceType === 'Tablet') return '📱';
+    if (deviceType === 'Desktop') return '🖥️';
+    return '⚙️';
+}
+
 function renderParticipantDetails(ip, connections) {
-    if (!ip) return '<p>N/A</p>';
+    if (!ip) return '<p><strong>IP:</strong> N/A</p>';
 
     const conn = connections.find(c => c.ip_address === ip);
     if (!conn) {
-        return `
-        <div class="participant-details">
-            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
-        </div>`;
+        return `<p><strong>IP:</strong> ${ip}</p>`;
     }
 
     return `
+        <p><strong>IP:</strong> ${ip}</p>
         <div class="participant-details">
-            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
-            <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
-            <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
+            <span>${getDeviceIcon(conn.device_type)} ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
+            <span>📌 ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
         </div>
     `;
 }
 
 function renderCallHistory(calls, connections) {
     if (!calls || calls.length === 0) {
-        return '<p style="padding: 0 1rem 1rem; margin: 0; font-size: 0.9em; color: var(--text-secondary);">В этой сессии не было звонков.</p>';
+        return '<p>В этой сессии не было звонков.</p>';
     }
 
     return `<div class="call-history-list">` + calls.map((call, index) => {
-        const duration = call.duration_seconds !== null ? `${call.duration_seconds} сек` : 'N/A';
-        const connectionType = call.connection_type || 'N/A';
-
+        const callTypeIcon = call.call_type === 'video' ? '📹' : '🔈';
+        
         return `
         <div class="call-card">
             <div class="call-card-header">
                 <div class="call-header-main">
-                    <h5>#${index + 1}</h5>
-                    <div class="call-meta">
-                        <span><span class="icon icon-time">${ICONS.clock}</span> ${formatDate(call.call_started_at)}</span>
-                        <span><span class="icon icon-time">${ICONS.hourglass}</span> ${duration}</span>
+                    <span class="call-type-icon">${callTypeIcon}</span>
+                    <h5>Звонок #${index + 1}</h5>
+                    <div class="call-header-meta">
+                        <span>Начало: ${formatDate(call.call_started_at)}</span>
+                        <span>Длительность: ${call.duration_seconds !== null ? call.duration_seconds + ' сек' : 'N/A'}</span>
                     </div>
                 </div>
-                <span class="connection-type-badge ${connectionType.toLowerCase()}">${connectionType}</span>
+                <span class="connection-type-badge ${call.connection_type?.toLowerCase()}">${call.connection_type || 'N/A'}</span>
             </div>
-            <div class="participants-grid">
+            <div class="call-card-body participants-grid">
                 <div class="participant-column">
-                    <h6><span class="icon icon-person">${ICONS.person}</span> 1</h6>
+                    <h6>Участник 1</h6>
                     ${renderParticipantDetails(call.participant1_ip, connections)}
                 </div>
                 <div class="participant-column">
-                    <h6><span class="icon icon-person">${ICONS.person}</span> 2</h6>
+                    <h6>Участник 2</h6>
                     ${renderParticipantDetails(call.participant2_ip, connections)}
                 </div>
             </div>
@@ -72,20 +75,32 @@ async function loadConnections() {
     
     connectionsListContainer.innerHTML = sessions.map(session => {
         const callHistoryHtml = renderCallHistory(session.calls, session.connections);
-        const status = session.status || 'unknown';
-        const reason = session.close_reason ? `(${session.close_reason})` : '';
+        
+        const createdInfo = `<strong>Создана:</strong>&nbsp;${formatDate(session.created_at)}`;
+        let closedInfo = '';
+        let reasonInfo = '';
+
+        if (session.closed_at) {
+            closedInfo = `<strong>Закрыта:</strong>&nbsp;${formatDate(session.closed_at)}`;
+            reasonInfo = `<small>${session.close_reason || 'N/A'}</small>`;
+        }
 
         return `
         <div class="connection-item">
             <div class="connection-summary">
                 <div class="summary-info">
                     <code>${session.room_id}</code>
-                    <span class="call-count-badge">${session.calls.length}</span>
-                    <span class="creator-id">${session.generated_by_user_id || 'N/A'}</span>
+                    <div class="creator-info">Создал: ${session.generated_by_user_id || 'N/A'}</div>
+                    <div class="summary-timestamps">
+                        <div class="timestamp-item created">${createdInfo}</div>
+                        <div class="timestamp-item closed">${closedInfo}</div>
+                        <div class="timestamp-item reason">${reasonInfo}</div>
+                    </div>
                 </div>
-                <div class="status ${status.toLowerCase()}">${status} ${reason}</div>
+                <span class="status ${session.status}">${session.status}</span>
             </div>
             <div class="connection-details">
+                <h4>История звонков в сессии</h4>
                 ${callHistoryHtml}
             </div>
         </div>`;
@@ -97,7 +112,7 @@ export function initConnections() {
     searchConnectionsBtn = document.getElementById('search-connections-btn');
     connectionsListContainer = document.getElementById('connections-list');
     
-    connectionsDateInput.valueAsDate = new Date();
+    connectionsDateInput.value = new Date().toISOString().split('T')[0];
 
     searchConnectionsBtn.addEventListener('click', loadConnections);
     
@@ -105,16 +120,17 @@ export function initConnections() {
         const summary = e.target.closest('.connection-summary');
         if (!summary) return;
         
-        const item = summary.parentElement;
         const details = summary.nextElementSibling;
-        const isOpen = item.classList.contains('open');
+        const item = summary.parentElement;
 
-        if (isOpen) {
+        if (details.style.maxHeight) {
             details.style.maxHeight = null;
             item.classList.remove('open');
         } else {
-            item.classList.add('open');
             details.style.maxHeight = details.scrollHeight + "px";
+            item.classList.add('open');
         }
     });
+
+    loadConnections();
 }

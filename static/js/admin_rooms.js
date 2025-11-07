@@ -1,7 +1,3 @@
-// static/js/admin_rooms.js
-
-// Этот модуль отвечает за логику раздела "Активные комнаты".
-
 import { fetchData } from './admin_api.js';
 import { formatRemainingTime } from './admin_utils.js';
 
@@ -10,11 +6,12 @@ let adminRoomsContainer, userRoomsContainer, adminRoomCountEl, userRoomCountEl, 
 
 function getCallStatusIcon(userCount, callStatus, callType) {
     if (userCount === 2 && callStatus === 'active') {
+        const isGlowing = 'glowing';
         if (callType === 'video') {
-            return `<span class="call-status-icon" title="Активный видеозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" /></svg></span>`;
+            return `<span class="call-status-icon ${isGlowing}" title="Активный видеозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" /></svg></span>`;
         }
         if (callType === 'audio') {
-            return `<span class="call-status-icon" title="Активный аудиозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A3,3 0 0,0 9,6V12A3,3 0 0,0 12,15A3,3 0 0,0 15,12V6A3,3 0 0,0 12,3M19,12V13A7,7 0 0,1 5,13V12H3V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V12H19Z" /></svg></span>`;
+            return `<span class="call-status-icon ${isGlowing}" title="Активный аудиозвонок"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A3,3 0 0,0 9,6V12A3,3 0 0,0 12,15A3,3 0 0,0 15,12V6A3,3 0 0,0 12,3M19,12V13A7,7 0 0,1 5,13V12H3V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V12H19Z" /></svg></span>`;
         }
     }
     return '';
@@ -38,18 +35,23 @@ function renderRooms() {
             return;
         }
         container.innerHTML = list.map(room => {
-            const creatorInfo = room.is_admin_room ? '' : `<div class="creator-info">Создал: ${room.generated_by_user_id || 'N/A'}</div>`;
+            const creatorBadge = room.is_admin_room 
+                ? `<span class="creator-badge admin">admin</span>`
+                : `<span class="creator-badge user">${room.generated_by_user_id || 'N/A'}</span>`;
+
+            const participantsIcon = '👤'.repeat(room.user_count);
+
             return `
             <div class="room-item">
                 <div class="room-info">
                     <div class="room-id-line">
                         <code>${room.room_id}</code>
+                        ${creatorBadge}
                         ${getCallStatusIcon(room.user_count, room.call_status, room.call_type)}
                     </div>
-                    ${creatorInfo}
                     <div class="meta">
-                        <span>Осталось: ${formatRemainingTime(room.remaining_seconds)}</span> | 
-                        <span>Участников: ${room.user_count}</span>
+                        <span>⏳ ${formatRemainingTime(room.remaining_seconds)}</span>
+                        <span>${participantsIcon}</span>
                     </div>
                 </div>
                 <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
