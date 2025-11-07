@@ -1,14 +1,12 @@
 // static/js/admin_stats.js
 
-// Этот модуль отвечает за логику раздела "Статистика".
-
 import { fetchData } from './admin_api.js';
 import { navigateToTab } from './admin_ui.js';
 
 let statsContainer;
 let statsPeriodSelect;
 
-function renderStats(data) {
+export function renderStats(data) {
     if (!data) {
         statsContainer.innerHTML = '<p>Не удалось загрузить статистику.</p>';
         return;
@@ -38,13 +36,11 @@ export function initStats() {
     statsContainer.addEventListener('click', (e) => {
         const card = e.target.closest('.stat-card.clickable');
         if (card && card.dataset.target) {
-            // Небольшая задержка для срабатывания CSS :active (эффект нажатия)
             setTimeout(() => {
                 navigateToTab(card.dataset.target);
             }, 150);
         }
     });
     
-    // Первоначальная загрузка
     loadStats();
 }

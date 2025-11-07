@@ -30,6 +30,10 @@ export async function fetchData(endpoint, options = {}) {
     try {
         const response = await fetch(url, options);
         if (!response.ok) {
+            if (response.status === 403) {
+                // Если токен истек, перезагружаем страницу, чтобы показать ошибку
+                window.location.reload();
+            }
             throw new Error(`API Error: ${response.statusText}`);
         }
         const contentType = response.headers.get("content-type");

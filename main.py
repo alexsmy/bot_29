@@ -6,12 +6,12 @@ import json
 import glob
 from datetime import datetime, timedelta, date, timezone
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, Request, HTTPException, Depends, status
+from fastapi import FastAPI, Request, HTTPException, Depends, status, WebSocket
 from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel
+from pantic import BaseModel
 
 import database
 import utils
@@ -19,8 +19,9 @@ import ice_provider
 import notifier
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from websocket_manager import manager  # <-- ИЗМЕНЕНИЕ: Импортируем manager из нового файла
-from routes.websocket import router as websocket_router # <-- ДОБАВЛЕНИЕ: Импортируем роутер
+from websocket_manager import manager
+from routes.websocket import router as websocket_router
+from admin_ws_manager import admin_manager, broadcast_event
 
 LOGS_DIR = "connection_logs"
 
@@ -39,11 +40,26 @@ class CustomJSONResponse(Response):
 
 app = FastAPI()
 
-# Подключаем роутеры
-app.include_router(websocket_router) # <-- ДОБАВЛЕНИЕ: Подключаем WebSocket роутер
+app.include_router(websocket_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
+
+@app.on_event("startup")
+async def startup_event():
+    """Запускает фоновые задачи при старте приложения."""
+    # Задача для периодической отправки статистики в админ-панель
+    async def periodic_stats_update():
+        while True:
+            await asyncio.sleep(30)
+            try:
+                stats = await database.get_stats("all")
+                broadcast_event("STATS_UPDATE", stats)
+            except Exception as e:
+                logger.error(f"Ошибка в фоновой задаче обновления статистики: {e}")
+
+    asyncio.create_task(periodic_stats_update())
+
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
@@ -75,9 +91,6 @@ class NotificationSettings(BaseModel):
     notify_on_call_end: bool
     send_connection_report: bool
 
-# --- УДАЛЕНИЕ: Классы RoomManager и ConnectionManager перенесены в websocket_manager.py ---
-# --- УДАЛЕНИЕ: Экземпляр manager = ConnectionManager() перенесен в websocket_manager.py ---
-
 @app.post("/log")
 async def receive_log(log: ClientLog):
     logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
@@ -105,6 +118,9 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
             f.write(rendered_html)
 
         logger.info(f"Лог соединения сохранен в файл: {filepath}")
+        
+        # Уведомляем админ-панель о новом отчете
+        broadcast_event("NEW_REPORT", {"filename": filename})
         
         message_to_admin = (
             f"📄 <b>Сформирован отчет о соединении</b>\n\n"
@@ -155,14 +171,23 @@ async def close_room_endpoint(room_id: str):
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
 
-# --- УДАЛЕНИЕ: handle_websocket_logic и @app.websocket перенесены в routes/websocket.py ---
-
 async def verify_admin_token(request: Request, token: str):
     expires_at = await database.get_admin_token_expiry(token)
     if not expires_at:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid or expired token")
     request.state.token_expires_at = expires_at
     return token
+
+@app.websocket("/ws/admin/{token}")
+async def websocket_admin_endpoint(websocket: WebSocket, token: str = Depends(verify_admin_token)):
+    """WebSocket для админ-панели."""
+    await admin_manager.connect(websocket)
+    try:
+        while True:
+            # Просто держим соединение открытым, слушая
+            await websocket.receive_text()
+    except Exception:
+        admin_manager.disconnect(websocket)
 
 @app.get("/admin/{token}", response_class=HTMLResponse)
 async def get_admin_page(request: Request, token: str = Depends(verify_admin_token)):
@@ -284,6 +309,7 @@ async def delete_report(filename: str, token: str = Depends(verify_admin_token))
         raise HTTPException(status_code=404, detail="Report not found.")
     try:
         os.remove(filepath)
+        broadcast_event("REPORT_DELETED", {"filename": safe_filename})
         return CustomJSONResponse(content={"status": "deleted", "filename": safe_filename})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete report: {e}")
@@ -294,6 +320,7 @@ async def delete_all_reports(token: str = Depends(verify_admin_token)):
         files = glob.glob(os.path.join(LOGS_DIR, "*.html"))
         for f in files:
             os.remove(f)
+        broadcast_event("REPORTS_CLEARED", {})
         return CustomJSONResponse(content={"status": "all deleted", "count": len(files)})
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete all reports: {e}")
@@ -332,6 +359,7 @@ async def clear_app_logs(token: str = Depends(verify_admin_token)):
             with open(LOG_FILE_PATH, 'w') as f:
                 f.truncate(0)
             logger.info("Файл логов был очищен администратором.")
+            broadcast_event("LOGS_CLEARED", {})
             return CustomJSONResponse(content={"status": "log file cleared"})
         return CustomJSONResponse(content={"status": "log file not found"})
     except Exception as e:

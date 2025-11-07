@@ -1,3 +1,5 @@
+# room_service.py
+
 import os
 import uuid
 import asyncio
@@ -9,6 +11,8 @@ import database
 import notifier
 from main import manager
 from bot_utils import format_hours
+from config import PRIVATE_ROOM_LIFETIME_HOURS
+from admin_ws_manager import broadcast_event
 
 async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int, lifetime_hours: int):
     """
@@ -40,6 +44,20 @@ async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id:
         context.application.create_task(
             notifier.send_admin_notification(message_to_admin, 'notify_on_room_creation')
         )
+
+    # Уведомляем админ-панель о новой комнате
+    remaining_seconds = (expires_at - created_at).total_seconds()
+    room_data_for_admin = {
+        "room_id": room_id,
+        "lifetime_hours": lifetime_hours,
+        "remaining_seconds": remaining_seconds,
+        "is_admin_room": is_admin_room,
+        "user_count": 0,
+        "call_status": "pending",
+        "call_type": None,
+        "generated_by_user_id": user_id
+    }
+    broadcast_event("ROOM_ADDED", room_data_for_admin)
 
     # Формируем и отправляем сообщение пользователю
     link_text = "🔗 <b>Ссылка для соединения</b> 📞"

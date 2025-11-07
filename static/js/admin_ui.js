@@ -1,7 +1,5 @@
 // static/js/admin_ui.js
 
-// Этот модуль отвечает за общий интерфейс: навигация, тема, мобильное меню, таймер токена.
-
 import { formatRemainingTime } from './admin_utils.js';
 
 function populateIcons() {
@@ -33,10 +31,6 @@ function setupThemeToggle() {
     });
 }
 
-/**
- * Программно переключает активную вкладку в админ-панели.
- * @param {string} targetId - ID секции, которую нужно сделать активной (например, 'users').
- */
 export function navigateToTab(targetId) {
     const navLinks = document.querySelectorAll('.nav-link');
     const contentSections = document.querySelectorAll('.content-section');
@@ -98,18 +92,24 @@ function setupMobileMenu() {
 
 function setupTokenTimer(tokenExpiresAtIso) {
     const tokenTimerEl = document.getElementById('token-timer');
-    let tokenLifetime = Math.floor((new Date(tokenExpiresAtIso) - new Date()) / 1000);
-    
+    const expiryDate = new Date(tokenExpiresAtIso);
+
     const updateTokenTimer = () => {
-        tokenLifetime--;
-        if (tokenLifetime <= 0) {
+        const remainingSeconds = Math.floor((expiryDate - new Date()) / 1000);
+        
+        if (remainingSeconds <= 0) {
             tokenTimerEl.textContent = 'Истёк!';
+            tokenTimerEl.style.color = 'var(--danger-action)';
             clearInterval(tokenInterval);
+            // Можно добавить автоматическую перезагрузку страницы
+            // setTimeout(() => window.location.reload(), 2000);
             return;
         }
-        tokenTimerEl.textContent = formatRemainingTime(tokenLifetime).substring(3);
+        // Отображаем только минуты и секунды
+        tokenTimerEl.textContent = formatRemainingTime(remainingSeconds).substring(3);
     };
     
+    updateTokenTimer(); // Первый вызов, чтобы не ждать секунду
     const tokenInterval = setInterval(updateTokenTimer, 1000);
 }
 
