@@ -222,8 +222,7 @@ async def get_active_rooms(token: str = Depends(verify_admin_token)):
             "is_admin_room": is_admin_room,
             "user_count": user_count,
             "call_status": session.get('status'),
-            "call_type": session.get('call_type'),
-            "generated_by_user_id": session.get('generated_by_user_id')
+            "call_type": session.get('call_type')
         })
         
     return CustomJSONResponse(content=active_rooms_info)
