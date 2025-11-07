@@ -1,4 +1,5 @@
-# database.py версия из ai микс 2_44 и 46_7_5
+
+# database.py 48_Исправление ошибки иконки звонка в БД и на админ странице
 
 import os
 import asyncpg
@@ -204,6 +205,11 @@ async def log_call_end(room_id):
             await conn.execute(
                 "UPDATE call_history SET call_ended_at = $1, duration_seconds = $2 WHERE call_id = $3",
                 end_time, duration, call_row['call_id']
+            )
+            # --- ИСПРАВЛЕНИЕ: Возвращаем статус сессии в 'pending' после завершения звонка ---
+            await conn.execute(
+                "UPDATE call_sessions SET status = 'pending' WHERE session_id = $1",
+                session_id
             )
 
 async def update_call_connection_type(room_id: str, connection_type: str):
