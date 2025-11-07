@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, Response, FileResponse, PlainTextRes
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from pantic import BaseModel
+from pydantic import BaseModel
 
 import database
 import utils
