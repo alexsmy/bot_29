@@ -24,6 +24,12 @@
     --skeleton-bg: #e9ecef;
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+    --icon-color-person: #495057;
+    --icon-color-time: #6c757d;
+    --icon-color-ip: #007bff;
+    --icon-color-device: #6f42c1;
+    --icon-color-location: #fd7e14;
 }
 
 html.dark {
@@ -39,6 +45,12 @@ html.dark {
     --danger-text: #f5c6cb;
 
     --skeleton-bg: #343a40;
+
+    --icon-color-person: #ced4da;
+    --icon-color-time: #adb5bd;
+    --icon-color-ip: #58abff;
+    --icon-color-device: #be95ff;
+    --icon-color-location: #ff9a40;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -430,7 +442,7 @@ html.dark .call-count-badge {
     background-color: var(--base-bg);
     max-height: 0;
     overflow: hidden;
-    transition: max-height 0.4s ease-in-out, padding 0.4s ease-in-out;
+    transition: max-height 0.4s ease-in-out;
 }
 .connection-item.open .connection-details {
     padding-top: 1rem;
@@ -499,7 +511,6 @@ html.dark .call-count-badge {
 .participant-column h6 .icon {
     width: 18px;
     height: 18px;
-    color: var(--text-secondary);
 }
 .participant-details {
     font-size: 0.9em;
@@ -518,8 +529,14 @@ html.dark .call-count-badge {
     width: 14px;
     height: 14px;
     flex-shrink: 0;
-    opacity: 0.8;
 }
+
+.icon-person { color: var(--icon-color-person); }
+.icon-time { color: var(--icon-color-time); }
+.icon-ip { color: var(--icon-color-ip); }
+.icon-device { color: var(--icon-color-device); }
+.icon-location { color: var(--icon-color-location); }
+
 .connection-type-badge {
     padding: 0.2rem 0.5rem;
     border-radius: 4px;

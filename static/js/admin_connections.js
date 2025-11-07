@@ -10,15 +10,15 @@ function renderParticipantDetails(ip, connections) {
     if (!conn) {
         return `
         <div class="participant-details">
-            <span><span class="icon">${ICONS.ip}</span> ${ip}</span>
+            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
         </div>`;
     }
 
     return `
         <div class="participant-details">
-            <span><span class="icon">${ICONS.ip}</span> ${ip}</span>
-            <span><span class="icon">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
-            <span><span class="icon">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
+            <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
+            <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
+            <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
         </div>
     `;
 }
@@ -38,19 +38,19 @@ function renderCallHistory(calls, connections) {
                 <div class="call-header-main">
                     <h5>#${index + 1}</h5>
                     <div class="call-meta">
-                        <span><span class="icon">${ICONS.clock}</span> ${formatDate(call.call_started_at)}</span>
-                        <span><span class="icon">${ICONS.hourglass}</span> ${duration}</span>
+                        <span><span class="icon icon-time">${ICONS.clock}</span> ${formatDate(call.call_started_at)}</span>
+                        <span><span class="icon icon-time">${ICONS.hourglass}</span> ${duration}</span>
                     </div>
                 </div>
                 <span class="connection-type-badge ${connectionType.toLowerCase()}">${connectionType}</span>
             </div>
             <div class="participants-grid">
                 <div class="participant-column">
-                    <h6><span class="icon">${ICONS.person}</span> 1</h6>
+                    <h6><span class="icon icon-person">${ICONS.person}</span> 1</h6>
                     ${renderParticipantDetails(call.participant1_ip, connections)}
                 </div>
                 <div class="participant-column">
-                    <h6><span class="icon">${ICONS.person}</span> 2</h6>
+                    <h6><span class="icon icon-person">${ICONS.person}</span> 2</h6>
                     ${renderParticipantDetails(call.participant2_ip, connections)}
                 </div>
             </div>
@@ -105,15 +105,16 @@ export function initConnections() {
         const summary = e.target.closest('.connection-summary');
         if (!summary) return;
         
-        const details = summary.nextElementSibling;
         const item = summary.parentElement;
+        const details = summary.nextElementSibling;
+        const isOpen = item.classList.contains('open');
 
-        if (details.style.maxHeight) {
+        if (isOpen) {
             details.style.maxHeight = null;
             item.classList.remove('open');
         } else {
-            details.style.maxHeight = details.scrollHeight + "px";
             item.classList.add('open');
+            details.style.maxHeight = details.scrollHeight + "px";
         }
     });
 }
