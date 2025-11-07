@@ -1,4 +1,4 @@
-# websocket_manager.py 49_инициатор и IP устройств
+# websocket_manager.py
 
 import asyncio
 import uuid
@@ -22,7 +22,7 @@ class RoomManager:
         self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
 
-    async def connect(self, websocket: WebSocket, user_data: dict, ip_address: str, user_agent: str):
+    async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:
             await websocket.close(code=1008, reason="Room is full")
             return None
@@ -32,13 +32,7 @@ class RoomManager:
         await websocket.send_json({"type": "identity", "data": {"id": server_user_id}})
 
         self.active_connections[server_user_id] = websocket
-        self.users[server_user_id] = {
-            **user_data,
-            "id": server_user_id,
-            "status": "available",
-            "ip_address": ip_address,
-            "user_agent": user_agent
-        }
+        self.users[server_user_id] = {**user_data, "id": server_user_id, "status": "available"}
 
         await self.broadcast_user_list()
         return server_user_id

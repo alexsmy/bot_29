@@ -1,5 +1,3 @@
-/* static/css/admin.css 49_инициатор и IP устройств */
-
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -471,16 +469,15 @@ details summary span {
     word-break: break-all;
     font-size: 1em;
 }
-.call-count-badge, .call-type-badge {
+.call-count-badge {
     background-color: var(--border-color);
     color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 600;
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
-    text-transform: capitalize;
 }
-html.dark .call-count-badge, html.dark .call-type-badge {
+html.dark .call-count-badge {
     background-color: #495057;
 }
 .creator-id {
@@ -591,10 +588,6 @@ html.dark .call-count-badge, html.dark .call-type-badge {
 .icon-device { color: var(--icon-color-device); }
 .icon-location { color: var(--icon-color-location); }
 
-.participant-column h6.initiator .icon-person {
-    color: var(--pending-color);
-}
-
 .connection-type-badge {
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
@@ -616,7 +609,6 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     margin-left: auto;
 }
 .status.active { background-color: var(--success-color); color: white; }
-.status.pending { background-color: var(--pending-color); color: white; }
 .status.closed { background-color: var(--text-secondary); color: var(--accent-text); }
 .status.expired { background-color: var(--pending-color); color: var(--accent-text); }
 
