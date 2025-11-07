@@ -11,8 +11,9 @@ import utils
 import notifier
 from logger_config import logger
 from websocket_manager import manager, RoomManager
-from admin_ws_manager import broadcast_event
 
+# APIRouter работает как "мини-приложение" FastAPI.
+# Мы определяем маршруты здесь, а затем подключаем роутер к основному приложению в main.py.
 router = APIRouter()
 
 async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_id: Any):
@@ -38,14 +39,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
                     asyncio.create_task(database.log_call_start(room.room_id, room.pending_call_type))
-                    
-                    # Уведомляем админ-панель о начале звонка
-                    broadcast_event("ROOM_UPDATE", {
-                        "room_id": room.room_id,
-                        "call_status": "active",
-                        "call_type": room.pending_call_type
-                    })
-
                     message_to_admin = (
                         f"📞 <b>Звонок начался</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -69,14 +62,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 
                 if message_type == "hangup":
                     asyncio.create_task(database.log_call_end(room.room_id))
-                    
-                    # Уведомляем админ-панель о завершении звонка
-                    broadcast_event("ROOM_UPDATE", {
-                        "room_id": room.room_id,
-                        "call_status": "pending", # Статус сессии возвращается в ожидание
-                        "call_type": None
-                    })
-
                     message_to_admin = (
                         f"🔚 <b>Звонок завершен</b>\n\n"
                         f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
@@ -102,12 +87,6 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
-            # Уведомляем админ-панель о завершении звонка из-за дисконнекта
-            broadcast_event("ROOM_UPDATE", {
-                "room_id": room.room_id,
-                "call_status": "pending",
-                "call_type": None
-            })
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:

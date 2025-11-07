@@ -10,7 +10,6 @@ import database
 import notifier
 from logger_config import logger
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from admin_ws_manager import broadcast_event
 
 class RoomManager:
     def __init__(self, room_id: str, lifetime_hours: int):
@@ -35,9 +34,6 @@ class RoomManager:
         self.active_connections[server_user_id] = websocket
         self.users[server_user_id] = {**user_data, "id": server_user_id, "status": "available"}
 
-        # Уведомляем админ-панель об изменении количества участников
-        broadcast_event("ROOM_UPDATE", {"room_id": self.room_id, "user_count": len(self.users)})
-
         await self.broadcast_user_list()
         return server_user_id
 
@@ -47,10 +43,6 @@ class RoomManager:
         
         if user_id in self.users:
             del self.users[user_id]
-            
-            # Уведомляем админ-панель об изменении количества участников
-            broadcast_event("ROOM_UPDATE", {"room_id": self.room_id, "user_count": len(self.users)})
-            
             await self.broadcast_user_list()
 
     async def broadcast_user_list(self):
@@ -156,9 +148,6 @@ class ConnectionManager:
 
     async def close_room(self, room_id: str, reason: str):
         asyncio.create_task(database.log_room_closure(room_id, reason))
-        
-        # Уведомляем админ-панель об удалении комнаты
-        broadcast_event("ROOM_REMOVED", {"room_id": room_id})
 
         if room_id in self.rooms:
             room = self.rooms[room_id]
@@ -186,4 +175,5 @@ class ConnectionManager:
         
         logger.info(f"Комната {room_id} была закрыта по причине: {reason}")
 
+# Создаем единственный экземпляр менеджера, который будет импортироваться в другие модули
 manager = ConnectionManager()

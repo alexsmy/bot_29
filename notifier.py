@@ -1,11 +1,8 @@
-# notifier.py
-
 import os
 import asyncio
 import database
 from telegram import InputFile
 from logger_config import logger
-from admin_ws_manager import broadcast_event
 
 _bot_app = None
 _admin_id = os.environ.get("ADMIN_USER_ID")

@@ -1,13 +1,13 @@
 import os
 import sys
 import asyncio
+import uvicorn
 from telegram import BotCommand
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
 import notifier
-# Убираем импорт FastAPI, так как этот процесс больше не управляет веб-сервером
-# from main import app as fastapi_app 
+from main import app as fastapi_app
 from logger_config import logger
 
 # Импортируем обработчики из новых модулей
@@ -29,7 +29,7 @@ async def post_init(application: Application) -> None:
 
 async def main() -> None:
     """
-    Главная функция, которая настраивает и запускает ТОЛЬКО БОТА.
+    Главная функция, которая настраивает и запускает приложение.
     """
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
@@ -67,26 +67,28 @@ async def main() -> None:
 
     bot_app_instance = application
 
-    # Убираем всю логику Uvicorn и FastAPI отсюда
-    # Теперь просто запускаем бота в бесконечном цикле
-    try:
-        logger.info("Telegram бот (worker) запускается...")
-        await application.initialize()
-        await application.start()
-        await application.updater.start_polling()
-        # Бесконечный цикл, чтобы процесс не завершился
-        while True:
-            await asyncio.sleep(3600)
-    finally:
-        logger.info("Останавливаем Telegram бота...")
-        await application.updater.stop()
-        await application.stop()
-        await application.shutdown()
-        await database.close_pool()
+    # Настройка и запуск веб-сервера Uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    config = uvicorn.Config(fastapi_app, host="0.0.0.0", port=port, log_config=None)
+    server = uvicorn.Server(config)
 
+    # Асинхронный запуск бота и сервера
+    async with application:
+        await application.start()
+        logger.info("Telegram бот запускается...")
+        
+        server_task = asyncio.create_task(server.serve())
+        bot_task = asyncio.create_task(application.updater.start_polling())
+        
+        await asyncio.gather(server_task, bot_task)
+        
+        await application.stop()
+    
+    # Корректное закрытие пула соединений с БД
+    await database.close_pool()
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Процесс бота останавливается.")
+        logger.info("Приложение останавливается.")
