@@ -1,5 +1,5 @@
 
-// static/js/main.js 51_1
+// static/js/main.js 51_2
 
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
@@ -151,13 +151,12 @@ function initializePrivateCallMode() {
         updateConnectionQualityIcon: uiManager.updateConnectionQualityIcon,
         showConnectionToast: uiManager.showConnectionToast,
         getIceServerDetails: () => iceServerDetails,
-        getRtcConfig: () => rtcConfig, // <-- ИСПРАВЛЕНА ОПЕЧАТКА (было getRConfig)
+        getRtcConfig: () => rtcConfig,
         onConnectionEstablished: (type) => {
             sendMessage({ type: 'connection_established', data: { type: type } });
         }
     });
 
-    // --- ИСПРАВЛЕНИЕ: Обновляем колбэки для использования uiManager ---
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
@@ -166,6 +165,10 @@ function initializePrivateCallMode() {
             uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
             callTimerInterval = uiManager.startCallTimer(currentCallType);
             connectAudio.play();
+            
+            // <-- ИСПРАВЛЕНИЕ: Возвращаем запуск мониторинга соединения
+            connectionQuality.classList.add('active');
+            monitor.startConnectionMonitoring();
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
