@@ -1,28 +1,26 @@
 
-// static/js/main.js 51_3
+// static/js/main.js 51_4
 
 import {
-    previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
-    micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
+    continueToCallBtn, cameraSelect, micSelect, speakerSelect,
     popupActions, closeSessionBtn, instructionsBtn, instructionsModal,
     closeInstructionsBtns, acceptBtn, declineBtn, hangupBtn,
-    speakerBtn, muteBtn, videoBtn, screenShareBtn, localVideo,
-    toggleLocalViewBtn, toggleRemoteViewBtn, connectAudio,
-    connectionStatus, connectionQuality,
-    deviceSettingsBtn, deviceSettingsModal, closeSettingsBtns
+    speakerBtn, muteBtn, videoBtn, screenShareBtn,
+    localVideo, toggleLocalViewBtn, toggleRemoteViewBtn, connectionStatus,
+    deviceSettingsBtn, deviceSettingsModal, closeSettingsBtns, cameraSelectCall, micSelectCall,
+    speakerSelectCall
 } from './call_ui_elements.js';
 
-import { initializeWebSocket } from './call_websocket.js';
 import * as webrtc from './call_webrtc.js';
 import * as media from './call_media.js';
 import * as monitor from './call_connection_monitor.js';
 import * as uiManager from './call_ui_manager.js';
 import * as state from './call_state.js';
-import * as handlers from './call_handlers.js'; // <-- НОВЫЙ ИМПОРТ
+import * as handlers from './call_handlers.js';
 
 const tg = window.Telegram.WebApp;
 
-// --- ФАЙЛ ОЧИЩЕН ОТ ЛОГИКИ ОБРАБОТЧИКОВ ---
+// --- Утилиты и инициализация ---
 
 function sendLogToServer(message) {
     const currentUser = state.getCurrentUser();
@@ -124,6 +122,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 function initializePrivateCallMode() {
     logToScreen(`Initializing in Private Call mode for room: ${state.getRoomId()}`);
     
+    // Инициализация всех модулей, передача зависимостей
+    handlers.init(logToScreen);
     media.init(logToScreen);
 
     monitor.init({
@@ -135,10 +135,7 @@ function initializePrivateCallMode() {
         getIceServerDetails: state.getIceServerDetails,
         getRtcConfig: state.getRtcConfig,
         onConnectionEstablished: (type) => {
-            // sendMessage находится в websocket.js, его можно импортировать напрямую
-            import('./call_websocket.js').then(({ sendMessage }) => {
-                sendMessage({ type: 'connection_established', data: { type: type } });
-            });
+            sendMessage({ type: 'connection_established', data: { type: type } });
         }
     });
 
@@ -148,7 +145,7 @@ function initializePrivateCallMode() {
             const { currentCallType, targetUser } = state.getState();
             uiManager.showScreen('call');
             const mediaStatus = media.getMediaAccessStatus();
-            uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
+            uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, handlers.isMobileDevice());
             const timerId = uiManager.startCallTimer(currentCallType);
             state.setCallTimerInterval(timerId);
             connectAudio.play();
@@ -167,121 +164,15 @@ function initializePrivateCallMode() {
     webrtc.init(webrtcCallbacks);
 
     setupEventListeners();
-    runPreCallCheck();
-}
-
-async function runPreCallCheck() {
-    uiManager.showScreen('pre-call-check');
-
-    const iosNote = document.getElementById('ios-audio-permission-note');
-    if (isMobileDevice() && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
-        iosNote.style.display = 'block';
-    }
-    
-    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
-
-    if (!hasCameraAccess || !hasMicrophoneAccess) {
-        uiManager.displayMediaErrors({ name: 'NotFoundError' });
-    }
-
-    uiManager.updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
-
-    if (hasCameraAccess || hasMicrophoneAccess) {
-        const selectedIds = await media.populateDeviceSelectors(
-            cameraSelect, micSelect, speakerSelect,
-            cameraSelectContainer, micSelectContainer, speakerSelectContainer
-        );
-        state.setSelectedVideoId(selectedIds.videoId);
-        state.setSelectedAudioInId(selectedIds.audioInId);
-        state.setSelectedAudioOutId(selectedIds.audioOutId);
-        continueToCallBtn.disabled = false;
-    } else {
-        logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
-    }
-}
-
-async function updatePreviewStream() {
-    state.setSelectedVideoId(cameraSelect.value);
-    state.setSelectedAudioInId(micSelect.value);
-    state.setSelectedAudioOutId(speakerSelect.value);
-    
-    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
-    const { selectedAudioInId, selectedVideoId } = state.getState();
-
-    const constraints = {
-        audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
-        video: hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
-    };
-
-    await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
-}
-
-function proceedToCall(asSpectator = false) {
-    state.setIsSpectator(asSpectator);
-    logToScreen(`Proceeding to call screen. Spectator mode: ${asSpectator}`);
-    media.stopPreviewStream();
-
-    uiManager.showScreen('pre-call');
-    uiManager.showPopup('waiting');
-    
-    const wsHandlers = {
-        onIdentity: (data) => {
-            const user = { id: data.id };
-            state.setCurrentUser(user);
-            logToScreen(`[WS] Identity assigned by server: ${user.id}`);
-        },
-        onUserList: (users) => {
-            const otherUsers = users.filter(u => u.id !== state.getCurrentUser().id);
-            if (otherUsers.length === 0) {
-                state.setTargetUser({});
-                uiManager.showPopup('waiting');
-            } else {
-                const target = otherUsers[0];
-                state.setTargetUser(target);
-                if (target.status === 'busy') {
-                    uiManager.showPopup('initiating');
-                } else {
-                    uiManager.showPopup('actions');
-                }
-            }
-        },
-        onIncomingCall: handlers.handleIncomingCall,
-        onCallAccepted: () => {
-            document.getElementById('ringOutAudio').pause(); 
-            document.getElementById('ringOutAudio').currentTime = 0;
-            const localStream = media.getLocalStream();
-            webrtc.startPeerConnection(state.getTargetUser().id, true, state.getState().currentCallType, localStream, state.getRtcConfig(), monitor.connectionLogger);
-        },
-        onOffer: (data) => {
-            const localStream = media.getLocalStream();
-            webrtc.handleOffer(data, localStream, state.getRtcConfig(), monitor.connectionLogger);
-        },
-        onAnswer: webrtc.handleAnswer,
-        onCandidate: webrtc.handleCandidate,
-        onCallEnded: () => handlers.endCall(false, 'ended_by_peer'),
-        onCallMissed: () => {
-            alert("Абонент не отвечает.");
-            handlers.endCall(false, 'no_answer');
-        },
-        onRoomClosed: () => {
-            alert("Комната для звонков была закрыта.");
-            handlers.redirectToInvalidLink();
-        },
-        onFatalError: handlers.redirectToInvalidLink
-    };
-    initializeWebSocket(state.getRoomId(), wsHandlers, logToScreen);
-
-    handlers.updateRoomLifetime();
-    const timerId = setInterval(handlers.updateRoomLifetime, 60000);
-    state.setLifetimeTimerInterval(timerId);
+    handlers.runPreCallCheck(); // Запускаем первый шаг логики
 }
 
 function setupEventListeners() {
-    continueToCallBtn.addEventListener('click', () => proceedToCall(false));
-    document.getElementById('continue-spectator-btn').addEventListener('click', () => proceedToCall(true));
-    cameraSelect.addEventListener('change', updatePreviewStream);
-    micSelect.addEventListener('change', updatePreviewStream);
-    speakerSelect.addEventListener('change', updatePreviewStream);
+    continueToCallBtn.addEventListener('click', () => handlers.proceedToCall(false));
+    document.getElementById('continue-spectator-btn').addEventListener('click', () => handlers.proceedToCall(true));
+    cameraSelect.addEventListener('change', handlers.updatePreviewStream);
+    micSelect.addEventListener('change', handlers.updatePreviewStream);
+    speakerSelect.addEventListener('change', handlers.updatePreviewStream);
 
     speakerBtn.addEventListener('click', handlers.toggleSpeaker);
     muteBtn.addEventListener('click', handlers.toggleMute);
@@ -302,11 +193,9 @@ function setupEventListeners() {
 
     deviceSettingsBtn.addEventListener('click', handlers.openDeviceSettings);
     closeSettingsBtns.forEach(btn => btn.addEventListener('click', () => deviceSettingsModal.classList.remove('active')));
-    
-    // Динамические селекторы в модальном окне
-    document.getElementById('camera-select-call').addEventListener('change', (e) => handlers.switchInputDevice('video', e.target.value));
-    document.getElementById('mic-select-call').addEventListener('change', (e) => handlers.switchInputDevice('audio', e.target.value));
-    document.getElementById('speaker-select-call').addEventListener('change', (e) => handlers.switchAudioOutput(e.target.value));
+    cameraSelectCall.addEventListener('change', (e) => handlers.switchInputDevice('video', e.target.value));
+    micSelectCall.addEventListener('change', (e) => handlers.switchInputDevice('audio', e.target.value));
+    speakerSelectCall.addEventListener('change', (e) => handlers.switchAudioOutput(e.target.value));
 
     popupActions.addEventListener('click', (e) => {
         const button = e.target.closest('.action-call-btn');
@@ -393,8 +282,4 @@ function setupLocalVideoInteraction() {
 
     localVideoContainer.addEventListener('mousedown', onDragStart);
     localVideoContainer.addEventListener('touchstart', onDragStart, { passive: true });
-}
-
-function isMobileDevice() {
-    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 }

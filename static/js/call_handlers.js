@@ -1,43 +1,133 @@
 
-// static/js/call_handlers.js 51_3
+// static/js/call_handlers.js 51_4
 
-import { sendMessage, setGracefulDisconnect } from './call_websocket.js';
-import * as webrtc from './call_webrtc.js';
-import * as media from './call_media.js';
-import * as monitor from './call_connection_monitor.js';
-import * as uiManager from './call_ui_manager.js';
 import * as state from './call_state.js';
-
+import * as uiManager from './call_ui_manager.js';
+import * as media from './call_media.js';
+import * as webrtc from './call_webrtc.js';
+import * as monitor from './call_connection_monitor.js';
+import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
 import {
-    ringOutAudio, ringInAudio, remoteVideo, localVideo, localAudio,
-    localVideoContainer, remoteAudioLevel, muteBtn, videoBtn, speakerBtn,
-    deviceSettingsModal, cameraSelectCall, micSelectCall, speakerSelectCall,
+    previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
+    micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
+    callerName, incomingCallType, ringOutAudio,
+    connectAudio, ringInAudio, localAudio, remoteAudio, localVideo,
+    remoteVideo, localVideoContainer, lifetimeTimer,
+    cameraSelectCall, micSelectCall, speakerSelectCall,
     cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall,
-    lifetimeTimer
+    muteBtn, videoBtn, speakerBtn, deviceSettingsModal
 } from './call_ui_elements.js';
+
+// --- Вспомогательные функции ---
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function isMobileDevice() {
-    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-}
-
 function logToScreen(message) {
-    // Эта утилитарная функция останется в main.js, но обработчики могут ее вызывать
-    // Мы передадим ее при инициализации.
-    // Пока что оставим заглушку.
-    console.log(message);
+    // Эта функция будет передана из main.js при инициализации
 }
 
-// --- Логика потока вызовов ---
+// --- Обработчики этапов звонка ---
+
+export async function runPreCallCheck() {
+    uiManager.showScreen('pre-call-check');
+
+    const iosNote = document.getElementById('ios-audio-permission-note');
+    if (isIOS()) {
+        iosNote.style.display = 'block';
+    }
+    
+    const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
+
+    if (!hasCameraAccess || !hasMicrophoneAccess) {
+        uiManager.displayMediaErrors({ name: 'NotFoundError' });
+    }
+
+    uiManager.updateStatusIndicators(hasCameraAccess, hasMicrophoneAccess);
+
+    if (hasCameraAccess || hasMicrophoneAccess) {
+        const selectedIds = await media.populateDeviceSelectors(
+            cameraSelect, micSelect, speakerSelect,
+            cameraSelectContainer, micSelectContainer, speakerSelectContainer
+        );
+        state.setSelectedVideoId(selectedIds.videoId);
+        state.setSelectedAudioInId(selectedIds.audioInId);
+        state.setSelectedAudioOutId(selectedIds.audioOutId);
+        continueToCallBtn.disabled = false;
+    } else {
+        logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
+    }
+}
+
+export function proceedToCall(asSpectator = false) {
+    state.setIsSpectator(asSpectator);
+    logToScreen(`Proceeding to call screen. Spectator mode: ${asSpectator}`);
+    media.stopPreviewStream();
+
+    uiManager.showScreen('pre-call');
+    uiManager.showPopup('waiting');
+    
+    const wsHandlers = {
+        onIdentity: (data) => {
+            const user = { id: data.id };
+            state.setCurrentUser(user);
+            logToScreen(`[WS] Identity assigned by server: ${user.id}`);
+        },
+        onUserList: handleUserList,
+        onIncomingCall: handleIncomingCall,
+        onCallAccepted: () => {
+            ringOutAudio.pause(); 
+            ringOutAudio.currentTime = 0;
+            const localStream = media.getLocalStream();
+            webrtc.startPeerConnection(state.getTargetUser().id, true, state.getState().currentCallType, localStream, state.getRtcConfig(), monitor.connectionLogger);
+        },
+        onOffer: (data) => {
+            const localStream = media.getLocalStream();
+            webrtc.handleOffer(data, localStream, state.getRtcConfig(), monitor.connectionLogger);
+        },
+        onAnswer: webrtc.handleAnswer,
+        onCandidate: webrtc.handleCandidate,
+        onCallEnded: () => endCall(false, 'ended_by_peer'),
+        onCallMissed: () => {
+            alert("Абонент не отвечает.");
+            endCall(false, 'no_answer');
+        },
+        onRoomClosed: () => {
+            alert("Комната для звонков была закрыта.");
+            redirectToInvalidLink();
+        },
+        onFatalError: redirectToInvalidLink
+    };
+    initializeWebSocket(state.getRoomId(), wsHandlers, logToScreen);
+
+    updateRoomLifetime();
+    const timerId = setInterval(updateRoomLifetime, 60000);
+    state.setLifetimeTimerInterval(timerId);
+}
+
+function handleUserList(users) {
+    const otherUsers = users.filter(u => u.id !== state.getCurrentUser().id);
+
+    if (otherUsers.length === 0) {
+        state.setTargetUser({});
+        uiManager.showPopup('waiting');
+    } else {
+        const target = otherUsers[0];
+        state.setTargetUser(target);
+        if (target.status === 'busy') {
+            uiManager.showPopup('initiating');
+        } else {
+            uiManager.showPopup('actions');
+        }
+    }
+}
 
 export async function initiateCall(userToCall, callType) {
     logToScreen(`[CALL] Initiating call to user ${userToCall.id}, type: ${callType}`);
     state.setIsCallInitiator(true);
     state.setCurrentCallType(callType);
-
+    
     if (callType === 'video') {
         remoteVideo.play().catch(() => {});
     }
@@ -56,18 +146,18 @@ export async function initiateCall(userToCall, callType) {
     uiManager.showScreen('call');
     const mediaStatus = media.getMediaAccessStatus();
     uiManager.updateCallUI(callType, userToCall, mediaStatus, isMobileDevice());
-    document.getElementById('call-timer').textContent = "Вызов...";
+    callTimer.textContent = "Вызов...";
     ringOutAudio.play();
 }
 
-export function handleIncomingCall(data) {
+function handleIncomingCall(data) {
     logToScreen(`[CALL] Incoming call from ${data.from_user?.id}, type: ${data.call_type}`);
     state.setIsCallInitiator(false);
     state.setTargetUser(data.from_user);
     state.setCurrentCallType(data.call_type);
 
-    document.getElementById('caller-name').textContent = `${data.from_user?.first_name || 'Собеседник'}`;
-    document.getElementById('incoming-call-type').textContent = data.call_type === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
+    callerName.textContent = `${data.from_user?.first_name || 'Собеседник'}`;
+    incomingCallType.textContent = data.call_type === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
     uiManager.showModal('incoming-call', true);
     ringInAudio.play();
 }
@@ -87,9 +177,9 @@ export async function acceptCall() {
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
 
     logToScreen("[CALL] Starting WebRTC connection.");
-
+    
     monitor.connectionLogger.reset(state.getRoomId(), state.getCurrentUser().id, false);
-
+    
     const localStream = media.getLocalStream();
     await webrtc.startPeerConnection(targetUser.id, false, currentCallType, localStream, state.getRtcConfig(), monitor.connectionLogger);
     sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
@@ -119,7 +209,7 @@ export async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
-    document.getElementById('connection-quality').classList.remove('active');
+    connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
 
     webrtc.endPeerConnection();
@@ -133,7 +223,7 @@ export async function endCall(isInitiator, reason) {
     localVideo.srcObject = null;
     localVideoContainer.style.display = 'none';
     remoteVideo.style.display = 'none';
-
+    
     uiManager.stopCallTimer(callTimerInterval);
     uiManager.showModal('incoming-call', false);
     uiManager.showScreen('pre-call');
@@ -142,48 +232,22 @@ export async function endCall(isInitiator, reason) {
     uiManager.resetCallControls();
 }
 
-// --- Управление устройствами и медиа ---
+// --- Обработчики UI контролов ---
 
-export async function initializeLocalMedia(callType) {
-    const { isSpectator, selectedAudioInId, selectedVideoId } = state.getState();
-    if (isSpectator) {
-        logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
-        return false;
-    }
-    logToScreen(`[MEDIA] Requesting media for call type: ${callType}`);
-
+export async function updatePreviewStream() {
+    state.setSelectedVideoId(cameraSelect.value);
+    state.setSelectedAudioInId(micSelect.value);
+    state.setSelectedAudioOutId(speakerSelect.value);
+    
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
-    let isVideoCall = callType === 'video';
-
-    const isIOSAudioCall = isIOS() && callType === 'audio';
-    if (isIOSAudioCall) {
-        logToScreen("[MEDIA_IOS] Audio call on iOS detected. Requesting video to force speakerphone.");
-        isVideoCall = true;
-    }
+    const { selectedAudioInId, selectedVideoId } = state.getState();
 
     const constraints = {
         audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
-        video: isVideoCall && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
+        video: hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
     };
 
-    const result = await media.getStreamForCall(constraints, localVideo, localAudio);
-
-    if (result.stream) {
-        if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
-            logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
-            result.stream.getVideoTracks()[0].enabled = false;
-            localVideoContainer.style.display = 'none';
-            state.setIsVideoEnabled(false);
-        } else if (result.isVideo) {
-            localVideoContainer.style.display = 'flex';
-            state.setIsVideoEnabled(true);
-        } else {
-            localVideoContainer.style.display = 'none';
-            state.setIsVideoEnabled(false);
-        }
-        return true;
-    }
-    return false;
+    await media.updatePreviewStream(constraints, previewVideo, micLevelBars);
 }
 
 export function toggleMute() {
@@ -227,7 +291,7 @@ async function populateDeviceSelectorsInCall() {
     const populate = (select, devicesList, container, currentId) => {
         container.style.display = devicesList.length > 0 ? 'flex' : 'none';
         if (devicesList.length === 0) return;
-
+        
         select.innerHTML = '';
         devicesList.forEach(device => {
             const option = document.createElement('option');
@@ -243,7 +307,7 @@ async function populateDeviceSelectorsInCall() {
     const localStream = media.getLocalStream();
     const currentAudioTrack = localStream?.getAudioTracks()[0];
     const currentVideoTrack = localStream?.getVideoTracks()[0];
-
+    
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
     populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, state.getSelectedAudioOutId());
@@ -270,7 +334,7 @@ export async function switchAudioOutput(deviceId) {
     }
     try {
         await remoteVideo.setSinkId(deviceId);
-        await document.getElementById('remoteAudio').setSinkId(deviceId);
+        await remoteAudio.setSinkId(deviceId);
         state.setSelectedAudioOutId(deviceId);
         logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
@@ -279,9 +343,51 @@ export async function switchAudioOutput(deviceId) {
     }
 }
 
-// --- Утилиты и прочее ---
+// --- Вспомогательные обработчики ---
 
-export function stopIncomingRing() {
+async function initializeLocalMedia(callType) {
+    const { isSpectator, selectedAudioInId, selectedVideoId } = state.getState();
+    if (isSpectator) {
+        logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
+        return false;
+    }
+    logToScreen(`[MEDIA] Requesting media for call type: ${callType}`);
+    
+    const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
+    let isVideoCall = callType === 'video';
+    
+    const isIOSAudioCall = isIOS() && callType === 'audio';
+    if (isIOSAudioCall) {
+        logToScreen("[MEDIA_IOS] Audio call on iOS detected. Requesting video to force speakerphone.");
+        isVideoCall = true;
+    }
+
+    const constraints = {
+        audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
+        video: isVideoCall && hasCameraAccess ? { deviceId: { exact: selectedVideoId } } : false
+    };
+
+    const result = await media.getStreamForCall(constraints, localVideo, localAudio);
+    
+    if (result.stream) {
+        if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
+            logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
+            result.stream.getVideoTracks()[0].enabled = false;
+            localVideoContainer.style.display = 'none';
+            state.setIsVideoEnabled(false);
+        } else if (result.isVideo) {
+            localVideoContainer.style.display = 'flex';
+            state.setIsVideoEnabled(true);
+        } else {
+            localVideoContainer.style.display = 'none';
+            state.setIsVideoEnabled(false);
+        }
+        return true;
+    }
+    return false;
+}
+
+function stopIncomingRing() {
     ringInAudio.pause();
     ringInAudio.currentTime = 0;
 }
@@ -325,4 +431,13 @@ export async function closeSession() {
 export function redirectToInvalidLink() {
     setGracefulDisconnect(true);
     window.location.reload();
+}
+
+export function isMobileDevice() {
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
+
+// Функция для передачи logToScreen из main.js
+export function init(logger) {
+    logToScreen = logger;
 }
