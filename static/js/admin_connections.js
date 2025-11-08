@@ -30,8 +30,8 @@ function renderParticipantDetails(ip, connections, isInitiator) {
 
 function getCallTypeIcon(callType) {
     const iconSvg = callType === 'video' 
-        ? `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M17,10.5V7A1,1 0 0,0 16,6H4A1,1 0 0,0 3,7V17A1,1 0 0,0 4,18H16A1,1 0 0,0 17,17V13.5L21,17.5V6.5L17,10.5Z" /></svg>`
-        : `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,3A3,3 0 0,0 9,6V12A3,3 0 0,0 12,15A3,3 0 0,0 15,12V6A3,3 0 0,0 12,3M19,12V13A7,7 0 0,1 5,13V12H3V13A9,9 0 0,0 12,22A9,9 0 0,0 21,13V12H19Z" /></svg>`;
+        ? ICONS.videoCall
+        : ICONS.audioCall;
     return `<span class="call-status-icon" title="Тип звонка: ${callType}">${iconSvg}</span>`;
 }
 
