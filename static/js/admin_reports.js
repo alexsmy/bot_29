@@ -1,7 +1,5 @@
 // static/js/admin_reports.js
 
-// Этот модуль отвечает за логику раздела "Отчёты".
-
 import { fetchData } from './admin_api.js';
 
 let reportsListContainer, deleteAllReportsBtn;

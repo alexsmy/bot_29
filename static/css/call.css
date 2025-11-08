@@ -24,10 +24,10 @@
 
 
 #pre-call-check-screen {
-    justify-content: space-around; /* Changed from center */
+    justify-content: space-around; 
     align-items: center;
     text-align: center;
-    padding: 15px; /* Reduced padding */
+    padding: 15px; 
     background: linear-gradient(180deg, #232526 0%, #121212 100%);
 }
 
@@ -36,7 +36,7 @@
     max-width: 400px;
     display: flex;
     flex-direction: column;
-    gap: 15px; /* Added gap for spacing */
+    gap: 15px; 
 }
 
 .check-title {
@@ -47,23 +47,23 @@
 
 .check-subtitle {
     color: var(--text-secondary);
-    margin: 0; /* Removed bottom margin */
-    font-size: 0.9rem; /* Made font smaller */
+    margin: 0; 
+    font-size: 0.9rem; 
 }
 
 .media-preview-area {
     position: relative;
     width: 100%;
-    max-width: 280px; /* Reduced max-width */
-    margin: 0 auto; /* Removed bottom margin */
+    max-width: 280px; 
+    margin: 0 auto; 
 }
 
 #previewVideo {
     width: 100%;
     height: auto;
-    aspect-ratio: 16 / 9; /* Changed aspect ratio to reduce height */
+    aspect-ratio: 16 / 9; 
     background-color: #000;
-    border-radius: 12px; /* Adjusted border-radius */
+    border-radius: 12px; 
     object-fit: cover;
     transform: scaleX(-1); 
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -73,15 +73,15 @@
     display: flex;
     justify-content: center;
     gap: 4px;
-    margin-top: 10px; /* Reduced margin */
-    height: 15px; /* Reduced height */
+    margin-top: 10px; 
+    height: 15px; 
 }
 
 .mic-level-bar {
-    width: 6px; /* Reduced width */
+    width: 6px; 
     height: 100%;
     background-color: var(--secondary-surface);
-    border-radius: 3px; /* Adjusted border-radius */
+    border-radius: 3px; 
     transition: background-color 0.1s ease-out, transform 0.1s ease-out;
 }
 
@@ -90,7 +90,6 @@
     transform: scaleY(1.2);
 }
 
-/* NEW: Grid layout for compact items */
 .compact-grid {
     display: grid;
     gap: 10px;
@@ -109,17 +108,17 @@
 
 .device-selector {
     display: flex;
-    flex-direction: column; /* Stack label and select vertically */
-    align-items: stretch; /* Stretch to fill grid cell */
+    flex-direction: column; 
+    align-items: stretch; 
     gap: 5px;
     text-align: center;
 }
 
 .device-selector label {
     flex-shrink: 0;
-    width: auto; /* Removed fixed width */
+    width: auto; 
     color: var(--text-secondary);
-    font-size: 0.8rem; /* Smaller font for label */
+    font-size: 0.8rem; 
 }
 
 .device-selector select {
@@ -137,10 +136,10 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 10px; /* Adjusted padding */
+    padding: 10px; 
     background-color: var(--primary-surface);
     border-radius: 8px;
-    font-size: 0.9rem; /* Adjusted font size */
+    font-size: 0.9rem; 
 }
 
 .status-item.status-ok .status-text { color: var(--status-ok); }
@@ -169,7 +168,7 @@
     cursor: pointer;
     background: linear-gradient(45deg, var(--accent-blue-dark), var(--accent-blue));
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s;
-    margin-top: 5px; /* Reduced margin */
+    margin-top: 5px; 
 }
 .continue-btn:hover {
     box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -190,9 +189,8 @@
     background: #444;
 }
 
-/* СТИЛИ ДЛЯ НОВОГО УВЕДОМЛЕНИЯ */
 .ios-note {
-    display: none; /* Скрыто по умолчанию */
+    display: none; 
     font-size: 0.8rem;
     color: var(--text-secondary);
     background-color: rgba(255, 255, 255, 0.05);
@@ -1009,35 +1007,29 @@
 }
 
 #connection-toast.toast-good {
-    background-color: rgba(18, 140, 126, 0.9); /* --accent-green-dark */
+    background-color: rgba(18, 140, 126, 0.9); 
     border: 1px solid rgba(37, 211, 102, 0.5);
 }
 
 #connection-toast.toast-warning {
-    background-color: rgba(245, 158, 11, 0.9); /* Amber color */
+    background-color: rgba(245, 158, 11, 0.9); 
     border: 1px solid rgba(251, 191, 36, 0.5);
 }
 
 #connection-toast.toast-bad {
-    background-color: rgba(192, 45, 37, 0.9); /* --accent-red-dark */
+    background-color: rgba(192, 45, 37, 0.9); 
     border: 1px solid rgba(255, 59, 48, 0.5);
 }
 
 
-/*
- * CORRECTED UI Fading Logic for Video Calls
- */
 
-/* Define the transition speed for UI elements.
-   The transition is applied directly to the elements that will change opacity. */
 .video-call-active .center-info,
 .video-call-active .call-controls-grid,
 .video-call-active .hangup-wrapper,
-.video-call-active .top-info { /* top-info is included for consistent behavior, though it doesn't fade out */
+.video-call-active .top-info { 
     transition: opacity 3s ease-out;
 }
 
-/* When the user is interacting, make the fade-in transition much faster. */
 .video-call-active.ui-interactive .center-info,
 .video-call-active.ui-interactive .call-controls-grid,
 .video-call-active.ui-interactive .hangup-wrapper,
@@ -1045,7 +1037,6 @@
     transition: opacity 0.1s ease-out;
 }
 
-/* By default, all UI elements are fully visible and interactive. */
 .video-call-active .top-info,
 .video-call-active .center-info,
 .video-call-active .bottom-controls {
@@ -1053,21 +1044,16 @@
     pointer-events: auto;
 }
 
-/* When the UI is faded (no interaction)... */
-
-/* Fade the timer and the main control buttons grid. Disable clicks on them. */
 .video-call-active.ui-faded .center-info,
 .video-call-active.ui-faded .call-controls-grid {
     opacity: 0.3;
     pointer-events: none;
 }
 
-/* Fade the hangup button to a slightly more visible state. */
 .video-call-active.ui-faded .hangup-wrapper {
     opacity: 0.6;
 }
 
-/* EXCEPTION: Keep the top info bar (connection status) and remote audio level fully visible and interactive. */
 .video-call-active.ui-faded .top-info,
 .video-call-active.ui-faded .remote-audio-level-container {
     opacity: 1;

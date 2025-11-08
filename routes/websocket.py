@@ -34,13 +34,12 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 room.start_call_timeout(user_id, target_id)
 
             elif message_type == "call_accepted":
-                target_id = message["data"]["target_id"] # target_id здесь - это инициатор звонка
+                target_id = message["data"]["target_id"] 
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    # Сбрасываем флаг отправки уведомления для нового звонка
-                    room.details_notification_sent = False
                     
-                    # Получаем IP участников из RoomManager для точного логирования
+                    room.details_notification_sent = False
+                                     
                     initiator = room.users.get(target_id)
                     receiver = room.users.get(user_id)
                     
@@ -76,7 +75,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type in ["hangup", "call_declined"]:
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
-                room.details_notification_sent = False # Сбрасываем флаг при завершении/отклонении
+                room.details_notification_sent = False 
                 
                 if message_type == "hangup":
                     asyncio.create_task(database.log_call_end(room.room_id))

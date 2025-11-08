@@ -1,12 +1,10 @@
 // static/js/admin_logs.js
 
-// Этот модуль отвечает за логику раздела "Логи".
-
 import { fetchData } from './admin_api.js';
 import { highlightLogs } from './admin_utils.js';
 
 let logsContent;
-const API_TOKEN = document.body.dataset.token; // Токен нужен для формирования ссылок
+const API_TOKEN = document.body.dataset.token; 
 
 async function loadLogs() {
     const logs = await fetchData('logs');

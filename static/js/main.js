@@ -166,7 +166,6 @@ function initializePrivateCallMode() {
             callTimerInterval = uiManager.startCallTimer(currentCallType);
             connectAudio.play();
             
-            // <-- ИСПРАВЛЕНИЕ: Возвращаем запуск мониторинга соединения
             connectionQuality.classList.add('active');
             monitor.startConnectionMonitoring();
         },

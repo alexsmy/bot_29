@@ -1,7 +1,5 @@
 // static/js/admin_notifications.js
 
-// Этот модуль отвечает за логику раздела "Уведомления".
-
 import { fetchData } from './admin_api.js';
 
 let saveNotificationsBtn, savedIndicator, notificationCheckboxes;

@@ -1,6 +1,6 @@
 /* static/css/landing.css */
 
-/* Убираем градиент и используем солидный темный фон, как в оригинале */
+
 .landing-container {
     display: flex;
     flex-direction: column;
@@ -9,7 +9,7 @@
     text-align: center;
     height: 100vh;
     padding: 20px;
-    background-color: #212121; /* Темно-серый фон */
+    background-color: #212121; 
     color: #ffffff;
 }
 
@@ -17,7 +17,6 @@
     max-width: 650px;
 }
 
-/* Увеличиваем заголовок и делаем его более читаемым */
 .landing-title {
     font-size: 2.8rem;
     font-weight: 600;
@@ -25,31 +24,29 @@
     line-height: 1.2;
 }
 
-/* Делаем текст-описание светлее для контраста */
 .landing-text {
     font-size: 1.1rem;
-    color: #b0b0b0; /* Светло-серый */
+    color: #b0b0b0; 
     margin-bottom: 40px;
     line-height: 1.6;
 }
 
-/* Стилизуем кнопку, чтобы она была заметной и привлекательной */
 .landing-button {
     display: inline-block;
     padding: 14px 32px;
     font-size: 1.1rem;
     font-weight: 500;
     color: #fff;
-    background-color: #007bff; /* Яркий синий */
+    background-color: #007bff; 
     border: none;
-    border-radius: 8px; /* Менее скругленные углы */
+    border-radius: 8px; 
     text-decoration: none;
     cursor: pointer;
     transition: background-color 0.2s ease, transform 0.15s ease;
 }
 
 .landing-button:hover {
-    background-color: #0056b3; /* Более темный синий при наведении */
+    background-color: #0056b3; 
     transform: translateY(-2px);
 }
 
@@ -57,7 +54,6 @@
     transform: translateY(0);
 }
 
-/* Адаптация для мобильных устройств */
 @media (max-width: 600px) {
     .landing-title {
         font-size: 2.2rem;
