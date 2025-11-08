@@ -1,4 +1,5 @@
-# database.py 49
+
+# database.py 53
 
 import os
 import asyncpg
@@ -107,7 +108,8 @@ async def init_db():
             ('notify_on_room_creation', TRUE),
             ('notify_on_call_start', TRUE),
             ('notify_on_call_end', TRUE),
-            ('send_connection_report', TRUE)
+            ('send_connection_report', TRUE),
+            ('notify_on_connection_details', TRUE)
             ON CONFLICT(key) DO NOTHING
         ''')
     logger.info("База данных PostgreSQL успешно инициализирована.")
@@ -390,3 +392,67 @@ async def update_notification_settings(settings: Dict[str, bool]):
                     key, value
                 )
         logger.info("Настройки уведомлений администратора обновлены.")
+
+async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Получает детали двух последних подключений в комнате и определяет, кто из них инициатор.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Получаем IP инициатора для текущего активного звонка
+        initiator_ip = await conn.fetchval("""
+            SELECT ch.initiator_ip
+            FROM call_history ch
+            JOIN call_sessions cs ON ch.session_id = cs.session_id
+            WHERE cs.room_id = $1 AND ch.call_ended_at IS NULL
+            ORDER BY ch.call_started_at DESC
+            LIMIT 1
+        """, room_id)
+
+        if not initiator_ip:
+            logger.warning(f"Не найден активный звонок или IP инициатора для комнаты {room_id}, чтобы получить детали участников.")
+            return None
+
+        # Получаем два последних подключения для данной комнаты
+        connections = await conn.fetch("""
+            SELECT ip_address, device_type, os_info, browser_info, country, city
+            FROM connections
+            WHERE room_id = $1
+            ORDER BY connected_at DESC
+            LIMIT 2
+        """, room_id)
+
+        if not connections:
+            logger.error(f"Не найдены детали подключений для комнаты {room_id}.")
+            return None
+
+        initiator_details = None
+        participant_details = None
+
+        # Распределяем роли на основе IP инициатора
+        if len(connections) == 1:
+            if connections[0]['ip_address'] == initiator_ip:
+                initiator_details = dict(connections[0])
+            else:
+                participant_details = dict(connections[0])
+        
+        elif len(connections) == 2:
+            conn1 = dict(connections[0])
+            conn2 = dict(connections[1])
+            if conn1['ip_address'] == initiator_ip:
+                initiator_details = conn1
+                participant_details = conn2
+            elif conn2['ip_address'] == initiator_ip:
+                initiator_details = conn2
+                participant_details = conn1
+            else:
+                # Аномалия: IP инициатора не совпадает ни с одним из последних подключений.
+                # Назначаем роли по порядку подключения (первый подключившийся - инициатор).
+                logger.warning(f"Не удалось сопоставить IP инициатора {initiator_ip} для комнаты {room_id}. Роли назначены по порядку подключения.")
+                initiator_details = conn2  # conn2 старше, т.к. ORDER BY DESC
+                participant_details = conn1
+
+        return {
+            "initiator": initiator_details,
+            "participant": participant_details
+        }

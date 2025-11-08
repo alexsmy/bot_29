@@ -1,4 +1,5 @@
-# main.py
+
+# main.py 53
 
 import asyncio
 import os
@@ -74,9 +75,7 @@ class NotificationSettings(BaseModel):
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
-
-# --- УДАЛЕНИЕ: Классы RoomManager и ConnectionManager перенесены в websocket_manager.py ---
-# --- УДАЛЕНИЕ: Экземпляр manager = ConnectionManager() перенесен в websocket_manager.py ---
+    notify_on_connection_details: bool
 
 @app.post("/log")
 async def receive_log(log: ClientLog):

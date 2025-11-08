@@ -1,4 +1,5 @@
-# routes/websocket.py 49
+
+# routes/websocket.py 53
 
 import asyncio
 import uuid
@@ -12,8 +13,6 @@ import notifier
 from logger_config import logger
 from websocket_manager import manager, RoomManager
 
-# APIRouter работает как "мини-приложение" FastAPI.
-# Мы определяем маршруты здесь, а затем подключаем роутер к основному приложению в main.py.
 router = APIRouter()
 
 async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_id: Any):
@@ -94,6 +93,46 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 connection_type = message.get("data", {}).get("type")
                 if connection_type:
                     asyncio.create_task(database.update_call_connection_type(room.room_id, connection_type))
+
+                    # Логика для отправки уведомления с деталями участников
+                    async def send_details_notification():
+                        details = await database.get_call_participants_details(room.room_id)
+                        if not details:
+                            logger.warning(f"Не удалось получить детали участников для комнаты {room.room_id} для уведомления.")
+                            return
+
+                        initiator = details.get("initiator")
+                        participant = details.get("participant")
+
+                        def format_participant_info(p_details, p_title):
+                            if not p_details:
+                                return f"<b>{p_title}:</b>\n<i>Данные не найдены</i>"
+                            
+                            ip = p_details.get('ip_address', 'N/A')
+                            device = f"{p_details.get('device_type', 'N/A')}, {p_details.get('os_info', 'N/A')}, {p_details.get('browser_info', 'N/A')}"
+                            location = f"{p_details.get('country', 'N/A')}, {p_details.get('city', 'N/A')}"
+                            
+                            return (
+                                f"<b>{p_title}:</b>\n"
+                                f"<b>IP:</b> <code>{ip}</code>\n"
+                                f"<b>Устройство:</b> {device}\n"
+                                f"<b>Локация:</b> {location}"
+                            )
+
+                        initiator_info = format_participant_info(initiator, "Инициатор")
+                        participant_info = format_participant_info(participant, "Участник")
+
+                        message_to_admin = (
+                            f"👥 <b>Участники звонка в комнате</b> <code>{room.room_id}</code>\n\n"
+                            f"{initiator_info}\n\n"
+                            f"{participant_info}\n"
+                            f"══════════════════\n"
+                            f"<b>Тип соединения:</b> {connection_type.upper()}"
+                        )
+                        
+                        await notifier.send_admin_notification(message_to_admin, 'notify_on_connection_details')
+
+                    asyncio.create_task(send_details_notification())
 
 
     except WebSocketDisconnect:
