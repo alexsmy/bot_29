@@ -1,5 +1,5 @@
 
-// static/js/main.js 51_3
+// static/js/main.js 51_1
 
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
@@ -18,19 +18,35 @@ import * as webrtc from './call_webrtc.js';
 import * as media from './call_media.js';
 import * as monitor from './call_connection_monitor.js';
 import * as uiManager from './call_ui_manager.js';
-import * as state from './call_state.js'; // <-- НОВЫЙ ИМПОРТ
 
 const tg = window.Telegram.WebApp;
 
-// --- ВСЕ ПЕРЕМЕННЫЕ СОСТОЯНИЯ УДАЛЕНЫ ОТСЮДА ---
+let currentUser = {};
+let targetUser = {};
+let currentCallType = 'audio';
+let callTimerInterval;
+let lifetimeTimerInterval;
+let isSpeakerMuted = false;
+let isMuted = false;
+let isVideoEnabled = true;
+let isSpectator = false;
+let roomId = '';
+let rtcConfig = null;
+let videoDevices = [];
+let audioInDevices = [];
+let audioOutDevices = [];
+let selectedVideoId = null;
+let selectedAudioInId = null;
+let selectedAudioOutId = null;
+let iceServerDetails = {};
+let isCallInitiator = false;
+let isEndingCall = false;
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
 function sendLogToServer(message) {
-    const currentUser = state.getCurrentUser();
-    const roomId = state.getRoomId();
     if (!currentUser || !currentUser.id || !roomId) return;
     fetch('/log', {
         method: 'POST',
@@ -85,9 +101,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             username: s.username,
             credential: s.credential
         }));
-        state.setRtcConfig({ iceServers: peerConnectionConfig, iceCandidatePoolSize: 10 });
+        rtcConfig = { iceServers: peerConnectionConfig, iceCandidatePoolSize: 10 };
 
-        const details = {};
         servers.forEach(s => {
             let provider = 'Unknown';
             if (s.source) {
@@ -97,28 +112,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else if (s.provider) {
                 provider = s.provider;
             }
-            details[s.urls] = {
+            iceServerDetails[s.urls] = {
                 region: s.region || 'global',
                 provider: provider
             };
         });
-        state.setIceServerDetails(details);
 
         logToScreen("ICE servers configuration and details loaded successfully.");
     } catch (error) {
         logToScreen(`[CRITICAL] Failed to fetch ICE servers: ${error.message}. Falling back to public STUN.`);
         alert("Не удалось загрузить конфигурацию сети. Качество звонка может быть низким.");
-        state.setRtcConfig({
+        rtcConfig = {
             iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
             ]
-        });
+        };
     }
 
     if (path.startsWith('/call/')) {
         const parts = path.split('/');
-        state.setRoomId(parts[2]);
+        roomId = parts[2];
         initializePrivateCallMode();
     } else {
         document.body.innerHTML = "<h1>Неверный URL</h1>";
@@ -126,7 +140,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 function initializePrivateCallMode() {
-    logToScreen(`Initializing in Private Call mode for room: ${state.getRoomId()}`);
+    logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
     
     media.init(logToScreen);
 
@@ -136,8 +150,8 @@ function initializePrivateCallMode() {
         updateConnectionIcon: uiManager.updateConnectionIcon,
         updateConnectionQualityIcon: uiManager.updateConnectionQualityIcon,
         showConnectionToast: uiManager.showConnectionToast,
-        getIceServerDetails: state.getIceServerDetails,
-        getRtcConfig: state.getRtcConfig,
+        getIceServerDetails: () => iceServerDetails,
+        getRtcConfig: () => rtcConfig,
         onConnectionEstablished: (type) => {
             sendMessage({ type: 'connection_established', data: { type: type } });
         }
@@ -146,24 +160,23 @@ function initializePrivateCallMode() {
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
-            const { currentCallType, targetUser } = state.getState();
             uiManager.showScreen('call');
             const mediaStatus = media.getMediaAccessStatus();
             uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
-            const timerId = uiManager.startCallTimer(currentCallType);
-            state.setCallTimerInterval(timerId);
+            callTimerInterval = uiManager.startCallTimer(currentCallType);
             connectAudio.play();
             
+            // <-- ИСПРАВЛЕНИЕ: Возвращаем запуск мониторинга соединения
             connectionQuality.classList.add('active');
             monitor.startConnectionMonitoring();
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
         onRemoteMuteStatus: uiManager.handleRemoteMuteStatus,
-        getTargetUser: state.getTargetUser,
-        getSelectedAudioOutId: state.getSelectedAudioOutId,
+        getTargetUser: () => targetUser,
+        getSelectedAudioOutId: () => selectedAudioOutId,
         getCurrentConnectionType: monitor.getCurrentConnectionType,
-        isVideoEnabled: state.isVideoOn,
+        isVideoEnabled: () => isVideoEnabled,
     };
     webrtc.init(webrtcCallbacks);
 
@@ -192,9 +205,9 @@ async function runPreCallCheck() {
             cameraSelect, micSelect, speakerSelect,
             cameraSelectContainer, micSelectContainer, speakerSelectContainer
         );
-        state.setSelectedVideoId(selectedIds.videoId);
-        state.setSelectedAudioInId(selectedIds.audioInId);
-        state.setSelectedAudioOutId(selectedIds.audioOutId);
+        selectedVideoId = selectedIds.videoId;
+        selectedAudioInId = selectedIds.audioInId;
+        selectedAudioOutId = selectedIds.audioOutId;
         continueToCallBtn.disabled = false;
     } else {
         logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
@@ -202,12 +215,11 @@ async function runPreCallCheck() {
 }
 
 async function updatePreviewStream() {
-    state.setSelectedVideoId(cameraSelect.value);
-    state.setSelectedAudioInId(micSelect.value);
-    state.setSelectedAudioOutId(speakerSelect.value);
+    selectedVideoId = cameraSelect.value;
+    selectedAudioInId = micSelect.value;
+    selectedAudioOutId = speakerSelect.value;
     
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
-    const { selectedAudioInId, selectedVideoId } = state.getState();
 
     const constraints = {
         audio: hasMicrophoneAccess ? { deviceId: { exact: selectedAudioInId } } : false,
@@ -218,8 +230,8 @@ async function updatePreviewStream() {
 }
 
 function proceedToCall(asSpectator = false) {
-    state.setIsSpectator(asSpectator);
-    logToScreen(`Proceeding to call screen. Spectator mode: ${asSpectator}`);
+    isSpectator = asSpectator;
+    logToScreen(`Proceeding to call screen. Spectator mode: ${isSpectator}`);
     media.stopPreviewStream();
 
     uiManager.showScreen('pre-call');
@@ -227,9 +239,8 @@ function proceedToCall(asSpectator = false) {
     
     const wsHandlers = {
         onIdentity: (data) => {
-            const user = { id: data.id };
-            state.setCurrentUser(user);
-            logToScreen(`[WS] Identity assigned by server: ${user.id}`);
+            currentUser.id = data.id;
+            logToScreen(`[WS] Identity assigned by server: ${currentUser.id}`);
         },
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
@@ -237,11 +248,11 @@ function proceedToCall(asSpectator = false) {
             ringOutAudio.pause(); 
             ringOutAudio.currentTime = 0;
             const localStream = media.getLocalStream();
-            webrtc.startPeerConnection(state.getTargetUser().id, true, state.getState().currentCallType, localStream, state.getRtcConfig(), monitor.connectionLogger);
+            webrtc.startPeerConnection(targetUser.id, true, currentCallType, localStream, rtcConfig, monitor.connectionLogger);
         },
         onOffer: (data) => {
             const localStream = media.getLocalStream();
-            webrtc.handleOffer(data, localStream, state.getRtcConfig(), monitor.connectionLogger);
+            webrtc.handleOffer(data, localStream, rtcConfig, monitor.connectionLogger);
         },
         onAnswer: webrtc.handleAnswer,
         onCandidate: webrtc.handleCandidate,
@@ -256,23 +267,21 @@ function proceedToCall(asSpectator = false) {
         },
         onFatalError: redirectToInvalidLink
     };
-    initializeWebSocket(state.getRoomId(), wsHandlers, logToScreen);
+    initializeWebSocket(roomId, wsHandlers, logToScreen);
 
     updateRoomLifetime();
-    const timerId = setInterval(updateRoomLifetime, 60000);
-    state.setLifetimeTimerInterval(timerId);
+    lifetimeTimerInterval = setInterval(updateRoomLifetime, 60000);
 }
 
 function handleUserList(users) {
-    const otherUsers = users.filter(u => u.id !== state.getCurrentUser().id);
+    const otherUsers = users.filter(u => u.id !== currentUser.id);
 
     if (otherUsers.length === 0) {
-        state.setTargetUser({});
+        targetUser = {};
         uiManager.showPopup('waiting');
     } else {
-        const target = otherUsers[0];
-        state.setTargetUser(target);
-        if (target.status === 'busy') {
+        targetUser = otherUsers[0];
+        if (targetUser.status === 'busy') {
             uiManager.showPopup('initiating');
         } else {
             uiManager.showPopup('actions');
@@ -282,39 +291,39 @@ function handleUserList(users) {
 
 async function initiateCall(userToCall, callType) {
     logToScreen(`[CALL] Initiating call to user ${userToCall.id}, type: ${callType}`);
-    state.setIsCallInitiator(true);
-    state.setCurrentCallType(callType);
+    isCallInitiator = true;
+    currentCallType = callType;
     
-    if (callType === 'video') {
+    if (currentCallType === 'video') {
         remoteVideo.play().catch(() => {});
     }
 
-    const hasMedia = await initializeLocalMedia(callType);
+    const hasMedia = await initializeLocalMedia(currentCallType);
     if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
 
-    state.setTargetUser(userToCall);
+    targetUser = userToCall;
 
-    monitor.connectionLogger.reset(state.getRoomId(), state.getCurrentUser().id, true);
+    monitor.connectionLogger.reset(roomId, currentUser.id, isCallInitiator);
     const probeResults = await monitor.probeIceServers();
     monitor.connectionLogger.setProbeResults(probeResults);
 
-    sendMessage({ type: 'call_user', data: { target_id: userToCall.id, call_type: callType } });
+    sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
     uiManager.showScreen('call');
     const mediaStatus = media.getMediaAccessStatus();
-    uiManager.updateCallUI(callType, userToCall, mediaStatus, isMobileDevice());
+    uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
     callTimer.textContent = "Вызов...";
     ringOutAudio.play();
 }
 
 function handleIncomingCall(data) {
     logToScreen(`[CALL] Incoming call from ${data.from_user?.id}, type: ${data.call_type}`);
-    state.setIsCallInitiator(false);
-    state.setTargetUser(data.from_user);
-    state.setCurrentCallType(data.call_type);
+    isCallInitiator = false;
+    targetUser = data.from_user;
+    currentCallType = data.call_type;
 
-    callerName.textContent = `${data.from_user?.first_name || 'Собеседник'}`;
-    incomingCallType.textContent = data.call_type === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
+    callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
+    incomingCallType.textContent = currentCallType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
     uiManager.showModal('incoming-call', true);
     ringInAudio.play();
 }
@@ -323,8 +332,6 @@ async function acceptCall() {
     logToScreen("[CALL] 'Accept' button pressed.");
     stopIncomingRing();
     uiManager.showModal('incoming-call', false);
-
-    const { currentCallType, targetUser } = state.getState();
 
     if (currentCallType === 'video') {
         remoteVideo.play().catch(() => {});
@@ -335,10 +342,10 @@ async function acceptCall() {
 
     logToScreen("[CALL] Starting WebRTC connection.");
     
-    monitor.connectionLogger.reset(state.getRoomId(), state.getCurrentUser().id, false);
+    monitor.connectionLogger.reset(roomId, currentUser.id, isCallInitiator);
     
     const localStream = media.getLocalStream();
-    await webrtc.startPeerConnection(targetUser.id, false, currentCallType, localStream, state.getRtcConfig(), monitor.connectionLogger);
+    await webrtc.startPeerConnection(targetUser.id, false, currentCallType, localStream, rtcConfig, monitor.connectionLogger);
     sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
 }
 
@@ -346,14 +353,13 @@ function declineCall() {
     logToScreen("[CALL] Declining call.");
     stopIncomingRing();
     uiManager.showModal('incoming-call', false);
-    sendMessage({ type: 'call_declined', data: { target_id: state.getTargetUser().id } });
-    state.setTargetUser({});
+    sendMessage({ type: 'call_declined', data: { target_id: targetUser.id } });
+    targetUser = {};
 }
 
 async function endCall(isInitiator, reason) {
-    const { isEndingCall, targetUser, callTimerInterval } = state.getState();
     if (isEndingCall) return;
-    state.setIsEndingCall(true);
+    isEndingCall = true;
 
     logToScreen(`[CALL] Ending call. Initiator: ${isInitiator}, Reason: ${reason}`);
     setGracefulDisconnect(true);
@@ -382,10 +388,12 @@ async function endCall(isInitiator, reason) {
     remoteVideo.style.display = 'none';
     
     uiManager.stopCallTimer(callTimerInterval);
+    callTimerInterval = null;
     uiManager.showModal('incoming-call', false);
     uiManager.showScreen('pre-call');
 
-    state.resetCallState();
+    targetUser = {};
+    resetCallState();
     uiManager.resetCallControls();
 }
 
@@ -399,10 +407,7 @@ function setupEventListeners() {
     speakerBtn.addEventListener('click', toggleSpeaker);
     muteBtn.addEventListener('click', toggleMute);
     videoBtn.addEventListener('click', toggleVideo);
-    screenShareBtn.addEventListener('click', () => {
-        const { isVideoEnabled, currentCallType } = state.getState();
-        webrtc.toggleScreenShare(media.getLocalStream(), (isSharing) => uiManager.updateScreenShareUI(isSharing, isVideoEnabled, currentCallType));
-    });
+    screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(media.getLocalStream(), (isSharing) => uiManager.updateScreenShareUI(isSharing, isVideoEnabled, currentCallType)));
     acceptBtn.addEventListener('click', acceptCall);
     declineBtn.addEventListener('click', declineCall);
     
@@ -421,7 +426,6 @@ function setupEventListeners() {
 
     popupActions.addEventListener('click', (e) => {
         const button = e.target.closest('.action-call-btn');
-        const targetUser = state.getTargetUser();
         if (button && targetUser.id) {
             initiateCall(targetUser, button.dataset.callType);
         }
@@ -507,7 +511,6 @@ function setupLocalVideoInteraction() {
 }
 
 async function initializeLocalMedia(callType) {
-    const { isSpectator, selectedAudioInId, selectedVideoId } = state.getState();
     if (isSpectator) {
         logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
         return false;
@@ -535,13 +538,13 @@ async function initializeLocalMedia(callType) {
             logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
             result.stream.getVideoTracks()[0].enabled = false;
             localVideoContainer.style.display = 'none';
-            state.setIsVideoEnabled(false);
+            isVideoEnabled = false;
         } else if (result.isVideo) {
             localVideoContainer.style.display = 'flex';
-            state.setIsVideoEnabled(true);
+            isVideoEnabled = true;
         } else {
             localVideoContainer.style.display = 'none';
-            state.setIsVideoEnabled(false);
+            isVideoEnabled = false;
         }
         return true;
     }
@@ -559,29 +562,25 @@ function stopIncomingRing() {
 
 function toggleMute() {
     if (!media.getMediaAccessStatus().hasMicrophoneAccess) return;
-    const currentState = state.getState();
-    const newMutedState = !currentState.isMuted;
-    state.setIsMuted(newMutedState);
-    webrtc.toggleMute(newMutedState, media.getLocalStream());
-    muteBtn.classList.toggle('active', newMutedState);
-    logToScreen(`[CONTROLS] Mic ${newMutedState ? 'muted' : 'unmuted'}.`);
+    isMuted = !isMuted;
+    webrtc.toggleMute(isMuted, media.getLocalStream());
+    muteBtn.classList.toggle('active', isMuted);
+    logToScreen(`[CONTROLS] Mic ${isMuted ? 'muted' : 'unmuted'}.`);
 }
 
 function toggleSpeaker() {
-    const newSpeakerMutedState = media.toggleRemoteSpeakerMute();
-    state.setIsSpeakerMuted(newSpeakerMutedState);
-    speakerBtn.classList.toggle('active', newSpeakerMutedState);
-    logToScreen(`[CONTROLS] Remote audio (speaker) ${newSpeakerMutedState ? 'muted' : 'unmuted'}.`);
+    isSpeakerMuted = media.toggleRemoteSpeakerMute();
+    speakerBtn.classList.toggle('active', isSpeakerMuted);
+    logToScreen(`[CONTROLS] Remote audio (speaker) ${isSpeakerMuted ? 'muted' : 'unmuted'}.`);
 }
 
 function toggleVideo() {
     if (!media.getMediaAccessStatus().hasCameraAccess) return;
-    const newVideoState = !state.getState().isVideoEnabled;
-    state.setIsVideoEnabled(newVideoState);
-    webrtc.toggleVideo(newVideoState, media.getLocalStream());
-    videoBtn.classList.toggle('active', !newVideoState);
-    localVideoContainer.style.display = newVideoState ? 'flex' : 'none';
-    logToScreen(`[CONTROLS] Video ${newVideoState ? 'enabled' : 'disabled'}.`);
+    isVideoEnabled = !isVideoEnabled;
+    webrtc.toggleVideo(isVideoEnabled, media.getLocalStream());
+    videoBtn.classList.toggle('active', !isVideoEnabled);
+    localVideoContainer.style.display = isVideoEnabled ? 'flex' : 'none';
+    logToScreen(`[CONTROLS] Video ${isVideoEnabled ? 'enabled' : 'disabled'}.`);
 }
 
 async function openDeviceSettings() {
@@ -591,9 +590,9 @@ async function openDeviceSettings() {
 
 async function populateDeviceSelectorsInCall() {
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const videoDevices = devices.filter(d => d.kind === 'videoinput');
-    const audioInDevices = devices.filter(d => d.kind === 'audioinput');
-    const audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
+    videoDevices = devices.filter(d => d.kind === 'videoinput');
+    audioInDevices = devices.filter(d => d.kind === 'audioinput');
+    audioOutDevices = devices.filter(d => d.kind === 'audiooutput');
 
     const populate = (select, devicesList, container, currentId) => {
         container.style.display = devicesList.length > 0 ? 'flex' : 'none';
@@ -617,7 +616,7 @@ async function populateDeviceSelectorsInCall() {
     
     populate(micSelectCall, audioInDevices, micSelectContainerCall, currentAudioTrack?.getSettings().deviceId);
     populate(cameraSelectCall, videoDevices, cameraSelectContainerCall, currentVideoTrack?.getSettings().deviceId);
-    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, state.getSelectedAudioOutId());
+    populate(speakerSelectCall, audioOutDevices, speakerSelectContainerCall, selectedAudioOutId);
 }
 
 async function switchInputDevice(kind, deviceId) {
@@ -625,10 +624,10 @@ async function switchInputDevice(kind, deviceId) {
     const newTrack = await webrtc.switchInputDevice(kind, deviceId, localStream);
     if (newTrack) {
         if (kind === 'video') {
-            state.setSelectedVideoId(deviceId);
+            selectedVideoId = deviceId;
         } else {
             media.visualizeLocalMicForCall(localStream);
-            state.setSelectedAudioInId(deviceId);
+            selectedAudioInId = deviceId;
         }
     }
 }
@@ -642,7 +641,7 @@ async function switchAudioOutput(deviceId) {
     try {
         await remoteVideo.setSinkId(deviceId);
         await remoteAudio.setSinkId(deviceId);
-        state.setSelectedAudioOutId(deviceId);
+        selectedAudioOutId = deviceId;
         logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
         logToScreen(`[SINK] Error switching audio output: ${error}`);
@@ -650,9 +649,14 @@ async function switchAudioOutput(deviceId) {
     }
 }
 
+function resetCallState() {
+    isMuted = false; 
+    isVideoEnabled = true; 
+    isSpeakerMuted = false;
+    isEndingCall = false;
+}
+
 async function updateRoomLifetime() {
-    const roomId = state.getRoomId();
-    const lifetimeTimerInterval = state.getState().lifetimeTimerInterval;
     try {
         const response = await fetch(`/room/lifetime/${roomId}`);
         if (!response.ok) throw new Error('Room not found or expired on server.');
@@ -660,7 +664,7 @@ async function updateRoomLifetime() {
         const remainingSeconds = data.remaining_seconds;
         if (remainingSeconds <= 0) {
             lifetimeTimer.textContent = "00:00";
-            if (lifetimeTimerInterval) clearInterval(lifetimeTimerInterval);
+            clearInterval(lifetimeTimerInterval);
             alert("Время жизни ссылки истекло.");
             redirectToInvalidLink();
         } else {
@@ -671,7 +675,7 @@ async function updateRoomLifetime() {
     } catch (error) {
         logToScreen(`[LIFETIME] Error fetching lifetime: ${error.message}`);
         lifetimeTimer.textContent = "Ошибка";
-        if (lifetimeTimerInterval) clearInterval(lifetimeTimerInterval);
+        clearInterval(lifetimeTimerInterval);
     }
 }
 
@@ -679,7 +683,7 @@ async function closeSession() {
     logToScreen("[SESSION] User clicked close session button.");
     setGracefulDisconnect(true);
     try {
-        await fetch(`/room/close/${state.getRoomId()}`, { method: 'POST' });
+        await fetch(`/room/close/${roomId}`, { method: 'POST' });
     } catch (error) {
         logToScreen(`[SESSION] Error sending close request: ${error}`);
         alert("Не удалось закрыть сессию. Попробуйте обновить страницу.");

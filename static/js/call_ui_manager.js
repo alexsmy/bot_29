@@ -1,11 +1,11 @@
 
-// static/js/call_ui_manager.js 51_3
+// static/js/call_ui_manager.js 51_1
 
 import {
     preCallCheckScreen, preCallScreen, callScreen, instructionsModal, deviceSettingsModal,
     incomingCallModal, popupWaiting, popupActions, popupInitiating,
     cameraStatus, cameraStatusText, micStatus, micStatusText, continueSpectatorBtn,
-    remoteUserName, callTimer, videoControlItem, muteBtn, screenShareBtn, screenShareControlItem,
+    remoteUserName, callTimer, videoControlItem, muteBtn, screenShareControlItem,
     remoteVideo, localVideoContainer, audioCallVisualizer, connectionStatus,
     connectionQuality, qualityGoodSvg, qualityMediumSvg, qualityBadSvg,
     remoteMuteToast, connectionToast, connectionInfoPopup,
@@ -78,11 +78,12 @@ export function resetCallControls() {
     muteBtn.classList.remove('active');
     videoControlItem.querySelector('#video-btn').classList.remove('active');
     document.getElementById('speaker-btn').classList.remove('active');
-    screenShareBtn.classList.remove('active');
+    screenShareControlItem.querySelector('#screen-share-btn').classList.remove('active');
     
     localVideo.classList.remove('force-cover');
     remoteVideo.classList.remove('force-cover');
     
+    // Предполагаем, что ICONS доступен глобально или будет передан
     if (typeof ICONS !== 'undefined') {
         toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
         toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
