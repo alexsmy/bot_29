@@ -48,9 +48,10 @@ def get_ice_servers():
 
     stun_servers = config.get("stun_servers", [])
     if stun_servers:
-      
+        
         ice_servers_list.extend(stun_servers)
     print(f"Loaded {len(stun_servers)} public STUN servers.")
+
 
     turn_providers = config.get("turn_providers", [])
     for provider in turn_providers:
@@ -61,7 +62,28 @@ def get_ice_servers():
             if twilio_servers:
                 ice_servers_list.extend(twilio_servers)
         
-        elif 
+        elif provider_name == "xirsys":
+            # Placeholder for Xirsys integration
+            # You would need to implement the logic to check env variables
+            # and make an API call to the Xirsys service.
+            if os.environ.get("XIRSYS_IDENT") and os.environ.get("XIRSYS_SECRET"):
+                print("Xirsys provider is defined but not implemented yet.")
+                # Example: ice_servers_list.extend(get_xirsys_servers())
+            pass
+            
+        elif provider_name == "self-hosted (coturn)":
+            # Placeholder for self-hosted Coturn integration
+            # This would typically involve formatting static credentials
+            # from environment variables, not making an API call.
+            if os.environ.get("COTURN_HOST") and os.environ.get("COTURN_USER") and os.environ.get("COTURN_SECRET"):
+                 print("Coturn provider is defined but not implemented yet.")
+                 # Example:
+                 # coturn_server = {
+                 #    "urls": f"turn:{os.environ['COTURN_HOST']}",
+                 #    "username": os.environ['COTURN_USER'],
+                 #    "credential": os.environ['COTURN_SECRET']
+                 # }
+                 # ice_servers_list.append(coturn_server)
             pass
 
     if not ice_servers_list:
