@@ -1,4 +1,3 @@
-
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
@@ -6,7 +5,6 @@ let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 
 function renderParticipantDetails(ip, connections, isInitiator) {
     if (!ip) return '<p>N/A</p>';
-
 
     let conn = null;
     for (let i = connections.length - 1; i >= 0; i--) {
@@ -98,7 +96,7 @@ async function loadConnections() {
         <div class="connection-item">
             <div class="connection-summary">
                 <div class="summary-info">
-                    <code>${session.room_id}</code>
+                    <span>${session.room_id}</span>
                     <span class="call-count-badge">${session.calls.length}</span>
                     <span class="creator-id">${session.generated_by_user_id || 'N/A'}</span>
                 </div>

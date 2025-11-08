@@ -1,4 +1,3 @@
-
 import { fetchData } from './admin_api.js';
 import { formatRemainingTime } from './admin_utils.js';
 
@@ -62,7 +61,7 @@ function renderRooms() {
             <div class="room-item">
                 <div class="room-info">
                     <div class="room-id-line">
-                        <code>${room.room_id}</code>
+                        <span>${room.room_id}</span>
                         ${creatorBadge}
                         ${getCallStatusIcon(room.call_status, room.call_type)}
                     </div>
@@ -76,7 +75,7 @@ function renderRooms() {
                         </span>
                     </div>
                 </div>
-                <button class="action-btn close-room-btn" data-room-id="${room.room_id}">Закрыть</button>
+                <button class="action-btn danger" data-room-id="${room.room_id}">Закрыть</button>
             </div>
         `}).join('');
     };
@@ -102,7 +101,7 @@ export function initRooms() {
     roomSearchInput.addEventListener('input', renderRooms);
 
     document.getElementById('rooms').addEventListener('click', async (e) => {
-        if (e.target.classList.contains('close-room-btn')) {
+        if (e.target.classList.contains('danger')) {
             const roomId = e.target.dataset.roomId;
             if (confirm(`Вы уверены, что хотите принудительно закрыть комнату ${roomId}?`)) {
                 const result = await fetchData(`room/${roomId}`, { method: 'DELETE' });

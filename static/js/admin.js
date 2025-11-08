@@ -34,8 +34,5 @@ document.addEventListener('DOMContentLoaded', () => {
         // Эти функции экспортируются из своих модулей специально для авто-обновления
         loadStats();
         loadActiveRooms();
-        loadUsers();
-        LoadConnections();
-        LoadReports();
-    }, 5000);
+    }, 10000);
 });
