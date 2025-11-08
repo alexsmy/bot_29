@@ -1,5 +1,5 @@
 
-// static/js/main.js 51_
+// static/js/main.js 51_1
 
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
@@ -17,7 +17,7 @@ import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_
 import * as webrtc from './call_webrtc.js';
 import * as media from './call_media.js';
 import * as monitor from './call_connection_monitor.js';
-import * as uiManager from './call_ui_manager.js'; // <-- НОВЫЙ ИМПОРТ
+import * as uiManager from './call_ui_manager.js';
 
 const tg = window.Telegram.WebApp;
 
@@ -151,12 +151,13 @@ function initializePrivateCallMode() {
         updateConnectionQualityIcon: uiManager.updateConnectionQualityIcon,
         showConnectionToast: uiManager.showConnectionToast,
         getIceServerDetails: () => iceServerDetails,
-        getRConfig: () => rtcConfig,
+        getRtcConfig: () => rtcConfig, // <-- ИСПРАВЛЕНА ОПЕЧАТКА (было getRConfig)
         onConnectionEstablished: (type) => {
             sendMessage({ type: 'connection_established', data: { type: type } });
         }
     });
 
+    // --- ИСПРАВЛЕНИЕ: Обновляем колбэки для использования uiManager ---
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
