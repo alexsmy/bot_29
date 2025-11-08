@@ -1,4 +1,5 @@
-# websocket_manager.py
+
+# websocket_manager.py 53
 
 import asyncio
 import uuid
@@ -21,6 +22,7 @@ class RoomManager:
         self.call_timeouts: Dict[tuple, asyncio.Task] = {}
         self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
+        self.details_notification_sent: bool = False
 
     async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:
@@ -175,5 +177,4 @@ class ConnectionManager:
         
         logger.info(f"Комната {room_id} была закрыта по причине: {reason}")
 
-# Создаем единственный экземпляр менеджера, который будет импортироваться в другие модули
 manager = ConnectionManager()

@@ -7,13 +7,21 @@ let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 function renderParticipantDetails(ip, connections, isInitiator) {
     if (!ip) return '<p>N/A</p>';
 
-    const conn = connections.find(c => c.ip_address === ip);
+
+    let conn = null;
+    for (let i = connections.length - 1; i >= 0; i--) {
+        if (connections[i].ip_address === ip) {
+            conn = connections[i];
+            break;
+        }
+    }
+    
     const initiatorClass = isInitiator ? 'initiator' : 'receiver';
 
     const detailsHtml = conn ? `
         <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
         <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
-    ` : '';
+    ` : '<span><i>Детали подключения не найдены для этого IP.</i></span>';
 
     return `
         <div class="participant-column">

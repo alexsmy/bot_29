@@ -37,6 +37,9 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"] # target_id здесь - это инициатор звонка
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
+                    # Сбрасываем флаг отправки уведомления для нового звонка
+                    room.details_notification_sent = False
+                    
                     # Получаем IP участников из RoomManager для точного логирования
                     initiator = room.users.get(target_id)
                     receiver = room.users.get(user_id)
@@ -73,6 +76,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type in ["hangup", "call_declined"]:
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
+                room.details_notification_sent = False # Сбрасываем флаг при завершении/отклонении
                 
                 if message_type == "hangup":
                     asyncio.create_task(database.log_call_end(room.room_id))
@@ -91,11 +95,17 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             
             elif message_type == "connection_established":
                 connection_type = message.get("data", {}).get("type")
-                if connection_type:
+               
+                if connection_type and not room.details_notification_sent:
+                    
+                    room.details_notification_sent = True
+                    
                     asyncio.create_task(database.update_call_connection_type(room.room_id, connection_type))
 
-                    # Логика для отправки уведомления с деталями участников
+                    
                     async def send_details_notification():
+                        
+                        await asyncio.sleep(1) 
                         details = await database.get_call_participants_details(room.room_id)
                         if not details:
                             logger.warning(f"Не удалось получить детали участников для комнаты {room.room_id} для уведомления.")
@@ -151,7 +161,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             if other_user_id and other_user_id in room.users:
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
                 await room.set_user_status(other_user_id, "available")
-
+        
+        room.details_notification_sent = False
         await room.disconnect(user_id)
 
 @router.websocket("/ws/private/{room_id}")
@@ -174,7 +185,7 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     asyncio.create_task(log_connection_in_background())
 
     new_user_id = str(uuid.uuid4())
-    # Сохраняем IP-адрес пользователя в его данных в RoomManager
+    
     user_data = {
         "id": new_user_id, 
         "first_name": "Собеседник", 
