@@ -1,3 +1,4 @@
+
 import { fetchData } from './admin_api.js';
 import { formatRemainingTime } from './admin_utils.js';
 
@@ -10,15 +11,20 @@ function getCallStatusIcon(callStatus, callType) {
     }
 
     const glowClass = 'glowing';
+    let iconSvg = '';
+    let title = '';
 
     if (callType === 'video') {
-        return `<span class="call-status-icon ${glowClass}" title="Активный видеозвонок">${ICONS.videoCall}</span>`;
-    }
-    if (callType === 'audio') {
-        return `<span class="call-status-icon ${glowClass}" title="Активный аудиозвонок">${ICONS.audioCall}</span>`;
+        iconSvg = ICONS.videoCallActive;
+        title = "Активный видеозвонок";
+    } else if (callType === 'audio') {
+        iconSvg = ICONS.audioCallActive;
+        title = "Активный аудиозвонок";
+    } else {
+        return '';
     }
 
-    return '';
+    return `<span class="call-status-icon ${glowClass}" title="${title}">${iconSvg}</span>`;
 }
 
 function renderRooms() {

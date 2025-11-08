@@ -1,3 +1,4 @@
+
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
@@ -30,8 +31,8 @@ function renderParticipantDetails(ip, connections, isInitiator) {
 
 function getCallTypeIcon(callType) {
     const iconSvg = callType === 'video' 
-        ? ICONS.videoCall
-        : ICONS.audioCall;
+        ? ICONS.videoCallActive
+        : ICONS.audioCallActive;
     return `<span class="call-status-icon" title="Тип звонка: ${callType}">${iconSvg}</span>`;
 }
 
