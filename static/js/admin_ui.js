@@ -1,5 +1,7 @@
 // static/js/admin_ui.js
 
+// Этот модуль отвечает за общий интерфейс: навигация, тема, мобильное меню, таймер токена.
+
 import { formatRemainingTime } from './admin_utils.js';
 
 function populateIcons() {

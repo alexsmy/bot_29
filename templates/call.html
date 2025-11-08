@@ -12,12 +12,14 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+    <!-- Содержимое body остается без изменений -->
     <div id="app-container">
-
+        <!-- ЭКРАН 1: ПРОВЕРКА ОБОРУДОВАНИЯ -->
         <div id="pre-call-check-screen" class="screen">
             <div class="check-container">
                 <p class="check-subtitle">Пожалуйста, предоставьте доступ к камере и микрофону.</p>
                 
+                <!-- НОВЫЙ БЛОК ДЛЯ УВЕДОМЛЕНИЯ НА IOS -->
                 <p id="ios-audio-permission-note" class="ios-note">
                     На устройствах iOS для использования громкой связи в аудиозвонке может потребоваться разрешение на доступ к камере. Камера не будет использоваться.
                 </p>
@@ -64,6 +66,7 @@
             </div>
         </div>
 
+        <!-- ЭКРАН 2: ОЖИДАНИЕ И ВЫБОР ДЕЙСТВИЯ -->
         <div id="pre-call-screen" class="screen">
             <header class="pre-call-header">
                 <h1>Приватная комната для звонка</h1>
@@ -115,6 +118,7 @@
             </footer>
         </div>
 
+        <!-- ЭКРАН 3: ЗВОНОК -->
         <div id="call-screen" class="screen">
             <video id="remoteVideo" autoplay playsinline></video>
 

@@ -20,8 +20,8 @@ import ice_provider
 import notifier
 from logger_config import logger, LOG_FILE_PATH
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from websocket_manager import manager  
-from routes.websocket import router as websocket_router 
+from websocket_manager import manager  # <-- ИЗМЕНЕНИЕ: Импортируем manager из нового файла
+from routes.websocket import router as websocket_router # <-- ДОБАВЛЕНИЕ: Импортируем роутер
 
 LOGS_DIR = "connection_logs"
 
@@ -40,7 +40,8 @@ class CustomJSONResponse(Response):
 
 app = FastAPI()
 
-app.include_router(websocket_router) 
+# Подключаем роутеры
+app.include_router(websocket_router) # <-- ДОБАВЛЕНИЕ: Подключаем WebSocket роутер
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -152,6 +153,8 @@ async def close_room_endpoint(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
+
+# --- УДАЛЕНИЕ: handle_websocket_logic и @app.websocket перенесены в routes/websocket.py ---
 
 async def verify_admin_token(request: Request, token: str):
     expires_at = await database.get_admin_token_expiry(token)

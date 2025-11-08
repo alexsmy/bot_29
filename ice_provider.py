@@ -6,7 +6,7 @@ from twilio.base.exceptions import TwilioException
 CONFIG_FILE = "ice_servers.json"
 
 def _get_twilio_servers():
-
+    """Fetches TURN server credentials from Twilio if configured."""
     account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
     auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
 
@@ -16,10 +16,10 @@ def _get_twilio_servers():
 
     try:
         client = Client(account_sid, auth_token)
-
+        # ttl (time-to-live) 86400 seconds = 24 hours.
         token = client.tokens.create(ttl=86400)
         print("Successfully fetched ICE servers from Twilio.")
-
+        # Augment the response with provider metadata
         augmented_servers = []
         for server in token.ice_servers:
             server['region'] = 'global'
@@ -34,7 +34,10 @@ def _get_twilio_servers():
         return []
 
 def get_ice_servers():
-
+    """
+    Loads a list of STUN/TURN servers from the JSON configuration file
+    and dynamically fetches credentials for TURN providers.
+    """
     ice_servers_list = []
 
     try:
@@ -45,14 +48,14 @@ def get_ice_servers():
         print("Falling back to a single public STUN server.")
         return [{"urls": "stun:stun.l.google.com:19302", "region": "global", "source": "google.com"}]
 
-
+    # 1. Add all public STUN servers from the config
     stun_servers = config.get("stun_servers", [])
     if stun_servers:
-        
+        # We pass the full object to preserve metadata like region and source
         ice_servers_list.extend(stun_servers)
     print(f"Loaded {len(stun_servers)} public STUN servers.")
 
-
+    # 2. Sequentially try to get TURN servers from configured providers
     turn_providers = config.get("turn_providers", [])
     for provider in turn_providers:
         provider_name = provider.get("provider")

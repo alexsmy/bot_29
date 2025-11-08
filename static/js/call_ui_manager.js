@@ -17,6 +17,8 @@ let remoteMuteToastTimeout = null;
 let connectionToastTimeout = null;
 let infoPopupTimeout = null;
 
+// --- Управление экранами и модальными окнами ---
+
 export function showScreen(screenName) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     if (screenName) document.getElementById(`${screenName}-screen`).classList.add('active');
@@ -31,6 +33,8 @@ export function showPopup(popupName) {
     document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
     if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
 }
+
+// --- Обновление UI в зависимости от состояния ---
 
 export function updateStatusIndicators(hasCamera, hasMic) {
     cameraStatus.classList.toggle('status-ok', hasCamera);
@@ -51,7 +55,7 @@ export function displayMediaErrors(error) {
     } else {
         message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
     }
-    console.error(message); 
+    console.error(message); // В будущем можно выводить в UI
     continueSpectatorBtn.style.display = 'block';
 }
 
@@ -79,6 +83,7 @@ export function resetCallControls() {
     localVideo.classList.remove('force-cover');
     remoteVideo.classList.remove('force-cover');
     
+    // Предполагаем, что ICONS доступен глобально или будет передан
     if (typeof ICONS !== 'undefined') {
         toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
         toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
@@ -95,6 +100,8 @@ export function updateScreenShareUI(isSharing, isVideoEnabled, currentCallType) 
     screenShareBtn.classList.toggle('active', isSharing);
     localVideoContainer.style.display = isSharing ? 'none' : (isVideoEnabled && currentCallType === 'video' ? 'flex' : 'none');
 }
+
+// --- Управление таймерами и визуальными эффектами ---
 
 function resetUiFade() {
     callScreen.classList.add('ui-interactive');
@@ -144,6 +151,8 @@ export function stopCallTimer(intervalId) {
     callTimer.textContent = '00:00';
     remoteUserName.style.display = 'block';
 }
+
+// --- Уведомления и статусы соединения ---
 
 export function updateConnectionIcon(type) {
     connectionStatus.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));

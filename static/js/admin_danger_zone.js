@@ -1,5 +1,7 @@
 // static/js/admin_danger_zone.js
 
+// Этот модуль отвечает за логику "Опасной зоны".
+
 import { fetchData } from './admin_api.js';
 
 export function initDangerZone() {

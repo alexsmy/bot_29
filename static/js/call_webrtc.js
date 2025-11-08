@@ -75,6 +75,9 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     peerConnection = new RTCPeerConnection(rtcConfig);
     remoteStream = new MediaStream();
 
+    // --- ИСПРАВЛЕНИЕ: НАВСЕГДА ВЫКЛЮЧАЕМ ЗВУК У HTML-ЭЛЕМЕНТОВ ---
+    // Весь звук теперь будет идти только через Web Audio API (GainNode) в call_media.js,
+    // что дает нам полный контроль над его включением/выключением и предотвращает "двойной" звук.
     remoteVideo.muted = true;
     remoteAudio.muted = true;
     // ----------------------------------------------------------------
