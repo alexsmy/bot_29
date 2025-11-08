@@ -148,6 +148,7 @@ export async function probeIceServers() {
             const startTime = performance.now();
             let tempPC;
             let resolved = false;
+            let bestCandidate = null;
 
             const resolvePromise = (status, candidateObj, rtt) => {
                 if (resolved) return;
@@ -168,15 +169,31 @@ export async function probeIceServers() {
 
                 tempPC.onicecandidate = (e) => {
                     if (e.candidate) {
-                        const rtt = performance.now() - startTime;
-                        const candidateData = { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate };
-                        resolvePromise('Responded', candidateData, rtt);
+                        const cand = e.candidate;
+                        // srflx или relay - это именно то, что мы ждем от STUN/TURN.
+                        // Это однозначный успех, можно завершать проверку.
+                        if (cand.type === 'srflx' || cand.type === 'relay') {
+                            const rtt = performance.now() - startTime;
+                            const candidateData = { ...parseCandidate(cand.candidate), raw: cand.candidate };
+                            resolvePromise('Responded', candidateData, rtt);
+                        } else if (cand.type === 'host') {
+                            // Сохраняем host-кандидат на случай, если ничего лучше не найдем.
+                            bestCandidate = cand;
+                        }
                     }
                 };
                 
                 tempPC.onicegatheringstatechange = () => {
                     if (tempPC.iceGatheringState === 'complete' && !resolved) {
-                         resolvePromise('No Candidates', null, performance.now() - startTime);
+                        const rtt = performance.now() - startTime;
+                        // Если сбор завершен, а мы еще не отправили результат,
+                        // значит, мы получили только host-кандидатов (или ничего).
+                        if (bestCandidate) {
+                            const candidateData = { ...parseCandidate(bestCandidate.candidate), raw: bestCandidate.candidate };
+                            resolvePromise('Responded', candidateData, rtt);
+                        } else {
+                            resolvePromise('No Candidates', null, rtt);
+                        }
                     }
                 };
 
