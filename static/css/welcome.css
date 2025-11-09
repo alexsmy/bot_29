@@ -153,7 +153,8 @@ body {
 }
 .hero-mockup img {
     width: 100%;
-    max-width: 350px;
+    /* ИЗМЕНЕНИЕ: Уменьшена максимальная ширина изображения */
+    max-width: 320px; 
     display: block;
     margin: 0 auto;
     border-radius: 30px;
@@ -216,6 +217,10 @@ body {
     max-width: 300px;
     border-radius: 24px;
     box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+    /* ИЗМЕНЕНИЕ: Добавлено для корректного отображения в flex-контейнере на мобильных */
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
 }
 .step-content { text-align: left; }
 .step-number {
@@ -255,10 +260,22 @@ body {
     .hero-subtitle { margin-left: auto; margin-right: auto; }
     .hero-mockup { margin-top: 40px; }
     .hero-mockup img { transform: rotateY(0) rotateX(0); }
-    .step, .step:nth-child(even) { grid-template-columns: 1fr; }
-    .step:nth-child(even) .step-mockup { grid-column: 1; grid-row: 1; }
-    .step-mockup { margin-bottom: 30px; }
-    .step-content { text-align: center; }
+    
+    /* ИЗМЕНЕНИЕ: Полностью переработана логика для мобильных устройств */
+    .step, .step:nth-child(even) {
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+    }
+    .step-mockup {
+        /* Изображение теперь идет первым в потоке */
+        order: 1;
+    }
+    .step-content {
+        /* Текст идет вторым */
+        order: 2;
+        text-align: center;
+    }
 }
 
 @media (max-width: 768px) {
