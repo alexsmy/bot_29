@@ -29,6 +29,7 @@
     --icon-color-time: #6c757d;
     --icon-color-ip: #007bff;
     --icon-color-device: #6f42c1;
+    --icon-color-desktop: #1e6a43; /* Новый цвет для иконки десктопа */
     --icon-color-location: #fd7e14;
     --initiator-color: #fd7e14;
     --receiver-color: #6f42c1;
@@ -52,6 +53,7 @@ html.dark {
     --icon-color-time: #adb5bd;
     --icon-color-ip: #58abff;
     --icon-color-device: #be95ff;
+    --icon-color-desktop: #28a745; /* Новый цвет для иконки десктопа (темная тема) */
     --icon-color-location: #ff9a40;
     --initiator-color: #ff9a40;
     --receiver-color: #be95ff;
@@ -476,15 +478,16 @@ details summary span {
     font-weight: 500;
 }
 .call-count-badge {
-    background-color: var(--border-color);
-    color: var(--text-secondary);
+    background-color: #d4edda;
+    color: #155724;
     font-size: 0.75rem;
     font-weight: 600;
     padding: 0.15rem 0.5rem;
     border-radius: 4px;
 }
 html.dark .call-count-badge {
-    background-color: #495057;
+    background-color: #1d4226;
+    color: #c3e6cb;
 }
 .creator-id {
     font-size: 0.85em;
@@ -598,7 +601,8 @@ html.dark .call-count-badge {
 .icon-person { color: var(--icon-color-person); }
 .icon-time { color: var(--icon-color-time); }
 .icon-ip { color: var(--icon-color-ip); }
-.icon-device { color: var(--icon-color-device); }
+.icon-device.mobile { color: var(--icon-color-device); }
+.icon-device.desktop { color: var(--icon-color-desktop); }
 .icon-location { color: var(--icon-color-location); }
 
 .connection-type-badge {

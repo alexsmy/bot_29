@@ -3,6 +3,16 @@ import { formatDate } from './admin_utils.js';
 
 let connectionsDateInput, searchConnectionsBtn, connectionsListContainer;
 
+function getDeviceIconHtml(deviceType) {
+    let iconSvg = ICONS.device; // Иконка по умолчанию (мобильное устройство)
+    let iconClass = 'mobile';
+    if (deviceType === 'Desktop') {
+        iconSvg = ICONS.desktop;
+        iconClass = 'desktop';
+    }
+    return `<span class="icon icon-device ${iconClass}">${iconSvg}</span>`;
+}
+
 function renderParticipantDetails(ip, connections, isInitiator) {
     if (!ip) return '<p>N/A</p>';
 
@@ -17,7 +27,7 @@ function renderParticipantDetails(ip, connections, isInitiator) {
     const initiatorClass = isInitiator ? 'initiator' : 'receiver';
 
     const detailsHtml = conn ? `
-        <span><span class="icon icon-device">${ICONS.device}</span> ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
+        <span>${getDeviceIconHtml(conn.device_type)} ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
         <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
     ` : '<span><i>Детали подключения не найдены для этого IP.</i></span>';
 
