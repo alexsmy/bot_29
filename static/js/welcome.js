@@ -2,20 +2,36 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     
-    // Плавное появление элементов при прокрутке
+    // 1. Плавное появление элементов при прокрутке
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 entry.target.classList.add('visible');
-                // Отключаем наблюдение после того, как элемент стал видимым, для оптимизации
                 observer.unobserve(entry.target);
             }
         });
     }, {
-        threshold: 0.1 // Элемент считается видимым, когда 10% его площади в зоне видимости
+        threshold: 0.1
     });
 
     const elementsToFadeIn = document.querySelectorAll('.fade-in');
     elementsToFadeIn.forEach(el => observer.observe(el));
 
+    // 2. Параллакс-эффект для фоновых фигур (только на десктопах)
+    const shapes = document.querySelectorAll('.shape');
+    const isDesktop = window.matchMedia('(min-width: 1024px)').matches;
+
+    if (isDesktop) {
+        window.addEventListener('scroll', () => {
+            const scrollY = window.scrollY;
+            shapes.forEach((shape, index) => {
+                let speed = 0.1;
+                if (index === 0) speed = 0.2;
+                if (index === 1) speed = 0.15;
+                
+                const yPos = -scrollY * speed;
+                shape.style.transform = `translateY(${yPos}px)`;
+            });
+        });
+    }
 });
