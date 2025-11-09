@@ -5,21 +5,137 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сервис для приватных звонков</title>
+    <title>Сервис приватных звонков — Просто. Безопасно. Без установки.</title>
+    <meta name="description" content="Создавайте зашифрованные end-to-end аудио и видео звонки по уникальной ссылке через Telegram. Без регистрации и установки приложений.">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="/static/css/base.css">
-    <link rel="stylesheet" href="/static/css/landing.css">
+    <link rel="stylesheet" href="/static/css/welcome.css">
+    
+    <script src="/static/js/welcome.js" defer></script>
 </head>
 <body>
-    <div class="landing-container">
-        <div class="landing-content">
-            <h1 class="landing-title">Сервис для создания приватных аудио и видео звонков</h1>
-            <p class="landing-text">
-                Чтобы сгенерировать уникальную и безопасную ссылку для звонка, пожалуйста, воспользуйтесь нашим ботом в Telegram.
-            </p>
-            {% if bot_username %}
-            <a href="https://t.me/{{ bot_username }}" target="_blank" class="landing-button">Перейти в бот</a>
-            {% endif %}
+
+    <div class="background-glow"></div>
+
+    <header class="main-header">
+        <div class="logo">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg"><path d="M16.56,12.44,15.11,11,14,12.11,12.44,10.56,11,12,9.89,10.89,8.44,12.44,7,11,5.56,12.44,4.44,11.33,3,12.78V20a2,2,0,0,0,2,2H19a2,2,0,0,0,2-2V12.78L19.56,11.33Z" style="fill:#0a84ff"/><path d="M19,2H5A2,2,0,0,0,3,4V11.22l1.44-1.45L5.56,11,7,9.56,8.44,11,9.89,9.56,11,10.67l1.44-1.45L14,10.67,15.11,9.56,16.56,11,18,9.56,19.56,11,21,9.56V4A2,2,0,0,0,19,2Z" style="fill:#25d366"/></svg>
+            <span class="logo-text">PrivacyCall</span>
         </div>
-    </div>
+    </header>
+
+    <main class="content-wrapper">
+
+        <!-- Секция 1: Главный экран -->
+        <section id="hero" class="hero-section">
+            <div class="hero-content">
+                <h1 class="hero-title">Приватные звонки.<br>Просто. Безопасно.</h1>
+                <p class="hero-subtitle">
+                    Создавайте зашифрованные аудио- и видеозвонки по уникальной ссылке через Telegram. Без регистрации и установки приложений.
+                </p>
+                {% if bot_username %}
+                <a href="https://t.me/{{ bot_username }}" target="_blank" class="cta-button primary">
+                    <svg viewBox="0 0 24 24"><path fill="currentColor" d="M9.78,18.65l.28,4.23a.75.75,0,0,0,1.4.05l1.37-5.3,6.06,4.41a.75.75,0,0,0,1.17-.89L22,3.13a.75.75,0,0,0-1-1L1.37,12.1a.75.75,0,0,0,.05,1.4l5.3,1.37Z"/></svg>
+                    <span>Создать ссылку в Telegram</span>
+                </a>
+                {% endif %}
+            </div>
+        </section>
+
+        <!-- Секция 2: Преимущества -->
+        <section id="features" class="features-section">
+            <div class="features-grid">
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M12,6.77L16.2,9L12,11.23L7.8,9L12,6.77M11,13V18H6V12.2L11,14.5V13Z"/></svg>
+                    </div>
+                    <h3 class="feature-title">Максимальная приватность</h3>
+                    <p class="feature-description">Все звонки защищены сквозным (E2E) шифрованием по протоколу WebRTC. Мы не имеем доступа к вашим разговорам.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M13,9H11V7H13M13,17H11V11H13M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2Z"/></svg>
+                    </div>
+                    <h3 class="feature-title">Ничего лишнего</h3>
+                    <p class="feature-description">Не нужно скачивать приложения или регистрироваться. Звонок происходит прямо в браузере на любом устройстве.</p>
+                </div>
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 24 24"><path fill="currentColor" d="M17.7,15.7c-0.5-0.5-1-0.9-1.6-1.2c-0.1-0.1-0.3-0.1-0.4,0l-1,0.7c-1.5-0.8-2.8-2.1-3.6-3.6l0.7-1c0.1-0.1,0.1-0.3,0-0.4C11.6,9.7,11.2,9.2,10.7,8.7c-0.5-0.5-1.2-1.2-1.2-1.2S9.4,7.4,9.3,7.3C9.2,7.2,9.1,7.1,9,7.1c-0.1,0-0.3,0-0.4,0l-1.3,0.3C7,7.5,6.7,7.8,6.5,8.1C6.2,8.6,6,9.2,6,9.9c0,4.6,3.2,8.4,7.5,9.5c0.7,0.2,1.3,0,1.8-0.3c0.3-0.2,0.6-0.5,0.7-0.8l0.3-1.3c0-0.1,0-0.3,0-0.4c0-0.1-0.1-0.2-0.2-0.3C16.1,15.9,15.7,15.7,17.7,15.7z"/></svg>
+                    </div>
+                    <h3 class="feature-title">Высокое качество</h3>
+                    <p class="feature-description">Технология WebRTC обеспечивает прямое P2P-соединение для минимальной задержки и кристально чистого звука.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Секция 3: Как это работает -->
+        <section id="how-it-works" class="how-it-works-section">
+            <h2 class="section-title fade-in">Всего 3 простых шага</h2>
+            <div class="steps-container">
+                <div class="step fade-in">
+                    <div class="step-number">1</div>
+                    <h3 class="step-title">Создайте ссылку</h3>
+                    <p class="step-description">Запустите нашего Telegram-бота и нажмите кнопку, чтобы сгенерировать уникальную ссылку для звонка.</p>
+                </div>
+                <div class="step-arrow fade-in">→</div>
+                <div class="step fade-in">
+                    <div class="step-number">2</div>
+                    <h3 class="step-title">Поделитесь с другом</h3>
+                    <p class="step-description">Отправьте сгенерированную ссылку вашему собеседнику любым удобным способом.</p>
+                </div>
+                <div class="step-arrow fade-in">→</div>
+                <div class="step fade-in">
+                    <div class="step-number">3</div>
+                    <h3 class="step-title">Начните разговор</h3>
+                    <p class="step-description">Откройте ссылку в браузере, дождитесь собеседника и начните приватный звонок.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Секция 4: FAQ -->
+        <section id="faq" class="faq-section">
+            <h2 class="section-title fade-in">Частые вопросы</h2>
+            <div class="faq-container">
+                <details class="faq-item fade-in">
+                    <summary class="faq-question">Это действительно безопасно?</summary>
+                    <div class="faq-answer">
+                        <p>Абсолютно. Все звонки используют технологию WebRTC и защищены сквозным шифрованием (end-to-end encryption) с использованием протоколов DTLS-SRTP. Это означает, что никто, кроме вас и вашего собеседника, не может получить доступ к содержанию разговора.</p>
+                    </div>
+                </details>
+                <details class="faq-item fade-in">
+                    <summary class="faq-question">Сколько человек может быть в звонке?</summary>
+                    <div class="faq-answer">
+                        <p>Каждая сгенерированная ссылка предназначена для приватного звонка между двумя людьми. Это обеспечивает максимальное качество и безопасность соединения.</p>
+                    </div>
+                </details>
+                <details class="faq-item fade-in">
+                    <summary class="faq-question">Как долго действует ссылка?</summary>
+                    <div class="faq-answer">
+                        <p>Стандартная ссылка и комната для звонка активны в течение 3 часов с момента создания. После этого они автоматически и безвозвратно удаляются для обеспечения вашей конфиденциальности.</p>
+                    </div>
+                </details>
+                 <details class="faq-item fade-in">
+                    <summary class="faq-question">Какие браузеры и устройства поддерживаются?</summary>
+                    <div class="faq-answer">
+                        <p>Сервис работает на большинстве современных браузеров, поддерживающих WebRTC. Рекомендуем использовать последние версии Google Chrome, Mozilla Firefox, Safari или Microsoft Edge на компьютерах и мобильных устройствах.</p>
+                    </div>
+                </details>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="main-footer bottom">
+        {% if bot_username %}
+        <a href="https://t.me/{{ bot_username }}" target="_blank" class="cta-button secondary">Начать пользоваться</a>
+        {% endif %}
+        <p class="footer-text">© 2025 PrivacyCall. Все права защищены.</p>
+    </footer>
+
 </body>
 </html>
