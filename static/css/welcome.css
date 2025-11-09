@@ -1,3 +1,4 @@
+/* static/css/welcome.css */
 
 :root {
     --font-main: 'Manrope', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -152,7 +153,6 @@ body {
 }
 .hero-mockup img {
     width: 100%;
-    /* ИЗМЕНЕНИЕ: Уменьшена максимальная ширина изображения */
     max-width: 320px; 
     display: block;
     margin: 0 auto;
@@ -216,7 +216,6 @@ body {
     max-width: 300px;
     border-radius: 24px;
     box-shadow: 0 15px 40px rgba(0,0,0,0.25);
-    /* ИЗМЕНЕНИЕ: Добавлено для корректного отображения в flex-контейнере на мобильных */
     margin-left: auto;
     margin-right: auto;
     display: block;
@@ -252,6 +251,14 @@ body {
 .feature-card.fade-in:nth-child(3) { transition-delay: 0.2s; }
 .step.fade-in { transition-delay: 0.2s; }
 
+/* --- НОВЫЙ КЛАСС для таймера редиректа --- */
+.redirect-info {
+    margin-top: 20px;
+    color: var(--text-secondary-welcome);
+    font-size: 0.9rem;
+    min-height: 1.2em; /* Резервируем место, чтобы страница не "прыгала" */
+}
+
 /* --- Responsive Design --- */
 @media (max-width: 992px) {
     .hero-section { grid-template-columns: 1fr; text-align: center; }
@@ -260,18 +267,15 @@ body {
     .hero-mockup { margin-top: 40px; }
     .hero-mockup img { transform: rotateY(0) rotateX(0); }
     
-    /* ИЗМЕНЕНИЕ: Полностью переработана логика для мобильных устройств */
     .step, .step:nth-child(even) {
         display: flex;
         flex-direction: column;
         gap: 30px;
     }
     .step-mockup {
-        /* Изображение теперь идет первым в потоке */
         order: 1;
     }
     .step-content {
-        /* Текст идет вторым */
         order: 2;
         text-align: center;
     }
