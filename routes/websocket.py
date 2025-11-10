@@ -1,6 +1,4 @@
-
-# routes/websocket.py 53
-
+# routes/websocket.py 58
 import asyncio
 import uuid
 from datetime import datetime, timezone
@@ -172,28 +170,40 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
         return
 
+    # --- ИСПРАВЛЕНИЕ: ПОСЛЕДОВАТЕЛЬНОЕ ПОЛУЧЕНИЕ ДАННЫХ ---
+    # 1. Получаем IP и User-Agent из заголовков
     x_forwarded_for = websocket.headers.get("x-forwarded-for")
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
-    async def log_connection_in_background():
-        location_data = await utils.get_ip_location(ip_address)
-        ua_data = utils.parse_user_agent(user_agent)
-        parsed_data = {**location_data, **ua_data}
-        await database.log_connection(room_id, ip_address, user_agent, parsed_data)
+    # 2. ДОЖИДАЕМСЯ получения геолокации и парсинга User-Agent
+    location_data = await utils.get_ip_location(ip_address)
+    ua_data = utils.parse_user_agent(user_agent)
+    
+    # 3. Собираем ПОЛНЫЙ набор данных о пользователе
+    parsed_data = {**location_data, **ua_data}
 
-    asyncio.create_task(log_connection_in_background())
+    # 4. Запускаем запись в лог БД в фоне (теперь это не влияет на основную логику)
+    asyncio.create_task(database.log_connection(
+        room_id, 
+        ip_address, 
+        user_agent, 
+        parsed_data
+    ))
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     new_user_id = str(uuid.uuid4())
     
-    user_data = {
+    # 5. Передаем в комнату полный набор данных для использования в реальном времени
+    user_data_for_room = {
         "id": new_user_id, 
         "first_name": "Собеседник", 
         "last_name": "",
-        "ip_address": ip_address
+        "ip_address": ip_address,
+        **parsed_data
     }
     
-    actual_user_id = await room.connect(websocket, user_data)
+    actual_user_id = await room.connect(websocket, user_data_for_room)
 
     if actual_user_id:
         await handle_websocket_logic(websocket, room, actual_user_id)
