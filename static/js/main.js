@@ -1,4 +1,5 @@
-// static/js/main.js 56_2 понижаем шум логов
+
+// static/js/main.js 56_1
 
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
@@ -47,34 +48,6 @@ function isIOS() {
 
 function sendLogToServer(message) {
     if (!currentUser || !currentUser.id || !roomId) return;
-
-    // ИЗМЕНЕНИЕ: Фильтруем "шумные" логи перед отправкой на сервер
-    const noisyPatterns = [
-        '[WS] Received message:',
-        '[WS] Sending message:',
-        '[STATS]',
-        '[CONTROLS]',
-        '[DC]'
-    ];
-    const importantKeywords = [
-        '[CRITICAL]',
-        '[ERROR]',
-        'failed',
-        'denied',
-        '[PROBE]',
-        '[LOGGER]',
-        '[SINK]',
-        '[WEBRTC_POLICY]'
-    ];
-
-    const isImportant = importantKeywords.some(keyword => message.includes(keyword));
-    if (!isImportant) {
-        const isNoisy = noisyPatterns.some(pattern => message.includes(pattern));
-        if (isNoisy) {
-            return; // Не отправляем "шумные" логи на сервер
-        }
-    }
-
     fetch('/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -90,8 +63,8 @@ function logToScreen(message) {
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     const logMessage = `[${time}] ${message}`;
-    console.log(logMessage); // Всегда выводим в консоль браузера
-    sendLogToServer(logMessage); // Отправляем на сервер только отфильтрованные
+    console.log(logMessage);
+    sendLogToServer(logMessage);
 }
 
 function loadIcons() {
@@ -193,6 +166,7 @@ function initializePrivateCallMode() {
             callTimerInterval = uiManager.startCallTimer(currentCallType);
             connectAudio.play();
             
+            // <-- ИСПРАВЛЕНИЕ: Возвращаем запуск мониторинга соединения
             connectionQuality.classList.add('active');
             monitor.startConnectionMonitoring();
         },

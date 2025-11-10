@@ -1,4 +1,4 @@
-# logger_config.py 56_2 понижаем шум логов
+# logger_config.py 56_1
 
 import logging
 import sys
@@ -6,12 +6,6 @@ import sys
 # --- Константы ---
 LOG_FILE_PATH = "app.log"
 LOG_FORMAT = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-
-# ИЗМЕНЕНИЕ: Добавляем класс для фильтрации логов доступа
-class EndpointFilter(logging.Filter):
-    def filter(self, record: logging.LogRecord) -> bool:
-        # Исключаем из логов все запросы к эндпоинту /log
-        return record.getMessage().find("POST /log HTTP/1.1") == -1
 
 def setup_logger():
     """Настраивает и возвращает корневой логгер."""
@@ -38,12 +32,9 @@ def setup_logger():
         logging.basicConfig()
         logging.error(f"Не удалось настроить файловый логгер: {e}")
 
-    # ИЗМЕНЕНИЕ: Применяем фильтр к логгеру uvicorn.access
-    logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
-
     # Понижаем уровень логирования для "шумных" библиотек
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("twilio").setLevel(logging.WARNING)
+    logging.getLogger("twilio").setLevel(logging.WARNING) # <-- ДОБАВЛЕНО
 
     return logger
 
