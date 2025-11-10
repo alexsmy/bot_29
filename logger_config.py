@@ -1,4 +1,4 @@
-# logger_config.py 56_1
+# logger_config.py 56_3
 
 import logging
 import sys
@@ -34,7 +34,11 @@ def setup_logger():
 
     # Понижаем уровень логирования для "шумных" библиотек
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    logging.getLogger("twilio").setLevel(logging.WARNING) # <-- ДОБАВЛЕНО
+    logging.getLogger("twilio").setLevel(logging.WARNING)
+    
+    # ИЗМЕНЕНИЕ: Устанавливаем для логгера веб-доступа Uvicorn уровень WARNING.
+    # Это скроет все успешные GET/POST запросы (со статусом 2xx), но оставит ошибки (4xx, 5xx).
+    logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
     return logger
 
