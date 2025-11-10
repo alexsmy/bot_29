@@ -2,6 +2,33 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     
+    /**
+     * Функция для загрузки и вставки SVG-иконок на страницу.
+     */
+    const loadIcons = () => {
+        // Проверяем, существует ли объект WELCOME_ICONS (загружен ли welcome_icons.js)
+        if (typeof WELCOME_ICONS === 'undefined') {
+            console.error('Объект WELCOME_ICONS не найден. Убедитесь, что welcome_icons.js загружен перед этим скриптом.');
+            return;
+        }
+
+        // Находим все элементы-плейсхолдеры для иконок
+        const iconPlaceholders = document.querySelectorAll('[data-icon-name]');
+
+        iconPlaceholders.forEach(placeholder => {
+            const iconName = placeholder.dataset.iconName;
+            if (WELCOME_ICONS[iconName]) {
+                // Вставляем SVG-код иконки внутрь плейсхолдера
+                placeholder.innerHTML = WELCOME_ICONS[iconName];
+            } else {
+                console.warn(`Иконка с именем "${iconName}" не найдена в WELCOME_ICONS.`);
+            }
+        });
+    };
+
+    // Вызываем функцию загрузки иконок
+    loadIcons();
+    
     // 1. Плавное появление элементов при прокрутке
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
