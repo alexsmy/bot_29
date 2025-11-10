@@ -13,6 +13,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="/static/css/welcome.css">
+    
+    <script src="/static/js/welcome.js" defer></script>
 </head>
 <body>
 
@@ -22,7 +24,7 @@
 
     <header class="main-header fade-in">
         <div class="logo">
-            <span data-icon-name="logoShield"></span>
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 5V11C3 16.5 6.8 21.7 12 23C17.2 21.7 21 16.5 21 11V5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 14L16 12L12 10L8 12L12 14Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span class="logo-text">PrivacyCall</span>
         </div>
         {% if bot_username %}
@@ -41,7 +43,7 @@
                 </p>
                 {% if bot_username %}
                 <a href="https://t.me/{{ bot_username }}" target="_blank" class="cta-button primary">
-                    <span data-icon-name="telegram"></span>
+                    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.78,18.65l.28,4.23a.75.75,0,0,0,1.4.05l1.37-5.3,6.06,4.41a.75.75,0,0,0,1.17-.89L22,3.13a.75.75,0,0,0-1-1L1.37,12.1a.75.75,0,0,0,.05,1.4l5.3,1.37Z"/></svg>
                     <span>Получить ссылку в Telegram</span>
                 </a>
                 {% endif %}
@@ -56,21 +58,21 @@
             <div class="features-grid">
                 <div class="feature-card fade-in">
                     <div class="feature-icon">
-                        <span data-icon-name="featureShieldCheck"></span>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L3 5V11C3 16.5 6.8 21.7 12 23C17.2 21.7 21 16.5 21 11V5L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 12L11 14L15 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
                     <h3 class="feature-title">E2E Шифрование</h3>
                     <p class="feature-description">Все звонки защищены сквозным шифрованием по протоколу DTLS-SRTP. Никто, кроме участников, не может получить доступ к разговору.</p>
                 </div>
                 <div class="feature-card fade-in">
                     <div class="feature-icon">
-                        <span data-icon-name="featureBrowserCheck"></span>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M21 10V7C21 5.89543 20.1046 5 19 5H5C3.89543 5 3 5.89543 3 7V17C3 18.1046 3.89543 19 5 19H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 14L17 18L15 16" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
                     <h3 class="feature-title">Без установки</h3>
                     <p class="feature-description">Не нужно скачивать приложения или регистрироваться. Звонок происходит прямо в браузере на любом современном устройстве.</p>
                 </div>
                 <div class="feature-card fade-in">
                     <div class="feature-icon">
-                        <span data-icon-name="featureNodes"></span>
+                        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 8C19.6569 8 21 6.65685 21 5C21 3.34315 19.6569 2 18 2C16.3431 2 15 3.34315 15 5C15 6.65685 16.3431 8 18 8Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 15C7.65685 15 9 13.6569 9 12C9 10.3431 7.65685 9 6 9C4.34315 9 3 10.3431 3 12C3 13.6569 4.34315 15 6 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M18 22C19.6569 22 21 20.6569 21 19C21 17.3431 19.6569 16 18 16C16.3431 16 15 17.3431 15 19C15 20.6569 16.3431 22 18 22Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M8.5 13.5L15.5 17.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M15.5 6.5L8.5 10.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                     </div>
                     <h3 class="feature-title">Прямое соединение</h3>
                     <p class="feature-description">Технология WebRTC обеспечивает прямое P2P-соединение для минимальной задержки и кристально чистого звука и видео.</p>
@@ -115,15 +117,12 @@
         <h2 class="section-title fade-in">Готовы начать?</h2>
         {% if bot_username %}
         <a href="https://t.me/{{ bot_username }}" target="_blank" class="cta-button primary large fade-in">
-            <span data-icon-name="telegram"></span>
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.78,18.65l.28,4.23a.75.75,0,0,0,1.4.05l1.37-5.3,6.06,4.41a.75.75,0,0,0,1.17-.89L22,3.13a.75.75,0,0,0-1-1L1.37,12.1a.75.75,0,0,0,.05,1.4l5.3,1.37Z"/></svg>
             <span>Создать безопасный звонок</span>
         </a>
         {% endif %}
         <p class="footer-text fade-in">© 2025 PrivacyCall. Все права защищены.</p>
     </footer>
 
-    <!-- Скрипты подключаются в конце body для лучшей производительности -->
-    <script src="/static/js/welcome_icons.js"></script>
-    <script src="/static/js/welcome.js" defer></script>
 </body>
 </html>
