@@ -1,6 +1,4 @@
-
-// static/js/main.js 56_1
-
+// static/js/main.js
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
     micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
@@ -160,13 +158,13 @@ function initializePrivateCallMode() {
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
+            uiManager.showCallingOverlay(false); // Скрываем оверлей вызова
             uiManager.showScreen('call');
             const mediaStatus = media.getMediaAccessStatus();
             uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
             callTimerInterval = uiManager.startCallTimer(currentCallType);
             connectAudio.play();
             
-            // <-- ИСПРАВЛЕНИЕ: Возвращаем запуск мониторинга соединения
             connectionQuality.classList.add('active');
             monitor.startConnectionMonitoring();
         },
@@ -312,7 +310,7 @@ async function initiateCall(userToCall, callType) {
     uiManager.showScreen('call');
     const mediaStatus = media.getMediaAccessStatus();
     uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
-    callTimer.textContent = "Вызов...";
+    uiManager.showCallingOverlay(true, currentCallType); // Показываем оверлей вызова
     ringOutAudio.play();
 }
 
@@ -390,6 +388,7 @@ async function endCall(isInitiator, reason) {
     uiManager.stopCallTimer(callTimerInterval);
     callTimerInterval = null;
     uiManager.showModal('incoming-call', false);
+    uiManager.showCallingOverlay(false); // Скрываем оверлей вызова при завершении
     uiManager.showScreen('pre-call');
 
     targetUser = {};

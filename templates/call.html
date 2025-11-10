@@ -1,5 +1,4 @@
-
-
+<!-- templates/call.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -121,6 +120,16 @@
         <!-- ЭКРАН 3: ЗВОНОК -->
         <div id="call-screen" class="screen">
             <video id="remoteVideo" autoplay playsinline></video>
+
+            <!-- НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ СТАТУСА ВЫЗОВА -->
+            <div id="calling-overlay" class="calling-overlay">
+                <div class="calling-overlay-content">
+                    <h2 id="calling-overlay-title">Вызов...</h2>
+                    <p>Ожидаем ответа собеседника</p>
+                    <div class="spinner"></div>
+                </div>
+            </div>
+            <!-- КОНЕЦ НОВОГО БЛОКА -->
 
             <div id="local-video-container">
                 <video id="localVideo" autoplay muted playsinline></video>

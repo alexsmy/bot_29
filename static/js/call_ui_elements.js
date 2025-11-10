@@ -1,4 +1,4 @@
-
+// static/js/call_ui_elements.js
 export const preCallCheckScreen = document.getElementById('pre-call-check-screen');
 export const previewVideo = document.getElementById('previewVideo');
 export const micLevelBars = document.querySelectorAll('.mic-level-bar');
@@ -26,6 +26,8 @@ export const instructionsModal = document.getElementById('instructions-modal');
 export const closeInstructionsBtns = document.querySelectorAll('.close-instructions-btn');
 
 export const callScreen = document.getElementById('call-screen');
+export const callingOverlay = document.getElementById('calling-overlay');
+export const callingOverlayTitle = document.getElementById('calling-overlay-title');
 export const audioCallVisualizer = document.getElementById('audio-call-visualizer');
 export const localGlow = document.getElementById('local-glow');
 export const remoteGlow = document.getElementById('remote-glow');

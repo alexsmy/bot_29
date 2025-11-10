@@ -1,6 +1,4 @@
-
-// static/js/call_ui_manager.js 51_1
-
+// static/js/call_ui_manager.js
 import {
     preCallCheckScreen, preCallScreen, callScreen, instructionsModal, deviceSettingsModal,
     incomingCallModal, popupWaiting, popupActions, popupInitiating,
@@ -9,7 +7,8 @@ import {
     remoteVideo, localVideoContainer, audioCallVisualizer, connectionStatus,
     connectionQuality, qualityGoodSvg, qualityMediumSvg, qualityBadSvg,
     remoteMuteToast, connectionToast, connectionInfoPopup,
-    localVideo, toggleLocalViewBtn, toggleRemoteViewBtn
+    localVideo, toggleLocalViewBtn, toggleRemoteViewBtn,
+    callingOverlay, callingOverlayTitle
 } from './call_ui_elements.js';
 
 let uiFadeTimeout = null;
@@ -32,6 +31,17 @@ export function showModal(modalName, show) {
 export function showPopup(popupName) {
     document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
     if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
+}
+
+// --- НОВАЯ ФУНКЦИЯ для управления оверлеем вызова ---
+export function showCallingOverlay(show, callType = 'audio') {
+    if (show) {
+        const title = callType === 'video' ? 'Видеовызов...' : 'Аудиовызов...';
+        callingOverlayTitle.textContent = title;
+        callingOverlay.classList.add('active');
+    } else {
+        callingOverlay.classList.remove('active');
+    }
 }
 
 // --- Обновление UI в зависимости от состояния ---

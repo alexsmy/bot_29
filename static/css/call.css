@@ -1,3 +1,4 @@
+/* static/css/call.css */
 #app-container {
   position: relative;
   width: 100%;
@@ -517,6 +518,36 @@
   z-index: 101;
   display: none;
 }
+
+/* --- НОВЫЕ СТИЛИ ДЛЯ ОКНА ВЫЗОВА --- */
+.calling-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(5px);
+    z-index: 105; /* Выше чем local video (104) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.calling-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+.calling-overlay-content h2 {
+    font-size: 1.8rem;
+    margin: 0 0 10px 0;
+}
+.calling-overlay-content p {
+    color: var(--text-secondary);
+    margin: 0 0 20px 0;
+}
+/* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
 
 #local-video-container {
   position: absolute;
