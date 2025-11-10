@@ -44,7 +44,8 @@ async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAUL
     token = str(uuid.uuid4())
     await database.add_admin_token(token)
 
-    web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
+    # ИЗМЕНЕНИЕ: Используем RENDER_EXTERNAL_URL, если он доступен
+    web_app_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
     admin_link = f"{web_app_url}admin/{token}"

@@ -15,7 +15,8 @@ async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id:
     Создает комнату, логирует сессию и отправляет пользователю сообщение со ссылкой.
     """
     room_id = str(uuid.uuid4())
-    web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
+    # ИЗМЕНЕНИЕ: Используем RENDER_EXTERNAL_URL, если он доступен
+    web_app_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
     full_link = f"{web_app_url}call/{room_id}"

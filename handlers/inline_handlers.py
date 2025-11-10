@@ -1,3 +1,4 @@
+
 import os
 import uuid
 from telegram import Update, InputTextMessageContent, InlineQueryResultArticle, InlineKeyboardMarkup, InlineKeyboardButton, constants
@@ -22,7 +23,8 @@ async def handle_inline_query(update: Update, context: ContextTypes.DEFAULT_TYPE
     lifetime_hours = await database.get_room_lifetime_hours(room_id)
     lifetime_text = format_hours(lifetime_hours)
 
-    web_app_url = os.environ.get("WEB_APP_URL", "http://localhost:8000")
+    # ИЗМЕНЕНИЕ: Используем RENDER_EXTERNAL_URL, если он доступен
+    web_app_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
     full_link = f"{web_app_url}call/{room_id}"
