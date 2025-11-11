@@ -12,18 +12,25 @@ function getCallStatusIcon(callStatus, callType) {
     const glowClass = 'glowing';
     let iconSvg = '';
     let title = '';
+    let typeClass = '';
 
     if (callType === 'video') {
         iconSvg = ICONS.videoCallActive;
         title = "Активный видеозвонок";
+        typeClass = 'video';
     } else if (callType === 'audio') {
         iconSvg = ICONS.audioCallActive;
         title = "Активный аудиозвонок";
+        typeClass = 'audio';
+    } else if (callType === 'chat') {
+        iconSvg = ICONS.chatActive;
+        title = "Активный чат";
+        typeClass = 'chat';
     } else {
         return '';
     }
 
-    return `<span class="call-status-icon ${glowClass}" title="${title}">${iconSvg}</span>`;
+    return `<span class="call-status-icon ${typeClass} ${glowClass}" title="${title}">${iconSvg}</span>`;
 }
 
 function renderRooms() {

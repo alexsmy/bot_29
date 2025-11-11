@@ -1,4 +1,3 @@
-# routes/websocket.py 58
 import asyncio
 import uuid
 from datetime import datetime, timezone
@@ -35,10 +34,8 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
                 target_id = message["data"]["target_id"] # target_id здесь - это инициатор звонка
                 room.cancel_call_timeout(user_id, target_id)
                 if room.pending_call_type:
-                    # Сбрасываем флаг отправки уведомления для нового звонка
                     room.details_notification_sent = False
                     
-                    # Получаем IP участников из RoomManager для точного логирования
                     initiator = room.users.get(target_id)
                     receiver = room.users.get(user_id)
                     
@@ -74,7 +71,7 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
             elif message_type in ["hangup", "call_declined"]:
                 target_id = message["data"]["target_id"]
                 room.cancel_call_timeout(user_id, target_id)
-                room.details_notification_sent = False # Сбрасываем флаг при завершении/отклонении
+                room.details_notification_sent = False
                 
                 if message_type == "hangup":
                     asyncio.create_task(database.log_call_end(room.room_id))
@@ -170,31 +167,24 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         await websocket.close(code=1008, reason="Forbidden: Room not found or expired")
         return
 
-    # --- ИСПРАВЛЕНИЕ: ПОСЛЕДОВАТЕЛЬНОЕ ПОЛУЧЕНИЕ ДАННЫХ ---
-    # 1. Получаем IP и User-Agent из заголовков
     x_forwarded_for = websocket.headers.get("x-forwarded-for")
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
-    # 2. ДОЖИДАЕМСЯ получения геолокации и парсинга User-Agent
     location_data = await utils.get_ip_location(ip_address)
     ua_data = utils.parse_user_agent(user_agent)
     
-    # 3. Собираем ПОЛНЫЙ набор данных о пользователе
     parsed_data = {**location_data, **ua_data}
 
-    # 4. Запускаем запись в лог БД в фоне (теперь это не влияет на основную логику)
     asyncio.create_task(database.log_connection(
         room_id, 
         ip_address, 
         user_agent, 
         parsed_data
     ))
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
     new_user_id = str(uuid.uuid4())
     
-    # 5. Передаем в комнату полный набор данных для использования в реальном времени
     user_data_for_room = {
         "id": new_user_id, 
         "first_name": "Собеседник", 

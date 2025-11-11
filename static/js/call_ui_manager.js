@@ -1,4 +1,3 @@
-// static/js/call_ui_manager.js
 import {
     preCallCheckScreen, preCallScreen, callScreen, instructionsModal, deviceSettingsModal,
     incomingCallModal, popupWaiting, popupActions, popupInitiating,
@@ -8,12 +7,14 @@ import {
     connectionQuality, qualityGoodSvg, qualityMediumSvg, qualityBadSvg,
     remoteMuteToast, connectionToast, connectionInfoPopup,
     localVideo, toggleLocalViewBtn, toggleRemoteViewBtn,
-    callingOverlay, callingOverlayTitle
+    callingOverlay, callingOverlayTitle, standaloneChatScreen, connectionStatusChat,
+    inCallChatModal, chatBtn, typingToast
 } from './call_ui_elements.js';
 
 let uiFadeTimeout = null;
 let remoteMuteToastTimeout = null;
 let connectionToastTimeout = null;
+let typingToastTimeout = null;
 let infoPopupTimeout = null;
 
 // --- Управление экранами и модальными окнами ---
@@ -33,10 +34,11 @@ export function showPopup(popupName) {
     if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
 }
 
-// --- НОВАЯ ФУНКЦИЯ для управления оверлеем вызова ---
 export function showCallingOverlay(show, callType = 'audio') {
     if (show) {
-        const title = callType === 'video' ? 'Видеовызов...' : 'Аудиовызов...';
+        let title = 'Аудиовызов...';
+        if (callType === 'video') title = 'Видеовызов...';
+        if (callType === 'chat') title = 'Ожидание собеседника в чате...';
         callingOverlayTitle.textContent = title;
         callingOverlay.classList.add('active');
     } else {
@@ -65,7 +67,7 @@ export function displayMediaErrors(error) {
     } else {
         message += 'Произошла ошибка. Попробуйте перезагрузить страницу.';
     }
-    console.error(message); // В будущем можно выводить в UI
+    console.error(message);
     continueSpectatorBtn.style.display = 'block';
 }
 
@@ -93,7 +95,6 @@ export function resetCallControls() {
     localVideo.classList.remove('force-cover');
     remoteVideo.classList.remove('force-cover');
     
-    // Предполагаем, что ICONS доступен глобально или будет передан
     if (typeof ICONS !== 'undefined') {
         toggleLocalViewBtn.querySelector('.icon').innerHTML = ICONS.localViewContain;
         toggleRemoteViewBtn.querySelector('.icon').innerHTML = ICONS.remoteViewCover;
@@ -165,40 +166,52 @@ export function stopCallTimer(intervalId) {
 // --- Уведомления и статусы соединения ---
 
 export function updateConnectionIcon(type) {
-    connectionStatus.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
-    const typeMap = {
-        local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
-        p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
-        relay: { id: 'conn-relay', title: 'Соединение через сервер (Relay)' },
-        unknown: { id: 'conn-unknown', title: 'Определение типа соединения...' }
-    };
-    const { id, title } = typeMap[type] || typeMap.unknown;
-    document.getElementById(id)?.classList.add('active');
-    connectionStatus.setAttribute('data-type-title', title);
-    const qualityText = connectionStatus.title.split(' / ')[0] || 'Качество соединения';
-    connectionStatus.title = `${qualityText} / ${title}`;
+    const statusElements = [connectionStatus, connectionStatusChat];
+    statusElements.forEach(el => {
+        if (!el) return;
+        el.innerHTML = connectionStatus.innerHTML; // Копируем структуру
+        el.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
+        const typeMap = {
+            local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
+            p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
+            relay: { id: 'conn-relay', title: 'Соединение через сервер (Relay)' },
+            unknown: { id: 'conn-unknown', title: 'Определение типа соединения...' }
+        };
+        const { id, title } = typeMap[type] || typeMap.unknown;
+        el.querySelector(`#${id}`)?.classList.add('active');
+        el.setAttribute('data-type-title', title);
+        const qualityText = el.title.split(' / ')[0] || 'Качество соединения';
+        el.title = `${qualityText} / ${title}`;
+    });
 }
 
 export function updateConnectionQualityIcon(quality) {
-    connectionQuality.classList.remove('quality-good', 'quality-medium', 'quality-bad');
-    [qualityGoodSvg, qualityMediumSvg, qualityBadSvg].forEach(svg => {
-        svg.classList.remove('active-quality-svg');
-        svg.style.display = 'none';
+    const qualityElements = document.querySelectorAll('#connection-quality');
+    qualityElements.forEach(el => {
+        el.classList.remove('quality-good', 'quality-medium', 'quality-bad');
+        el.querySelectorAll('.quality-svg').forEach(svg => {
+            svg.classList.remove('active-quality-svg');
+            svg.style.display = 'none';
+        });
+        const qualityMap = {
+            good: { class: 'quality-good', text: 'Отличное соединение', svgId: 'quality-good-svg' },
+            medium: { class: 'quality-medium', text: 'Среднее соединение', svgId: 'quality-medium-svg' },
+            bad: { class: 'quality-bad', text: 'Плохое соединение', svgId: 'quality-bad-svg' },
+            unknown: { class: '', text: 'Оценка качества...', svgId: null }
+        };
+        const { class: qualityClass, text: qualityText, svgId } = qualityMap[quality] || qualityMap.unknown;
+        if (qualityClass) el.classList.add(qualityClass);
+        const activeSvg = el.querySelector(`#${svgId}`);
+        if (activeSvg) {
+            activeSvg.style.display = 'block';
+            activeSvg.classList.add('active-quality-svg');
+        }
+        const parentStatus = el.closest('[title]');
+        if (parentStatus) {
+            const typeTitle = parentStatus.getAttribute('data-type-title') || 'Определение типа...';
+            parentStatus.title = `${qualityText} / ${typeTitle}`;
+        }
     });
-    const qualityMap = {
-        good: { class: 'quality-good', text: 'Отличное соединение', svg: qualityGoodSvg },
-        medium: { class: 'quality-medium', text: 'Среднее соединение', svg: qualityMediumSvg },
-        bad: { class: 'quality-bad', text: 'Плохое соединение', svg: qualityBadSvg },
-        unknown: { class: '', text: 'Оценка качества...', svg: null }
-    };
-    const { class: qualityClass, text: qualityText, svg: activeSvg } = qualityMap[quality] || qualityMap.unknown;
-    if (qualityClass) connectionQuality.classList.add(qualityClass);
-    if (activeSvg) {
-        activeSvg.style.display = 'block';
-        activeSvg.classList.add('active-quality-svg');
-    }
-    const typeTitle = connectionStatus.getAttribute('data-type-title') || 'Определение типа...';
-    connectionStatus.title = `${qualityText} / ${typeTitle}`;
 }
 
 export function showConnectionInfo(details) {
@@ -243,4 +256,70 @@ export function handleRemoteMuteStatus(isMuted) {
     remoteMuteToastTimeout = setTimeout(() => {
         remoteMuteToast.classList.remove('visible');
     }, 2000);
+}
+
+// --- НОВЫЕ ФУНКЦИИ ДЛЯ ЧАТА ---
+
+export function showTypingToast(show) {
+    clearTimeout(typingToastTimeout);
+    if (show) {
+        typingToast.textContent = "Собеседник печатает...";
+        typingToast.classList.add('visible');
+        typingToastTimeout = setTimeout(() => {
+            typingToast.classList.remove('visible');
+        }, 2000);
+    } else {
+        typingToast.classList.remove('visible');
+    }
+}
+
+export function toggleChatButtonGlow(show) {
+    chatBtn.classList.toggle('has-unread', show);
+}
+
+export function renderChatMessage(message, historyElement, isSentByCurrentUser) {
+    const messageDiv = document.createElement('div');
+    messageDiv.classList.add('chat-message', isSentByCurrentUser ? 'sent' : 'received');
+    messageDiv.dataset.messageId = message.id;
+
+    const contentP = document.createElement('p');
+    contentP.textContent = message.content;
+    messageDiv.appendChild(contentP);
+
+    if (isSentByCurrentUser) {
+        const metaDiv = document.createElement('div');
+        metaDiv.classList.add('message-meta');
+        
+        const timeSpan = document.createElement('span');
+        timeSpan.textContent = new Date(message.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        
+        const statusSpan = document.createElement('span');
+        statusSpan.classList.add('message-status');
+        statusSpan.innerHTML = ICONS.check; // Sent status
+        
+        metaDiv.appendChild(timeSpan);
+        metaDiv.appendChild(statusSpan);
+        messageDiv.appendChild(metaDiv);
+    }
+
+    historyElement.appendChild(messageDiv);
+    historyElement.scrollTop = historyElement.scrollHeight;
+}
+
+export function updateMessageStatusInUI(messageId, status) {
+    const messageDivs = document.querySelectorAll(`.chat-message[data-message-id="${messageId}"]`);
+    messageDivs.forEach(messageDiv => {
+        const statusSpan = messageDiv.querySelector('.message-status');
+        if (statusSpan && status === 'read') {
+            statusSpan.innerHTML = ICONS.doubleCheck;
+            statusSpan.classList.add('read');
+        }
+    });
+}
+
+export function showTypingIndicator(indicatorElement, show) {
+    indicatorElement.classList.toggle('visible', show);
+    if (show) {
+        indicatorElement.textContent = "Собеседник печатает...";
+    }
 }
