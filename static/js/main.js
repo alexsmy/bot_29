@@ -69,10 +69,12 @@ function logToScreen(message) {
     const prefixesToIgnore = [
         '[STATS]', 
         '[DC]', 
-        '[WEBRTC] ICE State:', 
+        '[WEBRTC]', // Блокирует все сообщения WebRTC, включая ICE, Signaling, и т.д.
         '[PROBE]', 
         '[SINK]',
-        '[WEBRTC] Signaling State:'
+        '[WS]',     // Блокирует все сообщения WebSocket (send/receive)
+        '[MEDIA]',  // Блокирует сообщения о запросе и получении медиа
+        '[CONTROLS]'// Блокирует сообщения от кнопок управления (mute/unmute и т.д.)
     ];
 
     // Проверяем, нужно ли отправлять лог на сервер
