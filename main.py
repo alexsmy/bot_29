@@ -2,7 +2,7 @@
 
 import asyncio
 import os
-from datetime import timedelta, timezone
+from datetime import timedelta, timezone, datetime # ✨ ИСПРАВЛЕНИЕ: Добавлен импорт datetime
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse
@@ -17,8 +17,8 @@ import notifier
 from logger_config import logger
 from websocket_manager import manager
 from routes.websocket import router as websocket_router
-from routes.admin_router import router as admin_router # ✨ ИМПОРТ
-from core import CustomJSONResponse, templates # ✨ ИМПОРТ
+from routes.admin_router import router as admin_router
+from core import CustomJSONResponse, templates
 
 LOGS_DIR = "connection_logs"
 
@@ -26,7 +26,7 @@ app = FastAPI()
 
 # Подключаем роутеры
 app.include_router(websocket_router)
-app.include_router(admin_router) # ✨ ПОДКЛЮЧЕНИЕ
+app.include_router(admin_router)
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -64,7 +64,7 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
     try:
         os.makedirs(LOGS_DIR, exist_ok=True)
         
-        timestamp = utils.datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S")
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d_%H-%M-%S") # ✨ ИСПРАВЛЕНИЕ: убран utils.
         filename = f"conn_log_{timestamp}_room_{log_data.roomId[:8]}.html"
         filepath = os.path.join(LOGS_DIR, filename)
 
@@ -73,7 +73,7 @@ async def save_connection_log(log_data: ConnectionLog, request: Request):
             {
                 "request": request,
                 "log": log_data.dict(),
-                "timestamp": utils.datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+                "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC") # ✨ ИСПРАВЛЕНИЕ: убран utils.
             }
         ).body.decode("utf-8")
 
@@ -102,7 +102,7 @@ async def get_room_lifetime(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     
     expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
-    remaining_seconds = (expiry_time - utils.datetime.now(timezone.utc)).total_seconds()
+    remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds() # ✨ ИСПРАВЛЕНИЕ: убран utils.
     return CustomJSONResponse(content={"remaining_seconds": max(0, remaining_seconds)})
 
 @app.get("/", response_class=HTMLResponse)
@@ -130,8 +130,6 @@ async def close_room_endpoint(room_id: str):
         raise HTTPException(status_code=404, detail="Room not found")
     await manager.close_room(room_id, "Closed by user")
     return CustomJSONResponse(content={"status": "closing"})
-
-# --- 🗑️ ВСЕ АДМИНСКИЕ МАРШРУТЫ УДАЛЕНЫ ОТСЮДА ---
 
 @app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
 async def catch_all_invalid_paths(request: Request, full_path: str):
