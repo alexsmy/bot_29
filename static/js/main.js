@@ -1,4 +1,4 @@
-// static/js/main.js 59_1
+// static/js/main.js
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
     micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
@@ -8,12 +8,7 @@ import {
     remoteVideo, localVideoContainer, toggleLocalViewBtn, toggleRemoteViewBtn, ringOutAudio,
     connectAudio, ringInAudio, connectionStatus, connectionQuality, remoteAudioLevel,
     deviceSettingsBtn, deviceSettingsModal, closeSettingsBtns, cameraSelectCall, micSelectCall,
-    speakerSelectCall, cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall,
-    // Импорт новых элементов чата
-    standaloneChatScreen, standaloneChatHistory, standaloneChatTypingIndicator, standaloneChatInput,
-    standaloneChatSendBtn, closeStandaloneChatBtn, incomingChatModal, callerNameChat, acceptChatBtn,
-    declineChatBtn, inCallChatModal, closeInCallChatBtns, inCallChatHistory, inCallChatTypingIndicator,
-    inCallChatInput, inCallChatSendBtn, chatBtn, typingToast
+    speakerSelectCall, cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall
 } from './call_ui_elements.js';
 
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
@@ -44,13 +39,6 @@ let selectedAudioOutId = null;
 let iceServerDetails = {};
 let isCallInitiator = false;
 let isEndingCall = false;
-
-// --- НОВЫЕ ПЕРЕМЕННЫЕ ДЛЯ ЧАТА ---
-let chatHistory = [];
-let isChatOpen = false;
-let isStandaloneChatActive = false;
-let hasUnreadMessages = false;
-let typingTimeout = null;
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -170,25 +158,19 @@ function initializePrivateCallMode() {
     const webrtcCallbacks = {
         log: logToScreen,
         onCallConnected: () => {
-            uiManager.showCallingOverlay(false);
-            if (currentCallType === 'chat') {
-                isStandaloneChatActive = true;
-                uiManager.showScreen('standalone-chat');
-                standaloneChatScreen.classList.add('call-connected');
-                monitor.startConnectionMonitoring();
-            } else {
-                uiManager.showScreen('call');
-                const mediaStatus = media.getMediaAccessStatus();
-                uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
-                callTimerInterval = uiManager.startCallTimer(currentCallType);
-                connectAudio.play();
-                monitor.startConnectionMonitoring();
-            }
+            uiManager.showCallingOverlay(false); // Скрываем оверлей вызова
+            uiManager.showScreen('call');
+            const mediaStatus = media.getMediaAccessStatus();
+            uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
+            callTimerInterval = uiManager.startCallTimer(currentCallType);
+            connectAudio.play();
+            
+            connectionQuality.classList.add('active');
+            monitor.startConnectionMonitoring();
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
         onRemoteMuteStatus: uiManager.handleRemoteMuteStatus,
-        onDataChannelMessage: handleDataChannelMessage,
         getTargetUser: () => targetUser,
         getSelectedAudioOutId: () => selectedAudioOutId,
         getCurrentConnectionType: monitor.getCurrentConnectionType,
@@ -210,7 +192,7 @@ async function runPreCallCheck() {
     
     const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
-    if (!hasCameraAccess && !hasMicrophoneAccess) {
+    if (!hasCameraAccess || !hasMicrophoneAccess) {
         uiManager.displayMediaErrors({ name: 'NotFoundError' });
     }
 
@@ -325,15 +307,11 @@ async function initiateCall(userToCall, callType) {
 
     sendMessage({ type: 'call_user', data: { target_id: targetUser.id, call_type: currentCallType } });
 
-    if (callType === 'chat') {
-        uiManager.showCallingOverlay(true, 'chat');
-    } else {
-        uiManager.showScreen('call');
-        const mediaStatus = media.getMediaAccessStatus();
-        uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
-        uiManager.showCallingOverlay(true, currentCallType);
-        ringOutAudio.play();
-    }
+    uiManager.showScreen('call');
+    const mediaStatus = media.getMediaAccessStatus();
+    uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
+    uiManager.showCallingOverlay(true, currentCallType); // Показываем оверлей вызова
+    ringOutAudio.play();
 }
 
 function handleIncomingCall(data) {
@@ -342,15 +320,10 @@ function handleIncomingCall(data) {
     targetUser = data.from_user;
     currentCallType = data.call_type;
 
-    if (currentCallType === 'chat') {
-        callerNameChat.textContent = `${targetUser?.first_name || 'Собеседник'}`;
-        uiManager.showModal('incoming-chat', true);
-    } else {
-        callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
-        incomingCallType.textContent = currentCallType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
-        uiManager.showModal('incoming-call', true);
-        ringInAudio.play();
-    }
+    callerName.textContent = `${targetUser?.first_name || 'Собеседник'}`;
+    incomingCallType.textContent = currentCallType === 'video' ? 'Входящий видеозвонок' : 'Входящий аудиозвонок';
+    uiManager.showModal('incoming-call', true);
+    ringInAudio.play();
 }
 
 async function acceptCall() {
@@ -397,6 +370,7 @@ async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
+    connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
 
     webrtc.endPeerConnection();
@@ -414,8 +388,7 @@ async function endCall(isInitiator, reason) {
     uiManager.stopCallTimer(callTimerInterval);
     callTimerInterval = null;
     uiManager.showModal('incoming-call', false);
-    uiManager.showModal('incoming-chat', false);
-    uiManager.showCallingOverlay(false);
+    uiManager.showCallingOverlay(false); // Скрываем оверлей вызова при завершении
     uiManager.showScreen('pre-call');
 
     targetUser = {};
@@ -477,7 +450,6 @@ function setupEventListeners() {
     });
 
     setupLocalVideoInteraction();
-    setupChatEventListeners();
 }
 
 function setupLocalVideoInteraction() {
@@ -538,8 +510,8 @@ function setupLocalVideoInteraction() {
 }
 
 async function initializeLocalMedia(callType) {
-    if (isSpectator || callType === 'chat') {
-        logToScreen("[MEDIA] Spectator or chat mode, skipping media initialization.");
+    if (isSpectator) {
+        logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
         return false;
     }
     logToScreen(`[MEDIA] Requesting media for call type: ${callType}`);
@@ -681,13 +653,6 @@ function resetCallState() {
     isVideoEnabled = true; 
     isSpeakerMuted = false;
     isEndingCall = false;
-    isStandaloneChatActive = false;
-    chatHistory = [];
-    isChatOpen = false;
-    hasUnreadMessages = false;
-    uiManager.toggleChatButtonGlow(false);
-    inCallChatHistory.innerHTML = '';
-    standaloneChatHistory.innerHTML = '';
 }
 
 async function updateRoomLifetime() {
@@ -727,124 +692,4 @@ async function closeSession() {
 function redirectToInvalidLink() {
     setGracefulDisconnect(true);
     window.location.reload();
-}
-
-// --- НОВЫЕ ФУНКЦИИ ДЛЯ ЧАТА ---
-
-function setupChatEventListeners() {
-    acceptChatBtn.addEventListener('click', acceptChat);
-    declineChatBtn.addEventListener('click', declineChat);
-    closeStandaloneChatBtn.addEventListener('click', () => endCall(true, 'chat_closed'));
-
-    chatBtn.addEventListener('click', toggleInCallChat);
-    closeInCallChatBtns.forEach(btn => btn.addEventListener('click', toggleInCallChat));
-
-    inCallChatSendBtn.addEventListener('click', () => sendChatMessage(inCallChatInput));
-    standaloneChatSendBtn.addEventListener('click', () => sendChatMessage(standaloneChatInput));
-
-    inCallChatInput.addEventListener('keydown', (e) => handleChatInput(e, inCallChatInput));
-    standaloneChatInput.addEventListener('keydown', (e) => handleChatInput(e, standaloneChatInput));
-}
-
-async function acceptChat() {
-    uiManager.showModal('incoming-chat', false);
-    monitor.connectionLogger.reset(roomId, currentUser.id, isCallInitiator);
-    await webrtc.startPeerConnection(targetUser.id, false, 'chat', null, rtcConfig, monitor.connectionLogger);
-    sendMessage({ type: 'call_accepted', data: { target_id: targetUser.id } });
-}
-
-function declineChat() {
-    uiManager.showModal('incoming-chat', false);
-    sendMessage({ type: 'call_declined', data: { target_id: targetUser.id } });
-    targetUser = {};
-}
-
-function toggleInCallChat() {
-    isChatOpen = !isChatOpen;
-    inCallChatModal.classList.toggle('active', isChatOpen);
-    if (isChatOpen) {
-        hasUnreadMessages = false;
-        uiManager.toggleChatButtonGlow(false);
-        const unreadMessages = chatHistory.filter(m => !m.isRead && !m.isSentByMe);
-        unreadMessages.forEach(m => {
-            webrtc.sendDataChannelMessage({ type: 'message_read', id: m.id });
-            const msg = chatHistory.find(item => item.id === m.id);
-            if(msg) msg.isRead = true;
-        });
-    }
-}
-
-function handleChatInput(event, inputElement) {
-    if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault();
-        sendChatMessage(inputElement);
-    } else {
-        clearTimeout(typingTimeout);
-        webrtc.sendDataChannelMessage({ type: 'typing_start' });
-        typingTimeout = setTimeout(() => {
-            webrtc.sendDataChannelMessage({ type: 'typing_stop' });
-        }, 2000);
-    }
-}
-
-function sendChatMessage(inputElement) {
-    const content = inputElement.value.trim();
-    if (content) {
-        const message = {
-            id: `msg_${currentUser.id}_${Date.now()}`,
-            content: content,
-            timestamp: new Date().toISOString(),
-            status: 'sent',
-            isSentByMe: true
-        };
-        chatHistory.push(message);
-        uiManager.renderChatMessage(message, inCallChatHistory, true);
-        uiManager.renderChatMessage(message, standaloneChatHistory, true);
-        webrtc.sendDataChannelMessage({ type: 'chat_message', ...message });
-        inputElement.value = '';
-        inputElement.focus();
-        webrtc.sendDataChannelMessage({ type: 'typing_stop' });
-        clearTimeout(typingTimeout);
-    }
-}
-
-function handleDataChannelMessage(message) {
-    switch (message.type) {
-        case 'chat_message':
-            chatHistory.push({ ...message, isSentByMe: false, isRead: false });
-            uiManager.renderChatMessage(message, inCallChatHistory, false);
-            uiManager.renderChatMessage(message, standaloneChatHistory, false);
-            if (isChatOpen || isStandaloneChatActive) {
-                webrtc.sendDataChannelMessage({ type: 'message_read', id: message.id });
-            } else {
-                hasUnreadMessages = true;
-                uiManager.toggleChatButtonGlow(true);
-            }
-            break;
-        case 'typing_start':
-            if (isChatOpen || isStandaloneChatActive) {
-                uiManager.showTypingIndicator(inCallChatTypingIndicator, true);
-                uiManager.showTypingIndicator(standaloneChatTypingIndicator, true);
-            } else {
-                uiManager.showTypingToast(true);
-            }
-            break;
-        case 'typing_stop':
-            uiManager.showTypingIndicator(inCallChatTypingIndicator, false);
-            uiManager.showTypingIndicator(standaloneChatTypingIndicator, false);
-            break;
-        case 'message_read':
-            const msg = chatHistory.find(m => m.id === message.id);
-            if (msg) {
-                msg.status = 'read';
-                uiManager.updateMessageStatusInUI(message.id, 'read');
-            }
-            break;
-        case 'mute_status':
-            uiManager.handleRemoteMuteStatus(message.muted);
-            break;
-        case 'hangup':
-            endCall(false, 'ended_by_peer_dc');
-            break;
-    }
 }

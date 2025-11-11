@@ -1,3 +1,4 @@
+
 # database.py 53
 
 import os
@@ -360,19 +361,10 @@ async def get_all_active_sessions():
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT 
-                cs.room_id, 
-                cs.created_at, 
-                cs.expires_at, 
-                cs.status, 
-                cs.generated_by_user_id, 
-                ch.call_type
+            SELECT cs.room_id, cs.created_at, cs.expires_at, cs.status, cs.generated_by_user_id, ch.call_type
             FROM call_sessions cs
             LEFT JOIN (
-                SELECT 
-                    session_id, 
-                    call_type, 
-                    ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY call_started_at DESC) as rn
+                SELECT session_id, call_type, ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY call_started_at DESC) as rn
                 FROM call_history
             ) ch ON cs.session_id = ch.session_id AND ch.rn = 1
             WHERE cs.expires_at > NOW() AND cs.closed_at IS NULL
@@ -407,6 +399,7 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # Получаем IP инициатора для текущего активного звонка
         initiator_ip = await conn.fetchval("""
             SELECT ch.initiator_ip
             FROM call_history ch
@@ -420,6 +413,7 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
             logger.warning(f"Не найден активный звонок или IP инициатора для комнаты {room_id}, чтобы получить детали участников.")
             return None
 
+        # Получаем два последних подключения для данной комнаты
         connections = await conn.fetch("""
             SELECT ip_address, device_type, os_info, browser_info, country, city
             FROM connections
@@ -435,6 +429,7 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         initiator_details = None
         participant_details = None
 
+        # Распределяем роли на основе IP инициатора
         if len(connections) == 1:
             if connections[0]['ip_address'] == initiator_ip:
                 initiator_details = dict(connections[0])
@@ -451,8 +446,10 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
                 initiator_details = conn2
                 participant_details = conn1
             else:
+                # Аномалия: IP инициатора не совпадает ни с одним из последних подключений.
+                # Назначаем роли по порядку подключения (первый подключившийся - инициатор).
                 logger.warning(f"Не удалось сопоставить IP инициатора {initiator_ip} для комнаты {room_id}. Роли назначены по порядку подключения.")
-                initiator_details = conn2
+                initiator_details = conn2  # conn2 старше, т.к. ORDER BY DESC
                 participant_details = conn1
 
         return {

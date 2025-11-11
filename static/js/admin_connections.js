@@ -46,20 +46,9 @@ function renderParticipantDetails(ip, connections, isInitiator) {
 }
 
 function getCallTypeIcon(callType) {
-    let iconSvg;
-    switch(callType) {
-        case 'video':
-            iconSvg = ICONS.videoCallActive;
-            break;
-        case 'audio':
-            iconSvg = ICONS.audioCallActive;
-            break;
-        case 'chat':
-            iconSvg = ICONS.chatActive;
-            break;
-        default:
-            return '';
-    }
+    const iconSvg = callType === 'video' 
+        ? ICONS.videoCallActive
+        : ICONS.audioCallActive;
     return `<span class="call-status-icon" title="Тип звонка: ${callType}">${iconSvg}</span>`;
 }
 

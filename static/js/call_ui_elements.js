@@ -1,3 +1,4 @@
+// static/js/call_ui_elements.js
 export const preCallCheckScreen = document.getElementById('pre-call-check-screen');
 export const previewVideo = document.getElementById('previewVideo');
 export const micLevelBars = document.querySelectorAll('.mic-level-bar');
@@ -76,26 +77,3 @@ export const speakerSelectCall = document.getElementById('speaker-select-call');
 export const cameraSelectContainerCall = document.getElementById('camera-select-container-call');
 export const micSelectContainerCall = document.getElementById('mic-select-container-call');
 export const speakerSelectContainerCall = document.getElementById('speaker-select-container-call');
-
-// --- НОВЫЕ ЭЛЕМЕНТЫ ДЛЯ ЧАТА ---
-export const standaloneChatScreen = document.getElementById('standalone-chat-screen');
-export const connectionStatusChat = document.getElementById('connection-status-chat');
-export const standaloneChatHistory = document.getElementById('standalone-chat-history');
-export const standaloneChatTypingIndicator = document.getElementById('standalone-chat-typing-indicator');
-export const standaloneChatInput = document.getElementById('standalone-chat-input');
-export const standaloneChatSendBtn = document.getElementById('standalone-chat-send-btn');
-export const closeStandaloneChatBtn = document.getElementById('close-standalone-chat-btn');
-
-export const incomingChatModal = document.getElementById('incoming-chat-modal');
-export const callerNameChat = document.getElementById('caller-name-chat');
-export const acceptChatBtn = document.getElementById('accept-chat-btn');
-export const declineChatBtn = document.getElementById('decline-chat-btn');
-
-export const inCallChatModal = document.getElementById('in-call-chat-modal');
-export const closeInCallChatBtns = document.querySelectorAll('.close-chat-btn');
-export const inCallChatHistory = document.getElementById('in-call-chat-history');
-export const inCallChatTypingIndicator = document.getElementById('in-call-chat-typing-indicator');
-export const inCallChatInput = document.getElementById('in-call-chat-input');
-export const inCallChatSendBtn = document.getElementById('in-call-chat-send-btn');
-export const chatBtn = document.getElementById('chat-btn');
-export const typingToast = document.getElementById('typing-toast');

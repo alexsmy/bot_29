@@ -1,3 +1,6 @@
+
+// static/js/call_webrtc.js
+
 import { sendMessage } from './call_websocket.js';
 import { remoteVideo, remoteAudio, localVideo } from './call_ui_elements.js';
 
@@ -18,7 +21,6 @@ let callbacks = {
     onCallEndedByPeer: () => {},
     onRemoteTrack: () => {},
     onRemoteMuteStatus: () => {},
-    onDataChannelMessage: () => {}, // Новый callback
     updateConnectionIcon: () => {},
     getCurrentConnectionType: () => 'unknown',
     setCurrentConnectionType: () => {},
@@ -37,21 +39,15 @@ function setupDataChannelEvents(channel) {
         try {
             const message = JSON.parse(event.data);
             callbacks.log(`[DC] Received message: ${message.type}`);
-            // Передаем все сообщения в главный модуль для обработки
-            callbacks.onDataChannelMessage(message);
+            if (message.type === 'hangup') {
+                callbacks.onCallEndedByPeer('ended_by_peer_dc');
+            } else if (message.type === 'mute_status') {
+                callbacks.onRemoteMuteStatus(message.muted);
+            }
         } catch (e) {
             callbacks.log(`[DC] Received non-JSON message: ${event.data}`);
         }
     };
-}
-
-// Новая экспортируемая функция для отправки сообщений
-export function sendDataChannelMessage(message) {
-    if (dataChannel && dataChannel.readyState === 'open') {
-        dataChannel.send(JSON.stringify(message));
-    } else {
-        callbacks.log('[DC] WARN: DataChannel is not open. Message not sent.');
-    }
 }
 
 async function initiateIceRestart() {
@@ -79,8 +75,12 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     peerConnection = new RTCPeerConnection(rtcConfig);
     remoteStream = new MediaStream();
 
+    // --- ИСПРАВЛЕНИЕ: НАВСЕГДА ВЫКЛЮЧАЕМ ЗВУК У HTML-ЭЛЕМЕНТОВ ---
+    // Весь звук теперь будет идти только через Web Audio API (GainNode) в call_media.js,
+    // что дает нам полный контроль над его включением/выключением и предотвращает "двойной" звук.
     remoteVideo.muted = true;
     remoteAudio.muted = true;
+    // ----------------------------------------------------------------
 
     remoteVideo.srcObject = remoteStream;
     remoteAudio.srcObject = remoteStream;
@@ -162,7 +162,7 @@ export async function startPeerConnection(targetId, isCaller, callType, localStr
         setupDataChannelEvents(dataChannel);
 
         const offerOptions = {
-            offerToReceiveAudio: callType === 'audio' || callType === 'video', 
+            offerToReceiveAudio: true, 
             offerToReceiveVideo: callType === 'video' 
         };
         callbacks.log(`[WEBRTC] Creating Offer with options: ${JSON.stringify(offerOptions)}`);
@@ -258,7 +258,9 @@ export function endPeerConnection() {
 
 export function toggleMute(isMuted, localStream) {
     if (localStream) localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
-    sendDataChannelMessage({ type: 'mute_status', muted: isMuted });
+    if (dataChannel && dataChannel.readyState === 'open') {
+        dataChannel.send(JSON.stringify({ type: 'mute_status', muted: isMuted }));
+    }
 }
 
 export function toggleVideo(isVideoEnabled, localStream) {

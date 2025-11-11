@@ -11,12 +11,14 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 </head>
 <body>
+    <!-- Содержимое body остается без изменений -->
     <div id="app-container">
         <!-- ЭКРАН 1: ПРОВЕРКА ОБОРУДОВАНИЯ -->
         <div id="pre-call-check-screen" class="screen">
             <div class="check-container">
                 <p class="check-subtitle">Пожалуйста, предоставьте доступ к камере и микрофону.</p>
                 
+                <!-- НОВЫЙ БЛОК ДЛЯ УВЕДОМЛЕНИЯ НА IOS -->
                 <p id="ios-audio-permission-note" class="ios-note">
                     На устройствах iOS для использования громкой связи в аудиозвонке может потребоваться разрешение на доступ к камере. Камера не будет использоваться.
                 </p>
@@ -78,7 +80,7 @@
 
                 <div id="popup-actions" class="popup">
                     <h2>Собеседники онлайн</h2>
-                    <p>Выберите тип соединения. Вам доступны аудио, видео и текстовый чат.</p>
+                    <p>Выберите тип соединения. Вам доступны аудио- и видеозвонок.</p>
                     <div class="call-actions-container">
                         <button class="action-call-btn audio" data-call-type="audio">
                             <span data-icon-name="audioCall"></span>
@@ -87,10 +89,6 @@
                         <button class="action-call-btn video" data-call-type="video">
                             <span data-icon-name="videoCall"></span>
                             <span>Видеозвонок</span>
-                        </button>
-                        <button class="action-call-btn chat" data-call-type="chat">
-                            <span data-icon-name="chat"></span>
-                            <span>Начать чат</span>
                         </button>
                     </div>
                 </div>
@@ -123,6 +121,7 @@
         <div id="call-screen" class="screen">
             <video id="remoteVideo" autoplay playsinline></video>
 
+            <!-- НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ СТАТУСА ВЫЗОВА -->
             <div id="calling-overlay" class="calling-overlay">
                 <div class="calling-overlay-content">
                     <h2 id="calling-overlay-title">Вызов...</h2>
@@ -130,6 +129,7 @@
                     <div class="spinner"></div>
                 </div>
             </div>
+            <!-- КОНЕЦ НОВОГО БЛОКА -->
 
             <div id="local-video-container">
                 <video id="localVideo" autoplay muted playsinline></video>
@@ -160,7 +160,15 @@
             <div class="call-ui-overlay">
                 <div class="top-info">
                     <div id="connection-status" title="Качество / Тип соединения">
-                        <!-- Содержимое будет скопировано из #connection-status-template -->
+                        <span id="connection-quality" class="icon">
+                            <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
+                            <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
+                            <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
+                        </span>
+                        <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
+                        <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
+                        <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
+                        <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
                     </div>
                     <div id="connection-info-popup" class="connection-info-popup"></div>
                     <div id="remote-audio-level" class="remote-audio-level-container">
@@ -202,12 +210,6 @@
                             </button>
                             <span>Динамик</span>
                         </div>
-                        <div class="control-item" id="chat-control-item">
-                            <button id="chat-btn" class="control-btn">
-                                <span class="icon-on" data-icon-name="chat"></span>
-                            </button>
-                            <span>Чат</span>
-                        </div>
                         <div class="control-item" id="device-settings-control-item">
                             <button id="device-settings-btn" class="control-btn">
                                 <span class="icon-on" data-icon-name="settings"></span>
@@ -231,37 +233,10 @@
                 </div>
             </div>
         </div>
-
-        <!-- ЭКРАН 4: АВТОНОМНЫЙ ЧАТ -->
-        <div id="standalone-chat-screen" class="screen">
-            <div class="top-info-chat">
-                <div id="connection-status-chat" title="Качество / Тип соединения">
-                    <!-- Содержимое будет скопировано из #connection-status-template -->
-                </div>
-            </div>
-            <div class="chat-container standalone">
-                <div class="chat-history" id="standalone-chat-history"></div>
-                <div class="chat-typing-indicator" id="standalone-chat-typing-indicator"></div>
-                <div class="chat-input-area">
-                    <textarea id="standalone-chat-input" placeholder="Введите сообщение..." rows="2"></textarea>
-                    <button id="standalone-chat-send-btn" class="chat-send-btn">
-                        <span data-icon-name="send"></span>
-                    </button>
-                </div>
-            </div>
-            <div class="standalone-chat-footer">
-                <button id="close-standalone-chat-btn" class="hangup-btn">
-                     <span data-icon-name="hangup"></span>
-                </button>
-            </div>
-        </div>
-
         <div id="remote-mute-toast" class="toast-notification"></div>
         <div id="connection-toast" class="toast-notification"></div>
-        <div id="typing-toast" class="toast-notification"></div>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: ВХОДЯЩИЙ ЗВОНОК -->
     <div id="incoming-call-modal" class="modal">
         <div class="modal-content">
             <div class="caller-info-modal">
@@ -280,48 +255,6 @@
                         <span data-icon-name="accept"></span>
                     </button>
                     <span>Принять</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- МОДАЛЬНОЕ ОКНО: ВХОДЯЩИЙ ЧАТ -->
-    <div id="incoming-chat-modal" class="modal">
-        <div class="modal-content">
-            <div class="caller-info-modal">
-                <h3 id="caller-name-chat">Собеседник</h3>
-                <p>Приглашает вас в текстовый чат</p>
-            </div>
-            <div class="modal-buttons">
-                <div class="action-button-wrapper">
-                    <button id="decline-chat-btn" class="action-btn decline-btn">
-                        <span data-icon-name="decline"></span>
-                    </button>
-                    <span>Отклонить</span>
-                </div>
-                <div class="action-button-wrapper">
-                    <button id="accept-chat-btn" class="action-btn accept-btn">
-                        <span data-icon-name="chat"></span>
-                    </button>
-                    <span>Принять</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- МОДАЛЬНОЕ ОКНО: ЧАТ ВО ВРЕМЯ ЗВОНКА -->
-    <div id="in-call-chat-modal" class="modal-instructions">
-        <div class="modal-overlay"></div>
-        <div class="modal-instructions-content chat-modal">
-            <button class="close-chat-btn top">Закрыть</button>
-            <div class="chat-container in-call">
-                <div class="chat-history" id="in-call-chat-history"></div>
-                <div class="chat-typing-indicator" id="in-call-chat-typing-indicator"></div>
-                <div class="chat-input-area">
-                    <textarea id="in-call-chat-input" placeholder="Введите сообщение..." rows="2"></textarea>
-                    <button id="in-call-chat-send-btn" class="chat-send-btn">
-                        <span data-icon-name="send"></span>
-                    </button>
                 </div>
             </div>
         </div>
@@ -361,19 +294,6 @@
             </div>
             <button class="close-settings-btn bottom">Закрыть</button>
         </div>
-    </div>
-
-    <!-- Шаблон для статуса соединения, который будет копироваться -->
-    <div id="connection-status-template" style="display: none;">
-        <span id="connection-quality" class="icon">
-            <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
-            <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
-            <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
-        </span>
-        <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
-        <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
-        <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
-        <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
     </div>
 
     <audio id="localAudio" autoplay muted playsinline style="display:none;"></audio>
