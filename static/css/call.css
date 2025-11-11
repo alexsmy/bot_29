@@ -963,19 +963,17 @@
     margin-right: 8px;
 }
 
-/* --- ИСПРАВЛЕНИЕ 1: Логика отображения иконки качества --- */
 #connection-quality .quality-svg {
-    display: none; /* Скрываем все иконки по умолчанию */
+    display: none;
+}
+
+
+#connection-quality .quality-svg.active-quality-svg {
+    display: flex !important; 
     align-items: center;
     justify-content: center;
 }
 
-/* Показываем нужную иконку в зависимости от класса родителя */
-#connection-quality.quality-good #quality-good-svg,
-#connection-quality.quality-medium #quality-medium-svg,
-#connection-quality.quality-bad #quality-bad-svg {
-    display: flex;
-}
 
 #connection-quality.quality-good { color: var(--status-ok); }
 #connection-quality.quality-medium { color: #ffc107; }
@@ -1236,31 +1234,16 @@
     width: 22px;
     height: 22px;
 }
-
-/* --- ИСПРАВЛЕНИЕ 2: Центрирование чата в звонке --- */
-/* Делаем родительский контейнер flex-контейнером, который прижимает контент к низу */
-#in-call-chat-modal {
-    align-items: flex-end;
-    justify-content: center;
-    padding-bottom: 15px;
-}
-
-/* Сбрасываем абсолютное позиционирование и transform у самого окна чата,
-   чтобы оно корректно центрировалось с помощью flexbox родителя */
-#in-call-chat-modal .modal-instructions-content.chat-modal {
-    position: static;
-    transform: none;
+.modal-instructions-content.chat-modal {
+    /* ИСПРАВЛЕНИЕ: Удалены position: absolute и связанные свойства, чтобы flexbox родителя мог центрировать окно */
     width: 95%;
     max-width: 600px;
     height: auto;
-    max-height: 50vh;
+    max-height: 70vh; /* Увеличена максимальная высота для удобства */
     padding: 10px;
-    /* Убираем transition, так как transform больше не используется для анимации */
-    transition: none;
 }
-
 @media (min-width: 768px) {
-    #in-call-chat-modal .modal-instructions-content.chat-modal {
+    .modal-instructions-content.chat-modal {
         width: 60%;
     }
 }

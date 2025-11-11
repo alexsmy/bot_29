@@ -193,24 +193,24 @@ export function updateConnectionIcon(type) {
 export function updateConnectionQualityIcon(quality) {
     const qualityElements = document.querySelectorAll('#connection-quality');
     qualityElements.forEach(el => {
-        // Удаляем все классы качества
         el.classList.remove('quality-good', 'quality-medium', 'quality-bad');
-        
+        el.querySelectorAll('.quality-svg').forEach(svg => {
+            // ИСПРАВЛЕНИЕ: Убрали прямое управление стилем display
+            svg.classList.remove('active-quality-svg');
+        });
         const qualityMap = {
-            good: { class: 'quality-good', text: 'Отличное соединение' },
-            medium: { class: 'quality-medium', text: 'Среднее соединение' },
-            bad: { class: 'quality-bad', text: 'Плохое соединение' },
-            unknown: { class: '', text: 'Оценка качества...' }
+            good: { class: 'quality-good', text: 'Отличное соединение', svgId: 'quality-good-svg' },
+            medium: { class: 'quality-medium', text: 'Среднее соединение', svgId: 'quality-medium-svg' },
+            bad: { class: 'quality-bad', text: 'Плохое соединение', svgId: 'quality-bad-svg' },
+            unknown: { class: '', text: 'Оценка качества...', svgId: null }
         };
-        
-        const { class: qualityClass, text: qualityText } = qualityMap[quality] || qualityMap.unknown;
-        
-        // Добавляем нужный класс (если он есть)
-        if (qualityClass) {
-            el.classList.add(qualityClass);
+        const { class: qualityClass, text: qualityText, svgId } = qualityMap[quality] || qualityMap.unknown;
+        if (qualityClass) el.classList.add(qualityClass);
+        const activeSvg = el.querySelector(`#${svgId}`);
+        if (activeSvg) {
+            // ИСПРАВЛЕНИЕ: Убрали прямое управление стилем display, теперь только добавляем класс
+            activeSvg.classList.add('active-quality-svg');
         }
-        
-        // Обновляем всплывающую подсказку
         const parentStatus = el.closest('[title]');
         if (parentStatus) {
             const typeTitle = parentStatus.getAttribute('data-type-title') || 'Определение типа...';
