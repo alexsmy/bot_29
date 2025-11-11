@@ -61,8 +61,26 @@ function logToScreen(message) {
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
     const logMessage = `[${time}] ${message}`;
+    
+    // Всегда выводим в консоль браузера
     console.log(logMessage);
-    sendLogToServer(logMessage);
+
+    // Список префиксов, которые не нужно отправлять на сервер
+    const prefixesToIgnore = [
+        '[STATS]', 
+        '[DC]', 
+        '[WEBRTC] ICE State:', 
+        '[PROBE]', 
+        '[SINK]',
+        '[WEBRTC] Signaling State:'
+    ];
+
+    // Проверяем, нужно ли отправлять лог на сервер
+    const shouldSendToServer = !prefixesToIgnore.some(prefix => message.startsWith(prefix));
+
+    if (shouldSendToServer) {
+        sendLogToServer(logMessage);
+    }
 }
 
 function loadIcons() {
