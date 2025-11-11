@@ -1,3 +1,4 @@
+# routes/websocket.py 59_1
 import asyncio
 import uuid
 from datetime import datetime, timezone
@@ -143,22 +144,32 @@ async def handle_websocket_logic(websocket: WebSocket, room: RoomManager, user_i
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
     finally:
-        is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
+        was_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
-        if is_in_call:
+        # Отключаем пользователя из менеджера комнаты
+        await room.disconnect(user_id)
+        room.details_notification_sent = False
+
+        # Если пользователь был в звонке, нужно уведомить второго и завершить звонок в БД
+        if was_in_call:
             other_user_id = None
+            # Находим второго участника звонка
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:
                     other_user_id = key[0] if key[1] == user_id else key[1]
                     room.cancel_call_timeout(user_id, other_user_id)
                     break
             
+            # Если второй участник еще онлайн, отправляем ему 'call_ended'
             if other_user_id and other_user_id in room.users:
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
                 await room.set_user_status(other_user_id, "available")
-        
-        room.details_notification_sent = False
-        await room.disconnect(user_id)
+
+            # В любом случае, если кто-то из участников звонка отключается,
+            # мы должны залогировать завершение звонка в БД.
+            asyncio.create_task(database.log_call_end(room.room_id))
+            logger.info(f"Звонок в комнате {room.room_id} завершен из-за дисконнекта пользователя {user_id}.")
+
 
 @router.websocket("/ws/private/{room_id}")
 async def websocket_endpoint_private(websocket: WebSocket, room_id: str):

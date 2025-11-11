@@ -1,3 +1,4 @@
+
 import {
     preCallCheckScreen, preCallScreen, callScreen, instructionsModal, deviceSettingsModal,
     incomingCallModal, popupWaiting, popupActions, popupInitiating,
@@ -166,11 +167,14 @@ export function stopCallTimer(intervalId) {
 // --- Уведомления и статусы соединения ---
 
 export function updateConnectionIcon(type) {
+    const template = document.getElementById('connection-status-template');
+    if (!template) return;
+
     const statusElements = [connectionStatus, connectionStatusChat];
     statusElements.forEach(el => {
         if (!el) return;
-        el.innerHTML = connectionStatus.innerHTML; // Копируем структуру
-        el.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
+        el.innerHTML = template.innerHTML; // Копируем структуру
+        
         const typeMap = {
             local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
             p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
@@ -178,7 +182,9 @@ export function updateConnectionIcon(type) {
             unknown: { id: 'conn-unknown', title: 'Определение типа соединения...' }
         };
         const { id, title } = typeMap[type] || typeMap.unknown;
-        el.querySelector(`#${id}`)?.classList.add('active');
+        const iconToShow = el.querySelector(`#${id}`);
+        if (iconToShow) iconToShow.classList.add('active');
+        
         el.setAttribute('data-type-title', title);
         const qualityText = el.title.split(' / ')[0] || 'Качество соединения';
         el.title = `${qualityText} / ${title}`;

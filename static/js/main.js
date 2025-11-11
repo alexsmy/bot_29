@@ -1,3 +1,4 @@
+// static/js/main.js 59_1
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect,
     micSelect, speakerSelect, cameraSelectContainer, micSelectContainer, speakerSelectContainer,
@@ -181,14 +182,13 @@ function initializePrivateCallMode() {
                 uiManager.updateCallUI(currentCallType, targetUser, mediaStatus, isMobileDevice());
                 callTimerInterval = uiManager.startCallTimer(currentCallType);
                 connectAudio.play();
-                connectionQuality.classList.add('active');
                 monitor.startConnectionMonitoring();
             }
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
         onRemoteMuteStatus: uiManager.handleRemoteMuteStatus,
-        onDataChannelMessage: handleDataChannelMessage, // Новый обработчик
+        onDataChannelMessage: handleDataChannelMessage,
         getTargetUser: () => targetUser,
         getSelectedAudioOutId: () => selectedAudioOutId,
         getCurrentConnectionType: monitor.getCurrentConnectionType,
@@ -210,7 +210,7 @@ async function runPreCallCheck() {
     
     const { hasCameraAccess, hasMicrophoneAccess } = await media.initializePreview(previewVideo, micLevelBars);
 
-    if (!hasCameraAccess || !hasMicrophoneAccess) {
+    if (!hasCameraAccess && !hasMicrophoneAccess) {
         uiManager.displayMediaErrors({ name: 'NotFoundError' });
     }
 
@@ -397,7 +397,6 @@ async function endCall(isInitiator, reason) {
         monitor.connectionLogger.sendProbeLog();
     }
 
-    connectionQuality.classList.remove('active');
     monitor.stopConnectionMonitoring();
 
     webrtc.endPeerConnection();
@@ -415,6 +414,7 @@ async function endCall(isInitiator, reason) {
     uiManager.stopCallTimer(callTimerInterval);
     callTimerInterval = null;
     uiManager.showModal('incoming-call', false);
+    uiManager.showModal('incoming-chat', false);
     uiManager.showCallingOverlay(false);
     uiManager.showScreen('pre-call');
 
@@ -477,7 +477,7 @@ function setupEventListeners() {
     });
 
     setupLocalVideoInteraction();
-    setupChatEventListeners(); // Новый вызов
+    setupChatEventListeners();
 }
 
 function setupLocalVideoInteraction() {
@@ -686,6 +686,8 @@ function resetCallState() {
     isChatOpen = false;
     hasUnreadMessages = false;
     uiManager.toggleChatButtonGlow(false);
+    inCallChatHistory.innerHTML = '';
+    standaloneChatHistory.innerHTML = '';
 }
 
 async function updateRoomLifetime() {
@@ -763,11 +765,11 @@ function toggleInCallChat() {
     if (isChatOpen) {
         hasUnreadMessages = false;
         uiManager.toggleChatButtonGlow(false);
-        // Отправляем уведомление о прочтении всех сообщений
         const unreadMessages = chatHistory.filter(m => !m.isRead && !m.isSentByMe);
         unreadMessages.forEach(m => {
             webrtc.sendDataChannelMessage({ type: 'message_read', id: m.id });
-            m.isRead = true; // Помечаем как прочитанное локально
+            const msg = chatHistory.find(item => item.id === m.id);
+            if(msg) msg.isRead = true;
         });
     }
 }
@@ -801,6 +803,8 @@ function sendChatMessage(inputElement) {
         webrtc.sendDataChannelMessage({ type: 'chat_message', ...message });
         inputElement.value = '';
         inputElement.focus();
+        webrtc.sendDataChannelMessage({ type: 'typing_stop' });
+        clearTimeout(typingTimeout);
     }
 }
 
@@ -835,6 +839,12 @@ function handleDataChannelMessage(message) {
                 msg.status = 'read';
                 uiManager.updateMessageStatusInUI(message.id, 'read');
             }
+            break;
+        case 'mute_status':
+            uiManager.handleRemoteMuteStatus(message.muted);
+            break;
+        case 'hangup':
+            endCall(false, 'ended_by_peer_dc');
             break;
     }
 }

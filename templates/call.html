@@ -1,3 +1,4 @@
+<!-- templates/call.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -159,15 +160,7 @@
             <div class="call-ui-overlay">
                 <div class="top-info">
                     <div id="connection-status" title="Качество / Тип соединения">
-                        <span id="connection-quality" class="icon">
-                            <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
-                            <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
-                            <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
-                        </span>
-                        <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
-                        <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
-                        <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
-                        <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
+                        <!-- Содержимое будет скопировано из #connection-status-template -->
                     </div>
                     <div id="connection-info-popup" class="connection-info-popup"></div>
                     <div id="remote-audio-level" class="remote-audio-level-container">
@@ -243,7 +236,7 @@
         <div id="standalone-chat-screen" class="screen">
             <div class="top-info-chat">
                 <div id="connection-status-chat" title="Качество / Тип соединения">
-                    <!-- Копия статуса соединения для чата -->
+                    <!-- Содержимое будет скопировано из #connection-status-template -->
                 </div>
             </div>
             <div class="chat-container standalone">
@@ -257,8 +250,8 @@
                 </div>
             </div>
             <div class="standalone-chat-footer">
-                <button id="close-standalone-chat-btn" class="action-btn decline-btn">
-                    <span>Закрыть чат</span>
+                <button id="close-standalone-chat-btn" class="hangup-btn">
+                     <span data-icon-name="hangup"></span>
                 </button>
             </div>
         </div>
@@ -368,6 +361,19 @@
             </div>
             <button class="close-settings-btn bottom">Закрыть</button>
         </div>
+    </div>
+
+    <!-- Шаблон для статуса соединения, который будет копироваться -->
+    <div id="connection-status-template" style="display: none;">
+        <span id="connection-quality" class="icon">
+            <span data-icon-name="qualityGood" id="quality-good-svg" class="quality-svg"></span>
+            <span data-icon-name="qualityMedium" id="quality-medium-svg" class="quality-svg"></span>
+            <span data-icon-name="qualityBad" id="quality-bad-svg" class="quality-svg"></span>
+        </span>
+        <span class="icon" id="conn-local" data-icon-name="connLocal"></span>
+        <span class="icon" id="conn-p2p" data-icon-name="connP2P"></span>
+        <span class="icon" id="conn-relay" data-icon-name="connRelay"></span>
+        <span class="icon" id="conn-unknown" data-icon-name="connUnknown"></span>
     </div>
 
     <audio id="localAudio" autoplay muted playsinline style="display:none;"></audio>
