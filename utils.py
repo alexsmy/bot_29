@@ -1,5 +1,6 @@
 import httpx
 from user_agents import parse
+from logger_config import logger # ✨ ИСПРАВЛЕНИЕ: Импортируем наш логгер
 
 async def get_ip_location(ip_address: str) -> dict:
     """Fetches geolocation data for a given IP address."""
@@ -18,9 +19,12 @@ async def get_ip_location(ip_address: str) -> dict:
                     "city": data.get("city", "Unknown")
                 }
             else:
+                # ✨ ИСПРАВЛЕНИЕ: Логируем ошибку от API
+                logger.warning(f"IP location API for {ip_address} returned status '{data.get('status')}' with message: {data.get('message')}")
                 return {"country": "Error", "city": data.get("message", "Failed request")}
         except (httpx.RequestError, httpx.HTTPStatusError) as e:
-            print(f"Error fetching IP location for {ip_address}: {e}")
+            # ✨ ИСПРАВЛЕНИЕ: Логируем ошибку сети
+            logger.error(f"Error fetching IP location for {ip_address}: {e}")
             return {"country": "N/A", "city": "N/A"}
 
 def parse_user_agent(user_agent_string: str) -> dict:
