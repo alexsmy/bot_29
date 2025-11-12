@@ -1,7 +1,3 @@
-// static/js/admin_ui.js
-
-// Этот модуль отвечает за общий интерфейс: навигация, тема, мобильное меню, таймер токена.
-
 import { formatRemainingTime } from './admin_utils.js';
 
 function populateIcons() {
@@ -12,6 +8,8 @@ function populateIcons() {
     document.getElementById('icon-users').innerHTML = ICONS.users;
     document.getElementById('icon-connections').innerHTML = ICONS.connections;
     document.getElementById('icon-notifications').innerHTML = ICONS.notifications;
+    document.getElementById('icon-recording').innerHTML = ICONS.recording;
+    document.getElementById('icon-call-records').innerHTML = ICONS.callRecords;
     document.getElementById('icon-reports').innerHTML = ICONS.reports;
     document.getElementById('icon-logs').innerHTML = ICONS.logs;
     document.getElementById('icon-danger').innerHTML = ICONS.danger;
@@ -33,10 +31,6 @@ function setupThemeToggle() {
     });
 }
 
-/**
- * Программно переключает активную вкладку в админ-панели.
- * @param {string} targetId - ID секции, которую нужно сделать активной (например, 'users').
- */
 export function navigateToTab(targetId) {
     const navLinks = document.querySelectorAll('.nav-link');
     const contentSections = document.querySelectorAll('.content-section');
