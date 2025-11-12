@@ -1,6 +1,4 @@
-let state = {};
-
-const initialState = {
+const state = {
     currentUser: {},
     targetUser: {},
     currentCallType: 'audio',
@@ -20,26 +18,32 @@ const initialState = {
     isEndingCall: false,
 };
 
-export function initializeState(initialData) {
-    state = { ...initialState, ...initialData };
-}
-
-export function resetStateForNewCall() {
-    state.isMuted = false;
-    state.isVideoEnabled = true;
-    state.isSpeakerMuted = false;
-    state.isEndingCall = false;
-    state.targetUser = {};
-    if (state.callTimerInterval) {
-        clearInterval(state.callTimerInterval);
-        state.callTimerInterval = null;
-    }
-}
-
 export function getState() {
     return state;
 }
 
-export function setState(newState) {
-    state = { ...state, ...newState };
+export function setCurrentUser(user) { state.currentUser = user; }
+export function setTargetUser(user) { state.targetUser = user; }
+export function setCurrentCallType(type) { state.currentCallType = type; }
+export function setCallTimerInterval(interval) { state.callTimerInterval = interval; }
+export function setLifetimeTimerInterval(interval) { state.lifetimeTimerInterval = interval; }
+export function setIsSpeakerMuted(muted) { state.isSpeakerMuted = muted; }
+export function setIsMuted(muted) { state.isMuted = muted; }
+export function setIsVideoEnabled(enabled) { state.isVideoEnabled = enabled; }
+export function setIsSpectator(spectator) { state.isSpectator = spectator; }
+export function setRoomId(id) { state.roomId = id; }
+export function setRtcConfig(config) { state.rtcConfig = config; }
+export function setSelectedVideoId(id) { state.selectedVideoId = id; }
+export function setSelectedAudioInId(id) { state.selectedAudioInId = id; }
+export function setSelectedAudioOutId(id) { state.selectedAudioOutId = id; }
+export function setIceServerDetails(details) { state.iceServerDetails = details; }
+export function setIsCallInitiator(initiator) { state.isCallInitiator = initiator; }
+export function setIsEndingCall(ending) { state.isEndingCall = ending; }
+
+export function resetCallState() {
+    setIsMuted(false);
+    setIsVideoEnabled(true);
+    setIsSpeakerMuted(false);
+    setIsEndingCall(false);
+    setTargetUser({});
 }
