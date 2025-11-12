@@ -227,18 +227,19 @@ async function uploadRecordings() {
     remoteRecorder = null;
 }
 
-async function endCall(isInitiator, reason) {
+async function endCall(isInitiatorOfHangup, reason) {
     if (state.getState().isEndingCall) return;
     state.setIsEndingCall(true);
-    logToScreen(`[CALL] Ending call. Initiator: ${isInitiator}, Reason: ${reason}`);
+    hangupBtn.disabled = true;
+    logToScreen(`[CALL] Ending call. Initiator of hangup: ${isInitiatorOfHangup}, Reason: ${reason}`);
     
     await uploadRecordings();
 
     setGracefulDisconnect(true);
-    if (isInitiator && state.getState().targetUser.id) {
+    if (isInitiatorOfHangup && state.getState().targetUser.id) {
         sendMessage({ type: 'hangup', data: { target_id: state.getState().targetUser.id } });
     }
-    if (isInitiator && !monitor.connectionLogger.isDataSent) {
+    if (isInitiatorOfHangup && !monitor.connectionLogger.isDataSent) {
         monitor.connectionLogger.sendProbeLog();
     }
     monitor.stopConnectionMonitoring();
@@ -248,6 +249,7 @@ async function endCall(isInitiator, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     state.resetCallState();
+    hangupBtn.disabled = false;
 }
 
 async function initializeLocalMedia(callType) {
@@ -392,7 +394,10 @@ function setupEventListeners() {
     screenShareBtn.addEventListener('click', () => webrtc.toggleScreenShare(media.getLocalStream(), (isSharing) => uiManager.updateScreenShareUI(isSharing, state.getState().isVideoEnabled, state.getState().currentCallType)));
     acceptBtn.addEventListener('click', acceptCall);
     declineBtn.addEventListener('click', declineCall);
-    hangupBtn.addEventListener('click', () => endCall(true, 'cancelled_by_user'));
+    hangupBtn.addEventListener('click', () => {
+        const isThisUserInitiator = state.getState().isCallInitiator;
+        endCall(isThisUserInitiator, 'cancelled_by_user');
+    });
     closeSessionBtn.addEventListener('click', closeSession);
     instructionsBtn.addEventListener('click', () => uiManager.showModal('instructions', true));
     document.querySelectorAll('.close-instructions-btn').forEach(btn => btn.addEventListener('click', () => uiManager.showModal('instructions', false)));
