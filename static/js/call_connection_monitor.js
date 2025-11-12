@@ -1,5 +1,3 @@
-// static/js/call_connection_monitor.js
-
 let log = () => {};
 let getPeerConnection = () => null;
 let updateConnectionIcon = () => {};
@@ -148,35 +146,44 @@ export async function probeIceServers() {
             const startTime = performance.now();
             let tempPC;
             let resolved = false;
+            let gatheredCandidates = [];
 
-            const resolvePromise = (status, candidateObj, rtt) => {
+            const resolvePromise = (status, candidate, rtt) => {
                 if (resolved) return;
                 resolved = true;
                 clearTimeout(timeout);
                 if (tempPC && tempPC.signalingState !== 'closed') {
                     tempPC.close();
                 }
+                const candidateObj = candidate ? { ...parseCandidate(candidate.candidate), raw: candidate.candidate } : null;
                 resolve({ url: server.urls, status, rtt, candidate: candidateObj });
             };
 
             const timeout = setTimeout(() => {
                 resolvePromise('No Response', null, null);
-            }, 2500);
+            }, 3000);
 
             try {
                 tempPC = new RTCPeerConnection({ iceServers: [server] });
 
                 tempPC.onicecandidate = (e) => {
                     if (e.candidate) {
-                        const rtt = performance.now() - startTime;
-                        const candidateData = { ...parseCandidate(e.candidate.candidate), raw: e.candidate.candidate };
-                        resolvePromise('Responded', candidateData, rtt);
+                        gatheredCandidates.push(e.candidate);
                     }
                 };
                 
                 tempPC.onicegatheringstatechange = () => {
-                    if (tempPC.iceGatheringState === 'complete' && !resolved) {
-                         resolvePromise('No Candidates', null, performance.now() - startTime);
+                    if (tempPC.iceGatheringState === 'complete') {
+                        const rtt = performance.now() - startTime;
+                        if (gatheredCandidates.length === 0) {
+                            resolvePromise('No Candidates', null, rtt);
+                        } else {
+                            const bestCandidate = 
+                                gatheredCandidates.find(c => c.type === 'relay') ||
+                                gatheredCandidates.find(c => c.type === 'srflx') ||
+                                gatheredCandidates[0];
+                            resolvePromise('Responded', bestCandidate, rtt);
+                        }
                     }
                 };
 
