@@ -18,7 +18,7 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
         return
 
     try:
-        settings = await database.get_notification_settings()
+        settings = await database.get_admin_settings()
         if not settings.get(setting_key, False):
             return
 

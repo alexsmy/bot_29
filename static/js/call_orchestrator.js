@@ -204,7 +204,7 @@ async function uploadRecordings() {
     const upload = (blob, type) => {
         if (!blob || blob.size === 0) {
             logToScreen(`[RECORDER] No data to upload for ${type} stream.`);
-            return;
+            return Promise.resolve();
         }
         const formData = new FormData();
         formData.append('room_id', s.roomId);
@@ -212,7 +212,7 @@ async function uploadRecordings() {
         formData.append('record_type', type);
         formData.append('file', blob, `${type}.webm`);
 
-        fetch('/api/record/upload', {
+        return fetch('/api/record/upload', {
             method: 'POST',
             body: formData
         }).then(response => {
@@ -221,8 +221,8 @@ async function uploadRecordings() {
         }).catch(err => logToScreen(`[RECORDER] Upload error for ${type}: ${err}`));
     };
 
-    upload(localBlob, 'local');
-    upload(remoteBlob, 'remote');
+    await Promise.all([upload(localBlob, 'local'), upload(remoteBlob, 'remote')]);
+    
     localRecorder = null;
     remoteRecorder = null;
 }
