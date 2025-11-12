@@ -1,4 +1,6 @@
-import * as orchestrator from './call_orchestrator.js';
+import * as state from './call_state.js';
+import * as actions from './call_actions.js';
+import * as events from './call_events.js';
 
 function loadIcons() {
     const iconPlaceholders = document.querySelectorAll('[data-icon-name]');
@@ -74,7 +76,18 @@ async function main() {
         };
     }
 
-    orchestrator.initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled);
+    // 1. Устанавливаем начальное состояние
+    state.setRoomId(roomId);
+    state.setRtcConfig(rtcConfig);
+    state.setIceServerDetails(iceServerDetails);
+    state.setIsRecordingEnabled(isRecordingEnabled);
+
+    // 2. Инициализируем модули
+    actions.init();
+    events.initEventHandlers();
+
+    // 3. Запускаем первый шаг - проверку оборудования
+    actions.runPreCallCheck();
 }
 
 document.addEventListener('DOMContentLoaded', main);
