@@ -227,14 +227,12 @@ async function uploadRecordings() {
     remoteRecorder = null;
 }
 
-async function endCall(isInitiatorOfHangup, reason) {
+function endCall(isInitiatorOfHangup, reason) {
     if (state.getState().isEndingCall) return;
     state.setIsEndingCall(true);
     hangupBtn.disabled = true;
     logToScreen(`[CALL] Ending call. Initiator of hangup: ${isInitiatorOfHangup}, Reason: ${reason}`);
     
-    await uploadRecordings();
-
     setGracefulDisconnect(true);
     if (isInitiatorOfHangup && state.getState().targetUser.id) {
         sendMessage({ type: 'hangup', data: { target_id: state.getState().targetUser.id } });
@@ -248,8 +246,11 @@ async function endCall(isInitiatorOfHangup, reason) {
     uiManager.stopAllSounds();
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
-    state.resetCallState();
-    hangupBtn.disabled = false;
+    
+    uploadRecordings().finally(() => {
+        state.resetCallState();
+        hangupBtn.disabled = false;
+    });
 }
 
 async function initializeLocalMedia(callType) {
@@ -395,8 +396,7 @@ function setupEventListeners() {
     acceptBtn.addEventListener('click', acceptCall);
     declineBtn.addEventListener('click', declineCall);
     hangupBtn.addEventListener('click', () => {
-        const isThisUserInitiator = state.getState().isCallInitiator;
-        endCall(isThisUserInitiator, 'cancelled_by_user');
+        endCall(true, 'cancelled_by_user');
     });
     closeSessionBtn.addEventListener('click', closeSession);
     instructionsBtn.addEventListener('click', () => uiManager.showModal('instructions', true));
