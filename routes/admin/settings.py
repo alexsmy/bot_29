@@ -1,5 +1,3 @@
-# routes/admin/settings.py
-
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -8,25 +6,20 @@ from core import CustomJSONResponse
 
 router = APIRouter()
 
-class NotificationSettings(BaseModel):
+class AdminSettings(BaseModel):
     notify_on_room_creation: bool
     notify_on_call_start: bool
     notify_on_call_end: bool
     send_connection_report: bool
     notify_on_connection_details: bool
+    enable_call_recording: bool
 
-@router.get("/notification_settings", response_class=CustomJSONResponse)
-async def get_notification_settings_endpoint():
-    """
-    Возвращает текущие настройки уведомлений.
-    """
-    settings = await database.get_notification_settings()
+@router.get("/admin_settings", response_class=CustomJSONResponse)
+async def get_admin_settings_endpoint():
+    settings = await database.get_admin_settings()
     return settings
 
-@router.post("/notification_settings", response_class=CustomJSONResponse)
-async def update_notification_settings_endpoint(settings: NotificationSettings):
-    """
-    Обновляет настройки уведомлений.
-    """
-    await database.update_notification_settings(settings.dict())
+@router.post("/admin_settings", response_class=CustomJSONResponse)
+async def update_admin_settings_endpoint(settings: AdminSettings):
+    await database.update_admin_settings(settings.dict())
     return {"status": "ok"}

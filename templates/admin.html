@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -32,6 +33,12 @@
                 </a>
                 <a href="#notifications" class="nav-link">
                     <span class="icon" id="icon-notifications"></span> Уведомления
+                </a>
+                <a href="#recording" class="nav-link">
+                    <span class="icon" id="icon-recording"></span> Запись звонков
+                </a>
+                <a href="#call-records" class="nav-link">
+                    <span class="icon" id="icon-call-records"></span> Записи звонков
                 </a>
                 <a href="#reports" class="nav-link">
                     <span class="icon" id="icon-reports"></span> Отчёты
@@ -164,6 +171,33 @@
                         <button id="save-notification-settings" class="action-btn primary">Сохранить</button>
                         <span id="settings-saved-indicator" class="saved-indicator">Сохранено!</span>
                     </div>
+                </div>
+            </section>
+
+            <section id="recording" class="content-section">
+                <h2>Настройки записи звонков</h2>
+                <p class="section-description">Включение этой опции будет записывать аудиопотоки (локальный и удаленный) от каждого участника звонка.</p>
+                <div class="notification-settings-form">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="enable_call_recording">
+                            <span>Включить запись аудио звонков</span>
+                        </label>
+                    </div>
+                    <div class="form-actions">
+                        <button id="save-recording-settings" class="action-btn primary">Сохранить</button>
+                        <span id="recording-saved-indicator" class="saved-indicator">Сохранено!</span>
+                    </div>
+                </div>
+            </section>
+
+            <section id="call-records" class="content-section">
+                <div class="section-header">
+                    <h2>Записи звонков</h2>
+                </div>
+                <p class="section-description">Здесь хранятся аудиозаписи звонков в формате .webm.</p>
+                <div id="call-records-list" class="room-list-container">
+                    <div class="skeleton-list"></div>
                 </div>
             </section>
 

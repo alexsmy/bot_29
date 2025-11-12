@@ -3,6 +3,7 @@ import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
 import * as webrtc from './call_webrtc.js';
 import * as monitor from './call_connection_monitor.js';
+import { CallRecorder } from './call_recorder.js';
 import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_websocket.js';
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect, micSelect, speakerSelect,
@@ -12,6 +13,9 @@ import {
     toggleLocalViewBtn, toggleRemoteViewBtn, connectionStatus, deviceSettingsBtn,
     cameraSelectCall, micSelectCall, speakerSelectCall
 } from './call_ui_elements.js';
+
+let localRecorder = null;
+let remoteRecorder = null;
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -187,10 +191,49 @@ function declineCall() {
     state.setTargetUser({});
 }
 
+async function uploadRecordings() {
+    if (!state.getState().isRecordingEnabled) return;
+
+    logToScreen('[RECORDER] Stopping and uploading recordings...');
+    const [localBlob, remoteBlob] = await Promise.all([
+        localRecorder ? localRecorder.stop() : Promise.resolve(null),
+        remoteRecorder ? remoteRecorder.stop() : Promise.resolve(null)
+    ]);
+
+    const s = state.getState();
+    const upload = (blob, type) => {
+        if (!blob || blob.size === 0) {
+            logToScreen(`[RECORDER] No data to upload for ${type} stream.`);
+            return;
+        }
+        const formData = new FormData();
+        formData.append('room_id', s.roomId);
+        formData.append('user_id', s.currentUser.id);
+        formData.append('record_type', type);
+        formData.append('file', blob, `${type}.webm`);
+
+        fetch('/api/record/upload', {
+            method: 'POST',
+            body: formData
+        }).then(response => {
+            if (response.ok) logToScreen(`[RECORDER] ${type} recording uploaded successfully.`);
+            else logToScreen(`[RECORDER] Failed to upload ${type} recording.`);
+        }).catch(err => logToScreen(`[RECORDER] Upload error for ${type}: ${err}`));
+    };
+
+    upload(localBlob, 'local');
+    upload(remoteBlob, 'remote');
+    localRecorder = null;
+    remoteRecorder = null;
+}
+
 async function endCall(isInitiator, reason) {
     if (state.getState().isEndingCall) return;
     state.setIsEndingCall(true);
     logToScreen(`[CALL] Ending call. Initiator: ${isInitiator}, Reason: ${reason}`);
+    
+    await uploadRecordings();
+
     setGracefulDisconnect(true);
     if (isInitiator && state.getState().targetUser.id) {
         sendMessage({ type: 'hangup', data: { target_id: state.getState().targetUser.id } });
@@ -379,11 +422,12 @@ function setupEventListeners() {
     uiManager.setupLocalVideoInteraction();
 }
 
-export function initialize(roomId, rtcConfig, iceServerDetails) {
+export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled) {
     logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
     state.setRoomId(roomId);
     state.setRtcConfig(rtcConfig);
     state.setIceServerDetails(iceServerDetails);
+    state.setIsRecordingEnabled(isRecordingEnabled);
 
     media.init(logToScreen);
     monitor.init({
@@ -408,6 +452,19 @@ export function initialize(roomId, rtcConfig, iceServerDetails) {
             uiManager.updateCallUI(s.currentCallType, s.targetUser, mediaStatus, isMobileDevice());
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
+            
+            if (s.isRecordingEnabled) {
+                const localStream = media.getLocalStream();
+                const remoteStream = webrtc.getRemoteStream();
+                if (localStream && localStream.getAudioTracks().length > 0) {
+                    localRecorder = new CallRecorder(new MediaStream(localStream.getAudioTracks()), logToScreen);
+                    localRecorder.start();
+                }
+                if (remoteStream && remoteStream.getAudioTracks().length > 0) {
+                    remoteRecorder = new CallRecorder(new MediaStream(remoteStream.getAudioTracks()), logToScreen);
+                    remoteRecorder.start();
+                }
+            }
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),

@@ -133,15 +133,15 @@ function parseCandidate(candString) {
     };
 }
 
-async function probeIceServers() {
+export async function probeIceServers() {
     log('[PROBE] Starting ICE server probing...');
     const rtcConfig = getRtcConfig();
     if (!rtcConfig || !rtcConfig.iceServers) {
         log('[PROBE] RTC config not available for probing.');
         return [];
     }
-
-    const createProbePromise = (server) => {
+    const serversToProbe = rtcConfig.iceServers;
+    const promises = serversToProbe.map(server => {
         return new Promise(resolve => {
             const startTime = performance.now();
             let tempPC;
@@ -161,7 +161,7 @@ async function probeIceServers() {
 
             const timeout = setTimeout(() => {
                 resolvePromise('No Response', null, null);
-            }, 2000);
+            }, 3000);
 
             try {
                 tempPC = new RTCPeerConnection({ iceServers: [server] });
@@ -196,29 +196,17 @@ async function probeIceServers() {
                 resolvePromise('Config Error', null, null);
             }
         });
-    };
+    });
 
-    const stunServers = rtcConfig.iceServers.filter(s => s.urls.startsWith('stun:'));
-    const turnServers = rtcConfig.iceServers.filter(s => s.urls.startsWith('turn:'));
-
-    log(`[PROBE] Phase 1: Probing ${stunServers.length} STUN servers...`);
-    const stunPromises = stunServers.map(createProbePromise);
-    const stunResults = await Promise.all(stunPromises);
-
-    log(`[PROBE] Phase 2: Probing ${turnServers.length} TURN servers...`);
-    const turnPromises = turnServers.map(createProbePromise);
-    const turnResults = await Promise.all(turnPromises);
-
-    let allResults = [...stunResults, ...turnResults];
-    
-    allResults.sort((a, b) => {
+    let results = await Promise.all(promises);
+    results.sort((a, b) => {
         if (a.rtt === null) return 1;
         if (b.rtt === null) return -1;
         return a.rtt - b.rtt;
     });
 
-    log(`[PROBE] Probing complete. ${allResults.filter(r => r.status === 'Responded').length} servers responded in total.`);
-    return allResults;
+    log(`[PROBE] Probing complete. ${results.filter(r => r.status === 'Responded').length} servers responded.`);
+    return results;
 }
 
 async function monitorConnectionStats() {

@@ -1,11 +1,13 @@
 import os
 import asyncio
+import shutil
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
+import database
 import notifier
 from core import CustomJSONResponse, templates
 from logger_config import logger
@@ -14,6 +16,7 @@ from websocket_manager import manager
 router = APIRouter()
 
 LOGS_DIR = "connection_logs"
+RECORDS_DIR = "call_records"
 
 class ClientLog(BaseModel):
     user_id: str
@@ -77,3 +80,36 @@ async def get_room_lifetime(room_id: str):
     expiry_time = room.creation_time + timedelta(hours=room.lifetime_hours)
     remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
     return {"remaining_seconds": max(0, remaining_seconds)}
+
+@router.get("/api/recording/status", response_class=CustomJSONResponse)
+async def get_recording_status():
+    settings = await database.get_admin_settings()
+    is_enabled = settings.get('enable_call_recording', False)
+    return {"is_enabled": is_enabled}
+
+@router.post("/api/record/upload", response_class=CustomJSONResponse)
+async def upload_recording(
+    room_id: str = Form(...),
+    user_id: str = Form(...),
+    record_type: str = Form(...),
+    file: UploadFile = File(...)
+):
+    try:
+        os.makedirs(RECORDS_DIR, exist_ok=True)
+        
+        safe_room_id = "".join(c for c in room_id if c.isalnum() or c in ('-', '_'))
+        safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
+        safe_record_type = "local" if record_type == "local" else "remote"
+        
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}_{safe_record_type}.webm"
+        filepath = os.path.join(RECORDS_DIR, filename)
+
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        logger.info(f"Аудиозапись сохранена: {filepath}")
+        return {"status": "ok", "filename": filename}
+    except Exception as e:
+        logger.error(f"Ошибка при загрузке аудиозаписи: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload recording")

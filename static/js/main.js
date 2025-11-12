@@ -29,20 +29,22 @@ async function main() {
     const roomId = path.split('/')[2];
     let rtcConfig = null;
     let iceServerDetails = {};
+    let isRecordingEnabled = false;
 
     try {
-        console.log("Fetching ICE servers configuration from server...");
-        const response = await fetch('/api/ice-servers');
-        if (!response.ok) throw new Error(`Server responded with status ${response.status}`);
-        
-        const servers = await response.json();
+        const [iceResponse, recordingResponse] = await Promise.all([
+            fetch('/api/ice-servers'),
+            fetch('/api/recording/status')
+        ]);
+
+        if (!iceResponse.ok) throw new Error(`Server responded with status ${iceResponse.status} for ICE servers`);
+        const servers = await iceResponse.json();
         const peerConnectionConfig = servers.map(s => ({
             urls: s.urls,
             username: s.username,
             credential: s.credential
         }));
         rtcConfig = { iceServers: peerConnectionConfig, iceCandidatePoolSize: 10 };
-
         servers.forEach(s => {
             let provider = 'Unknown';
             if (s.source) {
@@ -53,9 +55,16 @@ async function main() {
             }
             iceServerDetails[s.urls] = { region: s.region || 'global', provider: provider };
         });
-        console.log("ICE servers configuration and details loaded successfully.");
+        console.log("ICE servers configuration loaded.");
+
+        if (recordingResponse.ok) {
+            const recordingStatus = await recordingResponse.json();
+            isRecordingEnabled = recordingStatus.is_enabled;
+            console.log(`Call recording is ${isRecordingEnabled ? 'ENABLED' : 'DISABLED'}.`);
+        }
+
     } catch (error) {
-        console.error(`[CRITICAL] Failed to fetch ICE servers: ${error.message}. Falling back to public STUN.`);
+        console.error(`[CRITICAL] Failed to fetch initial config: ${error.message}.`);
         alert("Не удалось загрузить конфигурацию сети. Качество звонка может быть низким.");
         rtcConfig = {
             iceServers: [
@@ -65,7 +74,7 @@ async function main() {
         };
     }
 
-    orchestrator.initialize(roomId, rtcConfig, iceServerDetails);
+    orchestrator.initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled);
 }
 
 document.addEventListener('DOMContentLoaded', main);
