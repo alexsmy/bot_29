@@ -16,6 +16,7 @@ const state = {
     iceServerDetails: {},
     isCallInitiator: false,
     isEndingCall: false,
+    isRecordingEnabled: false,
 };
 
 export function getState() {
@@ -39,6 +40,7 @@ export function setSelectedAudioOutId(id) { state.selectedAudioOutId = id; }
 export function setIceServerDetails(details) { state.iceServerDetails = details; }
 export function setIsCallInitiator(initiator) { state.isCallInitiator = initiator; }
 export function setIsEndingCall(ending) { state.isEndingCall = ending; }
+export function setIsRecordingEnabled(enabled) { state.isRecordingEnabled = enabled; }
 
 export function resetCallState() {
     setIsMuted(false);
