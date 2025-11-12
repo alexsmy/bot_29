@@ -459,10 +459,17 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
             
+            // ИЗМЕНЕНИЕ: Логика записи
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
-                    localRecorder = new CallRecorder(new MediaStream(localStream.getAudioTracks()), logToScreen);
+                    // 1. Клонируем аудиодорожку
+                    const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
+                    const streamForRecording = new MediaStream([audioTrackForRecording]);
+                    
+                    // 2. Создаем рекордер с низким битрейтом для клона
+                    const recorderOptions = { audioBitsPerSecond: 16000 }; // 16 kbps
+                    localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
                     localRecorder.start();
                 }
             }
