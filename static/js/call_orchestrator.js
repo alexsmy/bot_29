@@ -1,3 +1,5 @@
+// static/js/call_orchestrator.js
+
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -15,7 +17,6 @@ import {
 } from './call_ui_elements.js';
 
 let localRecorder = null;
-let remoteRecorder = null;
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -191,40 +192,40 @@ function declineCall() {
     state.setTargetUser({});
 }
 
-async function uploadRecordings() {
-    if (!state.getState().isRecordingEnabled) return;
+function uploadRecordings() {
+    if (!state.getState().isRecordingEnabled || !localRecorder) {
+        return Promise.resolve();
+    }
 
-    logToScreen('[RECORDER] Stopping and uploading recordings...');
-    const [localBlob, remoteBlob] = await Promise.all([
-        localRecorder ? localRecorder.stop() : Promise.resolve(null),
-        remoteRecorder ? remoteRecorder.stop() : Promise.resolve(null)
-    ]);
-
-    const s = state.getState();
-    const upload = (blob, type) => {
+    logToScreen('[RECORDER] Stopping and uploading local recording...');
+    
+    const upload = (blob) => {
         if (!blob || blob.size === 0) {
-            logToScreen(`[RECORDER] No data to upload for ${type} stream.`);
+            logToScreen(`[RECORDER] No data to upload.`);
             return Promise.resolve();
         }
+        const s = state.getState();
         const formData = new FormData();
         formData.append('room_id', s.roomId);
         formData.append('user_id', s.currentUser.id);
-        formData.append('record_type', type);
-        formData.append('file', blob, `${type}.webm`);
+        formData.append('file', blob, `recording.webm`);
 
         return fetch('/api/record/upload', {
             method: 'POST',
             body: formData
         }).then(response => {
-            if (response.ok) logToScreen(`[RECORDER] ${type} recording uploaded successfully.`);
-            else logToScreen(`[RECORDER] Failed to upload ${type} recording.`);
-        }).catch(err => logToScreen(`[RECORDER] Upload error for ${type}: ${err}`));
+            if (response.ok) logToScreen(`[RECORDER] Local recording uploaded successfully.`);
+            else logToScreen(`[RECORDER] Failed to upload local recording.`);
+        }).catch(err => logToScreen(`[RECORDER] Upload error for local recording: ${err}`));
     };
 
-    await Promise.all([upload(localBlob, 'local'), upload(remoteBlob, 'remote')]);
-    
-    localRecorder = null;
-    remoteRecorder = null;
+    return localRecorder.stop().then(blob => {
+        localRecorder = null;
+        if (blob) {
+            return upload(blob);
+        }
+        return Promise.resolve();
+    });
 }
 
 function endCall(isInitiatorOfHangup, reason) {
@@ -460,14 +461,9 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
-                const remoteStream = webrtc.getRemoteStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
                     localRecorder = new CallRecorder(new MediaStream(localStream.getAudioTracks()), logToScreen);
                     localRecorder.start();
-                }
-                if (remoteStream && remoteStream.getAudioTracks().length > 0) {
-                    remoteRecorder = new CallRecorder(new MediaStream(remoteStream.getAudioTracks()), logToScreen);
-                    remoteRecorder.start();
                 }
             }
         },
