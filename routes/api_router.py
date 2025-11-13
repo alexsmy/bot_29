@@ -14,8 +14,6 @@ import notifier
 from core import CustomJSONResponse, templates
 from logger_config import logger
 from websocket_manager import manager
-# ИЗМЕНЕНИЕ: Импортируем новый сервис для микширования аудио
-from services import audio_mixer
 
 router = APIRouter()
 
@@ -95,8 +93,6 @@ async def get_recording_status():
 async def upload_recording(
     room_id: str = Form(...),
     user_id: str = Form(...),
-    # ИЗМЕНЕНИЕ: Принимаем временную метку начала записи от клиента
-    recording_start_time: int = Form(...),
     file: UploadFile = File(...)
 ):
     try:
@@ -106,20 +102,13 @@ async def upload_recording(
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
         
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        
-        # ИЗМЕНЕНИЕ: Добавляем временную метку в имя файла для последующей синхронизации
-        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}_{recording_start_time}.webm"
+        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}.webm"
         filepath = os.path.join(RECORDS_DIR, filename)
 
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         logger.info(f"Аудиозапись сохранена: {filepath}")
-
-        # ИЗМЕНЕНИЕ: Запускаем задачу микширования в фоновом режиме
-        # Она проверит, есть ли уже второй файл, и если да, то смешает их.
-        asyncio.create_task(audio_mixer.mix_audio_for_room(RECORDS_DIR, room_id))
-
         return {"status": "ok", "filename": filename}
     except Exception as e:
         logger.error(f"Ошибка при загрузке аудиозаписи: {e}")
