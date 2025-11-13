@@ -39,19 +39,22 @@ async def transcribe_audio_file(filepath: str):
                 client.audio.transcriptions.create,
                 file=(os.path.basename(filepath), audio_file.read()),
                 model="whisper-large-v3",
+                temperature=0,
+                language="ru",
                 response_format="verbose_json",
                 timestamp_granularities=["segment"]
             )
 
         logger.info(f"[Groq] Получен ответ от API для файла {os.path.basename(filepath)}. Форматирование...")
 
-        # Форматируем результат с временными метками
+        # ИСПРАВЛЕНИЕ: Используем доступ к элементам как в словаре
         formatted_text = ""
         if transcription.segments:
             for segment in transcription.segments:
-                start_time = format_timestamp(segment.start)
-                end_time = format_timestamp(segment.end)
-                formatted_text += f"[{start_time} --> {end_time}] {segment.text.strip()}\n"
+                start_time = format_timestamp(segment['start'])
+                end_time = format_timestamp(segment['end'])
+                text = segment['text'].strip()
+                formatted_text += f"[{start_time} --> {end_time}] {text}\n"
         else:
             formatted_text = transcription.text
 
