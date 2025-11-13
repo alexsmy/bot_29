@@ -1,4 +1,3 @@
-
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
@@ -111,21 +110,6 @@ async def init_db():
             ('enable_call_recording', FALSE)
             ON CONFLICT(key) DO NOTHING
         ''')
-        
-        # Новая таблица для хранения информации о записях
-        await conn.execute('''
-            CREATE TABLE IF NOT EXISTS call_recordings (
-                recording_id SERIAL PRIMARY KEY,
-                room_id TEXT NOT NULL,
-                user_id TEXT NOT NULL,
-                start_timestamp_ms BIGINT NOT NULL,
-                file_path TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                is_processed BOOLEAN NOT NULL DEFAULT FALSE,
-                merged_file_path TEXT
-            )
-        ''')
-        
     logger.info("База данных PostgreSQL успешно инициализирована.")
 
 async def log_user(user_id, first_name, last_name, username):
@@ -368,8 +352,7 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Добавляем call_recordings в список очищаемых таблиц
-        await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens, admin_settings, call_recordings RESTART IDENTITY CASCADE")
+        await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
 async def get_all_active_sessions():
@@ -466,49 +449,3 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
             "initiator": initiator_details,
             "participant": participant_details
         }
-
-# --- Новые функции для работы с записями ---
-
-async def log_call_recording(room_id: str, user_id: str, start_timestamp_ms: int, file_path: str) -> int:
-    """Сохраняет метаданные о записи в БД и возвращает ID записи."""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        recording_id = await conn.fetchval(
-            """
-            INSERT INTO call_recordings (room_id, user_id, start_timestamp_ms, file_path)
-            VALUES ($1, $2, $3, $4)
-            RETURNING recording_id
-            """,
-            room_id, user_id, start_timestamp_ms, file_path
-        )
-        return recording_id
-
-async def find_unprocessed_recording_pair(room_id: str) -> Optional[List[Dict[str, Any]]]:
-    """Ищет пару необработанных записей для одной комнаты."""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch(
-            """
-            SELECT recording_id, file_path, start_timestamp_ms
-            FROM call_recordings
-            WHERE room_id = $1 AND is_processed = FALSE
-            LIMIT 2
-            """,
-            room_id
-        )
-        if len(rows) == 2:
-            return [dict(row) for row in rows]
-        return None
-
-async def mark_recordings_as_processed(recording_ids: List[int], merged_file_path: str):
-    """Помечает записи как обработанные и сохраняет путь к объединенному файлу."""
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        await conn.execute(
-            """
-            UPDATE call_recordings
-            SET is_processed = TRUE, merged_file_path = $1
-            WHERE recording_id = ANY($2::int[])
-            """,
-            merged_file_path, recording_ids
-        )

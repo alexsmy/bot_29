@@ -1,4 +1,3 @@
-
 // static/js/call_orchestrator.js
 
 import * as state from './call_state.js';
@@ -18,7 +17,6 @@ import {
 } from './call_ui_elements.js';
 
 let localRecorder = null;
-let recordingStartTimestamp = null; // Временная метка начала записи
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -201,7 +199,7 @@ function uploadRecordings() {
 
     logToScreen('[RECORDER] Stopping and uploading local recording...');
     
-    const upload = (blob) => {
+    const upload = (blob, startTime) => {
         if (!blob || blob.size === 0) {
             logToScreen(`[RECORDER] No data to upload.`);
             return Promise.resolve();
@@ -210,9 +208,9 @@ function uploadRecordings() {
         const formData = new FormData();
         formData.append('room_id', s.roomId);
         formData.append('user_id', s.currentUser.id);
+        // ИЗМЕНЕНИЕ: Добавляем временную метку в форму
+        formData.append('recording_start_time', startTime);
         formData.append('file', blob, `recording.webm`);
-        // Добавляем временную метку
-        formData.append('startTimestamp', recordingStartTimestamp);
 
         return fetch('/api/record/upload', {
             method: 'POST',
@@ -223,11 +221,11 @@ function uploadRecordings() {
         }).catch(err => logToScreen(`[RECORDER] Upload error for local recording: ${err}`));
     };
 
-    return localRecorder.stop().then(blob => {
+    // ИЗМЕНЕНИЕ: Получаем объект с blob и startTime
+    return localRecorder.stop().then(result => {
         localRecorder = null;
-        recordingStartTimestamp = null; // Сбрасываем метку
-        if (blob) {
-            return upload(blob);
+        if (result && result.blob) {
+            return upload(result.blob, result.startTime);
         }
         return Promise.resolve();
     });
@@ -464,19 +462,17 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
             
+            // ИЗМЕНЕНИЕ: Логика записи
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
-                    // Фиксируем время начала записи. performance.now() более точен для интервалов.
-                    recordingStartTimestamp = Math.round(performance.now());
-                    logToScreen(`[RECORDER] Recording start timestamp captured: ${recordingStartTimestamp}ms`);
-
+                    const recordingStartTime = Date.now();
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
                     const recorderOptions = { audioBitsPerSecond: 16000 };
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
-                    localRecorder.start();
+                    localRecorder.start(recordingStartTime);
                 }
             }
         },

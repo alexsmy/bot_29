@@ -1,4 +1,3 @@
-
 # routes/api_router.py
 
 import os
@@ -7,7 +6,7 @@ import shutil
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 
-from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, BackgroundTasks
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 
 import database
@@ -15,7 +14,8 @@ import notifier
 from core import CustomJSONResponse, templates
 from logger_config import logger
 from websocket_manager import manager
-from services.audio_merger import process_and_merge_recordings
+# ИЗМЕНЕНИЕ: Импортируем новый сервис для микширования аудио
+from services import audio_mixer
 
 router = APIRouter()
 
@@ -93,10 +93,10 @@ async def get_recording_status():
 
 @router.post("/api/record/upload", response_class=CustomJSONResponse)
 async def upload_recording(
-    background_tasks: BackgroundTasks,
     room_id: str = Form(...),
     user_id: str = Form(...),
-    startTimestamp: int = Form(...),
+    # ИЗМЕНЕНИЕ: Принимаем временную метку начала записи от клиента
+    recording_start_time: int = Form(...),
     file: UploadFile = File(...)
 ):
     try:
@@ -106,7 +106,9 @@ async def upload_recording(
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
         
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}.webm"
+        
+        # ИЗМЕНЕНИЕ: Добавляем временную метку в имя файла для последующей синхронизации
+        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}_{recording_start_time}.webm"
         filepath = os.path.join(RECORDS_DIR, filename)
 
         with open(filepath, "wb") as buffer:
@@ -114,19 +116,9 @@ async def upload_recording(
 
         logger.info(f"Аудиозапись сохранена: {filepath}")
 
-        # Логируем метаданные в БД
-        await database.log_call_recording(
-            room_id=room_id,
-            user_id=user_id,
-            start_timestamp_ms=startTimestamp,
-            file_path=filepath
-        )
-
-        # Проверяем, есть ли пара для этой записи, и если да, запускаем сведение
-        recording_pair = await database.find_unprocessed_recording_pair(room_id)
-        if recording_pair:
-            logger.info(f"Найдена пара записей для комнаты {room_id}. Запускаем процесс сведения.")
-            background_tasks.add_task(process_and_merge_recordings, recording_pair)
+        # ИЗМЕНЕНИЕ: Запускаем задачу микширования в фоновом режиме
+        # Она проверит, есть ли уже второй файл, и если да, то смешает их.
+        asyncio.create_task(audio_mixer.mix_audio_for_room(RECORDS_DIR, room_id))
 
         return {"status": "ok", "filename": filename}
     except Exception as e:
