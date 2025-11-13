@@ -1,3 +1,5 @@
+/* bot_29-main/static/css/admin.css */
+
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -301,7 +303,7 @@ html.dark .stat-card.clickable {
     flex-direction: column;
     gap: 0.75rem;
 }
-.room-item, .user-item, .report-item {
+.room-item, .user-item, .report-item, .record-item {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -314,7 +316,7 @@ html.dark .stat-card.clickable {
     flex-wrap: wrap;
     gap: 1rem;
 }
-.room-item:hover, .user-item:hover, .report-item:hover {
+.room-item:hover, .user-item:hover, .report-item:hover, .record-item:hover {
     box-shadow: var(--shadow-md);
     border-color: var(--accent-color);
 }
@@ -633,6 +635,43 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
 .report-item a { color: var(--accent-color); text-decoration: none; font-weight: 500; }
 .report-item a:hover { text-decoration: underline; }
 .report-actions { display: flex; gap: 0.5rem; }
+
+/* Стили для записей звонков */
+.record-item-info {
+    flex-grow: 1;
+    font-family: monospace;
+    font-size: 0.9em;
+}
+.record-item-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+.action-group {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+.action-group .file-type {
+    font-weight: 600;
+    font-size: 0.8em;
+    color: var(--text-secondary);
+    padding-right: 0.5rem;
+    border-right: 1px solid var(--border-color);
+}
+.action-group .action-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9em;
+}
+.action-group .action-btn.disabled {
+    background-color: var(--base-bg);
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    border-color: var(--border-color);
+}
 
 .logs-panel {
     background-color: #212529;

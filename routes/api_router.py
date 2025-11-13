@@ -1,4 +1,4 @@
-# routes/api_router.py
+# bot_29-main/routes/api_router.py
 
 import os
 import asyncio
@@ -14,6 +14,7 @@ import notifier
 from core import CustomJSONResponse, templates
 from logger_config import logger
 from websocket_manager import manager
+from groq_transcriber import transcribe_audio_file
 
 router = APIRouter()
 
@@ -109,6 +110,10 @@ async def upload_recording(
             shutil.copyfileobj(file.file, buffer)
 
         logger.info(f"Аудиозапись сохранена: {filepath}")
+        
+        # Запускаем транскрипцию в фоновом режиме
+        asyncio.create_task(transcribe_audio_file(filepath))
+        
         return {"status": "ok", "filename": filename}
     except Exception as e:
         logger.error(f"Ошибка при загрузке аудиозаписи: {e}")

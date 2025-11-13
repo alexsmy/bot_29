@@ -1,7 +1,8 @@
+# bot_29-main/routes/admin/recordings.py
+
 import os
-import glob
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 
 from core import CustomJSONResponse
 
@@ -15,12 +16,31 @@ def sanitize_filename(filename: str) -> str:
 
 @router.get("/recordings", response_class=CustomJSONResponse)
 async def list_recordings():
+    """
+    Возвращает сгруппированный список аудиозаписей и их транскрипций.
+    """
     try:
         if not os.path.exists(RECORDS_DIR):
             return []
-        files = glob.glob(os.path.join(RECORDS_DIR, "*.webm"))
-        filenames = sorted([os.path.basename(f) for f in files], reverse=True)
-        return filenames
+        
+        files_map = {}
+        for filename in os.listdir(RECORDS_DIR):
+            if not filename.endswith(('.webm', '.txt')):
+                continue
+            
+            base_name, ext = os.path.splitext(filename)
+            if base_name not in files_map:
+                files_map[base_name] = {"name": base_name, "has_webm": False, "has_txt": False}
+            
+            if ext == '.webm':
+                files_map[base_name]["has_webm"] = True
+            elif ext == '.txt':
+                files_map[base_name]["has_txt"] = True
+        
+        # Сортируем по имени (которое содержит дату) в обратном порядке
+        sorted_list = sorted(files_map.values(), key=lambda x: x['name'], reverse=True)
+        return sorted_list
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list recordings: {e}")
 
@@ -31,9 +51,15 @@ async def get_recording(filename: str):
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Recording not found.")
     
+    media_type = 'application/octet-stream'
+    if safe_filename.endswith('.webm'):
+        media_type = 'audio/webm'
+    elif safe_filename.endswith('.txt'):
+        media_type = 'text/plain'
+
     return FileResponse(
         path=filepath, 
-        media_type='audio/webm',
+        media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={safe_filename}"}
     )
 
