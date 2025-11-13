@@ -1,4 +1,4 @@
-// static/js/call_recorder.js
+// bot_29-main/static/js/call_recorder.js
 
 export class CallRecorder {
     constructor(stream, logCallback, options = {}) {
@@ -8,10 +8,9 @@ export class CallRecorder {
         this.recordedChunks = [];
         this.isRecording = false;
 
-        // ИЗМЕНЕНИЕ: Объединяем стандартные и пользовательские опции
         const recorderOptions = {
             mimeType: 'audio/webm;codecs=opus',
-            ...options // Позволяет передать, например, audioBitsPerSecond
+            ...options 
         };
 
         if (!MediaRecorder.isTypeSupported(recorderOptions.mimeType)) {
@@ -54,12 +53,24 @@ export class CallRecorder {
                 this.recordedChunks = [];
                 this.isRecording = false;
                 this.log(`[RECORDER] Recording stopped. Blob size: ${blob.size} bytes.`);
+
+                // ИСПРАВЛЕНИЕ: Принудительно останавливаем все дорожки (включая клонированную),
+                // чтобы гарантированно освободить микрофон для следующего звонка.
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                    this.log('[RECORDER] All tracks used for recording have been stopped.');
+                }
+
                 resolve(blob);
             };
             
             if (this.mediaRecorder.state === "recording") {
                 this.mediaRecorder.stop();
             } else {
+                // Если запись уже не идет, просто освобождаем ресурсы и выходим
+                if (this.stream) {
+                    this.stream.getTracks().forEach(track => track.stop());
+                }
                 resolve(null);
             }
         });
