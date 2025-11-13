@@ -1,3 +1,5 @@
+// bot_29-main/static/js/call_state.js
+
 const state = {
     currentUser: {},
     targetUser: {},
@@ -47,5 +49,7 @@ export function resetCallState() {
     setIsVideoEnabled(true);
     setIsSpeakerMuted(false);
     setIsEndingCall(false);
-    setTargetUser({});
+    // ИСПРАВЛЕНИЕ: Удалена строка setTargetUser({}), которая была причиной проблемы.
+    // Информация о собеседнике не должна сбрасываться при завершении звонка,
+    // так как он все еще находится в комнате.
 }
