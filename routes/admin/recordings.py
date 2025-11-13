@@ -1,8 +1,10 @@
+
 # bot_29-main/routes/admin/recordings.py
 
 import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse, Response
+from collections import defaultdict
 
 from core import CustomJSONResponse
 
@@ -17,29 +19,32 @@ def sanitize_filename(filename: str) -> str:
 @router.get("/recordings", response_class=CustomJSONResponse)
 async def list_recordings():
     """
-    Возвращает сгруппированный список аудиозаписей и их транскрипций.
+    Возвращает список сессий звонков с их файлами (аудио, транскрипции, диалоги).
     """
     try:
         if not os.path.exists(RECORDS_DIR):
             return []
         
-        files_map = {}
-        for filename in os.listdir(RECORDS_DIR):
+        sessions = defaultdict(lambda: {"session_id": "", "files": []})
+        
+        # Сортируем файлы, чтобы они обрабатывались в предсказуемом порядке
+        sorted_files = sorted(os.listdir(RECORDS_DIR), reverse=True)
+
+        for filename in sorted_files:
             if not filename.endswith(('.webm', '.txt')):
                 continue
             
-            base_name, ext = os.path.splitext(filename)
-            if base_name not in files_map:
-                files_map[base_name] = {"name": base_name, "has_webm": False, "has_txt": False}
+            # Ключ сессии - это YYYYMMDD_HHMMSS_roomid
+            parts = filename.split('_')
+            if len(parts) < 3:
+                continue # Пропускаем некорректные имена файлов
             
-            if ext == '.webm':
-                files_map[base_name]["has_webm"] = True
-            elif ext == '.txt':
-                files_map[base_name]["has_txt"] = True
+            session_id = "_".join(parts[:3])
+            
+            sessions[session_id]["session_id"] = session_id
+            sessions[session_id]["files"].append(filename)
         
-        # Сортируем по имени (которое содержит дату) в обратном порядке
-        sorted_list = sorted(files_map.values(), key=lambda x: x['name'], reverse=True)
-        return sorted_list
+        return list(sessions.values())
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to list recordings: {e}")

@@ -1,3 +1,4 @@
+
 // bot_29-main/static/js/admin_call_records.js
 
 import { fetchData } from './admin_api.js';
@@ -5,41 +6,74 @@ import { fetchData } from './admin_api.js';
 let recordsListContainer;
 const API_TOKEN = document.body.dataset.token;
 
-function renderRecordItem(record) {
-    const webmFilename = `${record.name}.webm`;
-    const txtFilename = `${record.name}.txt`;
-
-    const webmButtons = record.has_webm ? `
-        <button class="action-btn" onclick="window.location.href='/api/admin/recordings/${webmFilename}?token=${API_TOKEN}'">Скачать</button>
-        <button class="action-btn danger" data-filename="${webmFilename}">Удалить</button>
-    ` : `<button class="action-btn disabled" disabled>Нет файла</button>`;
-
-    const txtButtons = record.has_txt ? `
-        <button class="action-btn" onclick="window.location.href='/api/admin/recordings/${txtFilename}?token=${API_TOKEN}'">Скачать</button>
-        <button class="action-btn danger" data-filename="${txtFilename}">Удалить</button>
+function renderActionGroup(fileType, filename, isAvailable) {
+    const buttons = isAvailable ? `
+        <button class="action-btn" onclick="window.location.href='/api/admin/recordings/${filename}?token=${API_TOKEN}'">Скачать</button>
+        <button class="action-btn danger" data-filename="${filename}">Удалить</button>
     ` : `<button class="action-btn disabled" disabled>Нет файла</button>`;
 
     return `
-        <div class="record-item">
-            <div class="record-item-info">${record.name}</div>
-            <div class="record-item-actions">
-                <div class="action-group">
-                    <span class="file-type">WEBM</span>
-                    ${webmButtons}
-                </div>
-                <div class="action-group">
-                    <span class="file-type">TXT</span>
-                    ${txtButtons}
-                </div>
-            </div>
+        <div class="action-group">
+            <span class="file-type">${fileType}</span>
+            ${buttons}
         </div>
     `;
 }
 
+function renderRecordSession(session) {
+    const participants = {};
+    let dialogFile = null;
+
+    session.files.forEach(file => {
+        if (file.endsWith('_dialog.txt')) {
+            dialogFile = file;
+            return;
+        }
+        
+        const parts = file.split('_');
+        if (parts.length < 4) return; // Пропускаем, если имя файла неполное
+        
+        const participantId = parts[3].split('.')[0];
+        if (!participants[participantId]) {
+            participants[participantId] = { id: participantId, webm: null, txt: null };
+        }
+
+        if (file.endsWith('.webm')) {
+            participants[participantId].webm = file;
+        } else if (file.endsWith('.txt')) {
+            participants[participantId].txt = file;
+        }
+    });
+
+    let participantsHtml = Object.values(participants).map(p => `
+        <div class="record-item-actions">
+            <div class="record-item-info" style="min-width: 120px;">Участник: ${p.id.substring(0, 8)}...</div>
+            ${renderActionGroup('WEBM', p.webm, !!p.webm)}
+            ${renderActionGroup('TXT', p.txt, !!p.txt)}
+        </div>
+    `).join('');
+
+    const dialogHtml = `
+        <div class="record-item-actions">
+            <div class="record-item-info" style="min-width: 120px;"><b>Общий диалог</b></div>
+            ${renderActionGroup('DIALOG', dialogFile, !!dialogFile)}
+        </div>
+    `;
+
+    return `
+        <div class="record-item" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
+            <h4 style="margin: 0.5rem 0; font-family: monospace;">Сессия: ${session.session_id}</h4>
+            ${participantsHtml}
+            ${dialogFile ? dialogHtml : ''}
+        </div>
+    `;
+}
+
+
 async function loadRecords() {
-    const records = await fetchData('recordings');
-    if (records && records.length > 0) {
-        recordsListContainer.innerHTML = records.map(renderRecordItem).join('');
+    const sessions = await fetchData('recordings');
+    if (sessions && sessions.length > 0) {
+        recordsListContainer.innerHTML = sessions.map(renderRecordSession).join('');
     } else {
         recordsListContainer.innerHTML = '<p class="empty-list">Записи не найдены.</p>';
     }
