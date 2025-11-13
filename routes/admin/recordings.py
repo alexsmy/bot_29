@@ -33,14 +33,21 @@ async def list_recordings():
                 continue
             
             parts = filename.split('_')
+            # Файлы участников имеют 4 части, файлы диалога/саммари - 3
             if len(parts) < 3:
                 continue
             
-            # ИСПРАВЛЕНО: Ключ сессии - это "ДАТА_ROOMID"
-            session_key = f"{parts[0]}_{parts[2]}"
-            
-            sessions[session_key]["session_id"] = session_key
-            sessions[session_key]["files"].append(filename)
+            # ИСПРАВЛЕНИЕ: Ключ сессии - это "ДАТА_ROOMID"
+            # Для файлов участников room_id - 3-й элемент, для диалога/саммари - 2-й
+            session_key = ""
+            if filename.endswith(('_dialog.txt', '_resume.txt')):
+                session_key = f"{parts[0]}_{parts[1]}"
+            elif len(parts) >= 3:
+                session_key = f"{parts[0]}_{parts[2]}"
+
+            if session_key:
+                sessions[session_key]["session_id"] = session_key
+                sessions[session_key]["files"].append(filename)
         
         return list(sessions.values())
 

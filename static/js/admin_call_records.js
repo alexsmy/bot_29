@@ -42,9 +42,10 @@ function renderRecordSession(session) {
         }
         
         const parts = file.split('_');
-        if (parts.length < 3) return; 
+        // ИСПРАВЛЕНИЕ: ID участника находится на 4-й позиции (индекс 3)
+        if (parts.length < 4) return; 
         
-        const participantId = parts[2].split('.')[0];
+        const participantId = parts[3].split('.')[0];
         if (!participants[participantId]) {
             participants[participantId] = { id: participantId, webm: null, txt: null };
         }

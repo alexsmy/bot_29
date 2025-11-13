@@ -1,3 +1,5 @@
+# bot_29-main/groq_transcriber.py
+
 import os
 import asyncio
 import glob
@@ -68,7 +70,6 @@ async def summarize_dialogue(dialogue_filepath: str):
 
         logger.info(f"[Groq] Краткий пересказ успешно создан и сохранен в файл: {os.path.basename(output_filepath)}")
 
-        # ИЗМЕНЕНИЕ: Отправляем уведомление администратору, если включено
         if settings.get('notify_send_summary', False):
             message_caption = f"📄 <b>Краткий пересказ звонка</b>\n\n<b>Сессия:</b> <code>{os.path.basename(output_filepath)}</code>"
             await notifier.send_admin_notification_with_content(
@@ -130,7 +131,8 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         
         base_name_parts = os.path.basename(file1_path).split('_')
         date_part = base_name_parts[0]
-        room_id_part = base_name_parts[1]
+        # ИСПРАВЛЕНИЕ: ID комнаты находится на 3-й позиции (индекс 2)
+        room_id_part = base_name_parts[2]
         output_filename = f"{date_part}_{room_id_part}_dialog.txt"
         output_filepath = os.path.join(RECORDS_DIR, output_filename)
 
@@ -139,7 +141,6 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
 
         logger.info(f"[Groq] Диалог успешно собран и сохранен в файл: {output_filename}")
         
-        # Запускаем создание краткого пересказа в фоновом режиме
         asyncio.create_task(summarize_dialogue(output_filepath))
 
     except FileNotFoundError as e:
@@ -201,7 +202,6 @@ async def transcribe_audio_file(filepath: str):
 
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
-        # ИЗМЕНЕНИЕ: Отправляем уведомление администратору, если включено
         if settings.get('notify_send_transcriptions', False):
             message_caption = f"📄 <b>Транскрибация аудио</b>\n\n<b>Файл:</b> <code>{os.path.basename(txt_filepath)}</code>"
             await notifier.send_admin_notification_with_content(
@@ -216,7 +216,8 @@ async def transcribe_audio_file(filepath: str):
             logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
             return
             
-        room_id = base_name_parts[1]
+        # ИСПРАВЛЕНИЕ: ID комнаты находится на 3-й позиции (индекс 2)
+        room_id = base_name_parts[2]
         
         search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")
         all_txt_files = glob.glob(search_pattern)

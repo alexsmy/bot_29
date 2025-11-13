@@ -17,7 +17,8 @@ export function initLogs() {
     document.getElementById('refresh-logs-btn').addEventListener('click', loadLogs);
     
     document.getElementById('copy-logs-btn').addEventListener('click', () => {
-        navigator.clipboard.writeText(logsContent.textContent).then(() => {
+        // ИСПРАВЛЕНИЕ: Используем .innerText для сохранения переносов строк
+        navigator.clipboard.writeText(logsContent.innerText).then(() => {
             alert('Логи скопированы в буфер обмена!');
         }, () => {
             alert('Не удалось скопировать логи.');
