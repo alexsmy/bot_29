@@ -94,20 +94,33 @@ async def init_db():
                 expires_at TIMESTAMPTZ NOT NULL
             )
         ''')
+        
+        # ИЗМЕНЕНИЕ: Добавляем новые поля для настроек
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_settings (
                 key TEXT PRIMARY KEY,
-                value BOOLEAN NOT NULL
+                value TEXT NOT NULL
             )
         ''')
+        
+        # ИЗМЕНЕНИЕ: Добавляем новые настройки по умолчанию
+        # Значения теперь хранятся как TEXT для универсальности
         await conn.execute('''
             INSERT INTO admin_settings (key, value) VALUES
-            ('notify_on_room_creation', TRUE),
-            ('notify_on_call_start', TRUE),
-            ('notify_on_call_end', TRUE),
-            ('send_connection_report', TRUE),
-            ('notify_on_connection_details', TRUE),
-            ('enable_call_recording', FALSE)
+            ('notify_on_room_creation', 'true'),
+            ('notify_on_call_start', 'true'),
+            ('notify_on_call_end', 'true'),
+            ('send_connection_report', 'true'),
+            ('notify_on_connection_details', 'true'),
+            ('enable_call_recording', 'false'),
+            ('enable_transcription', 'true'),
+            ('enable_dialogue_creation', 'true'),
+            ('enable_summary_creation', 'true'),
+            ('audio_bitrate', '16'),
+            ('notify_send_transcriptions', 'false'),
+            ('notify_transcriptions_format', 'file'),
+            ('notify_send_summary', 'false'),
+            ('notify_summary_format', 'message')
             ON CONFLICT(key) DO NOTHING
         ''')
     logger.info("База данных PostgreSQL успешно инициализирована.")
@@ -352,6 +365,7 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # ИЗМЕНЕНИЕ: TRUNCATE теперь включает и admin_settings
         await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
@@ -371,13 +385,28 @@ async def get_all_active_sessions():
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
 
-async def get_admin_settings() -> Dict[str, bool]:
+# ИЗМЕНЕНИЕ: Функция теперь возвращает словарь с типизированными значениями
+async def get_admin_settings() -> Dict[str, Any]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         rows = await conn.fetch("SELECT key, value FROM admin_settings")
-        return {row['key']: row['value'] for row in rows}
+        settings = {}
+        for row in rows:
+            key = row['key']
+            value = row['value']
+            # Преобразуем строковые 'true'/'false' в булевы
+            if value.lower() in ('true', 'false'):
+                settings[key] = value.lower() == 'true'
+            # Преобразуем числовые строки в int
+            elif value.isdigit():
+                settings[key] = int(value)
+            # Остальные оставляем как есть (строки)
+            else:
+                settings[key] = value
+        return settings
 
-async def update_admin_settings(settings: Dict[str, bool]):
+# ИЗМЕНЕНИЕ: Функция принимает словарь с разными типами значений
+async def update_admin_settings(settings: Dict[str, Any]):
     pool = await get_pool()
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -387,7 +416,7 @@ async def update_admin_settings(settings: Dict[str, bool]):
                     INSERT INTO admin_settings (key, value) VALUES ($1, $2)
                     ON CONFLICT (key) DO UPDATE SET value = $2
                     """,
-                    key, value
+                    key, str(value) # Все значения сохраняем в БД как строки
                 )
         logger.info("Настройки администратора обновлены.")
 

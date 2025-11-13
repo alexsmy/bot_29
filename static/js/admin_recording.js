@@ -1,25 +1,37 @@
 import { fetchData } from './admin_api.js';
 
-let saveRecordingBtn, savedIndicator, recordingCheckbox;
+let saveRecordingBtn, savedIndicator, form;
+let enableTranscriptionCheckbox, enableDialogueCheckbox, enableSummaryCheckbox;
+
+function updateDependencies() {
+    const isTranscriptionEnabled = enableTranscriptionCheckbox.checked;
+    enableDialogueCheckbox.disabled = !isTranscriptionEnabled;
+    enableSummaryCheckbox.disabled = !isTranscriptionEnabled;
+
+    // Если транскрибация выключена, выключаем и зависимые опции
+    if (!isTranscriptionEnabled) {
+        enableDialogueCheckbox.checked = false;
+        enableSummaryCheckbox.checked = false;
+    }
+}
 
 async function loadRecordingSettings() {
     const settings = await fetchData('admin_settings');
     if (settings) {
-        recordingCheckbox.checked = settings['enable_call_recording'] || false;
+        form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = settings[checkbox.name] || false;
+        });
+        form.querySelector('select[name="audio_bitrate"]').value = settings['audio_bitrate'] || '16';
+        updateDependencies();
     }
 }
 
 async function saveRecordingSettings() {
-    const currentSettings = await fetchData('admin_settings');
-    if (!currentSettings) {
-        alert('Не удалось загрузить текущие настройки. Сохранение отменено.');
-        return;
-    }
-
-    const payload = {
-        ...currentSettings,
-        enable_call_recording: recordingCheckbox.checked
-    };
+    const payload = {};
+    form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        payload[checkbox.name] = checkbox.checked;
+    });
+    payload['audio_bitrate'] = parseInt(form.querySelector('select[name="audio_bitrate"]').value, 10);
 
     const result = await fetchData('admin_settings', {
         method: 'POST',
@@ -36,9 +48,15 @@ async function saveRecordingSettings() {
 }
 
 export function initRecording() {
+    form = document.getElementById('recording-form');
     saveRecordingBtn = document.getElementById('save-recording-settings');
     savedIndicator = document.getElementById('recording-saved-indicator');
-    recordingCheckbox = document.querySelector('#recording input[name="enable_call_recording"]');
+    
+    enableTranscriptionCheckbox = form.querySelector('input[name="enable_transcription"]');
+    enableDialogueCheckbox = form.querySelector('input[name="enable_dialogue_creation"]');
+    enableSummaryCheckbox = form.querySelector('input[name="enable_summary_creation"]');
+
+    enableTranscriptionCheckbox.addEventListener('change', updateDependencies);
 
     saveRecordingBtn.addEventListener('click', saveRecordingSettings);
 

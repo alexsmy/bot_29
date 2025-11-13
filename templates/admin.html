@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -19,54 +18,26 @@
                 <span class="sidebar-title">Admin Panel</span>
             </div>
             <nav class="sidebar-nav">
-                <a href="#stats" class="nav-link active">
-                    <span class="icon" id="icon-stats"></span> Статистика
-                </a>
-                <a href="#rooms" class="nav-link">
-                    <span class="icon" id="icon-rooms"></span> Активные комнаты
-                </a>
-                <a href="#users" class="nav-link">
-                    <span class="icon" id="icon-users"></span> Пользователи
-                </a>
-                <a href="#connections" class="nav-link">
-                    <span class="icon" id="icon-connections"></span> Соединения
-                </a>
-                <a href="#notifications" class="nav-link">
-                    <span class="icon" id="icon-notifications"></span> Уведомления
-                </a>
-                <a href="#recording" class="nav-link">
-                    <span class="icon" id="icon-recording"></span> Запись звонков
-                </a>
-                <a href="#call-records" class="nav-link">
-                    <span class="icon" id="icon-call-records"></span> Записи звонков
-                </a>
-                <a href="#reports" class="nav-link">
-                    <span class="icon" id="icon-reports"></span> Отчёты
-                </a>
-                <a href="#logs" class="nav-link">
-                    <span class="icon" id="icon-logs"></span> Логи
-                </a>
-                <a href="#danger" class="nav-link">
-                    <span class="icon" id="icon-danger"></span> Опасная зона
-                </a>
+                <a href="#stats" class="nav-link active"><span class="icon" id="icon-stats"></span> Статистика</a>
+                <a href="#rooms" class="nav-link"><span class="icon" id="icon-rooms"></span> Активные комнаты</a>
+                <a href="#users" class="nav-link"><span class="icon" id="icon-users"></span> Пользователи</a>
+                <a href="#connections" class="nav-link"><span class="icon" id="icon-connections"></span> Соединения</a>
+                <a href="#notifications" class="nav-link"><span class="icon" id="icon-notifications"></span> Уведомления</a>
+                <a href="#recording" class="nav-link"><span class="icon" id="icon-recording"></span> Запись звонков</a>
+                <a href="#call-records" class="nav-link"><span class="icon" id="icon-call-records"></span> Записи звонков</a>
+                <a href="#reports" class="nav-link"><span class="icon" id="icon-reports"></span> Отчёты</a>
+                <a href="#logs" class="nav-link"><span class="icon" id="icon-logs"></span> Логи</a>
+                <a href="#danger" class="nav-link"><span class="icon" id="icon-danger"></span> Опасная зона</a>
             </nav>
-            <div class="sidebar-footer">
-            </div>
         </aside>
 
         <main class="main-content">
             <header class="main-header">
-                <button id="mobile-menu-btn" class="mobile-menu-toggle">
-                    <span id="mobile-menu-icon-placeholder" class="icon"></span>
-                </button>
+                <button id="mobile-menu-btn" class="mobile-menu-toggle"><span id="mobile-menu-icon-placeholder" class="icon"></span></button>
                 <h1 class="desktop-title">Панель администратора</h1>
                 <div class="header-right-group">
-                    <div id="token-info">
-                        <span class="token-label">Токен действителен: </span><span id="token-timer">--:--</span>
-                    </div>
-                    <button id="theme-toggle" class="theme-toggle-btn" title="Сменить тему">
-                        <span id="theme-icon-placeholder"></span>
-                    </button>
+                    <div id="token-info"><span class="token-label">Токен действителен: </span><span id="token-timer">--:--</span></div>
+                    <button id="theme-toggle" class="theme-toggle-btn" title="Сменить тему"><span id="theme-icon-placeholder"></span></button>
                 </div>
             </header>
 
@@ -81,44 +52,24 @@
                     </select>
                 </div>
                 <div id="stats-container" class="stats-grid">
-                    <div class="stat-card skeleton"></div>
-                    <div class="stat-card skeleton"></div>
-                    <div class="stat-card skeleton"></div>
-                    <div class="stat-card skeleton"></div>
-                    <div class="stat-card skeleton"></div>
-                    <div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div><div class="stat-card skeleton"></div><div class="stat-card skeleton"></div>
+                    <div class="stat-card skeleton"></div><div class="stat-card skeleton"></div><div class="stat-card skeleton"></div>
                 </div>
             </section>
 
             <section id="rooms" class="content-section">
                 <h2>Активные комнаты</h2>
                 <p class="section-description">Список всех активных комнат, которые еще не истекли.</p>
-                <div class="filters">
-                    <input type="text" id="room-search" placeholder="Поиск по ID комнаты...">
-                </div>
-                <details open>
-                    <summary>Администраторские комнаты (<span>-</span>)</summary>
-                    <div id="admin-rooms-list" class="room-list-container">
-                        <div class="skeleton-list"></div>
-                    </div>
-                </details>
-                <details open>
-                    <summary>Пользовательские комнаты (<span>-</span>)</summary>
-                    <div id="user-rooms-list" class="room-list-container">
-                        <div class="skeleton-list"></div>
-                    </div>
-                </details>
+                <div class="filters"><input type="text" id="room-search" placeholder="Поиск по ID комнаты..."></div>
+                <details open><summary>Администраторские комнаты (<span>-</span>)</summary><div id="admin-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div></details>
+                <details open><summary>Пользовательские комнаты (<span>-</span>)</summary><div id="user-rooms-list" class="room-list-container"><div class="skeleton-list"></div></div></details>
             </section>
 
             <section id="users" class="content-section">
                 <h2>Пользователи</h2>
                 <p class="section-description">Список всех пользователей, которые взаимодействовали с ботом.</p>
-                <div class="filters">
-                    <input type="text" id="user-search" placeholder="Поиск по имени, username или ID...">
-                </div>
-                <div id="users-list" class="users-list">
-                    <div class="skeleton-list"></div>
-                </div>
+                <div class="filters"><input type="text" id="user-search" placeholder="Поиск по имени, username или ID..."></div>
+                <div id="users-list" class="users-list"><div class="skeleton-list"></div></div>
             </section>
 
             <section id="connections" class="content-section">
@@ -128,77 +79,127 @@
                     <input type="date" id="connections-date">
                     <button id="search-connections-btn" class="action-btn primary">Поиск</button>
                 </div>
-                <div id="connections-list" class="connections-list">
-                    <p class="empty-list">Выберите дату для просмотра соединений.</p>
-                </div>
+                <div id="connections-list" class="connections-list"><p class="empty-list">Выберите дату для просмотра соединений.</p></div>
             </section>
 
             <section id="notifications" class="content-section">
                 <h2>Настройки уведомлений</h2>
                 <p class="section-description">Управляйте тем, какие уведомления вы хотите получать от бота.</p>
-                <div class="notification-settings-form">
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="notify_on_room_creation">
-                            <span>Получать уведомление при создании комнаты</span>
-                        </label>
+                <form id="notifications-form" class="settings-container">
+                    <div class="settings-group">
+                        <h3><span class="icon" id="icon-settings-rooms"></span>Комнаты и Соединения</h3>
+                        <div class="settings-card">
+                            <div class="setting-item"><label for="notify_on_room_creation">Создание комнаты</label><label class="switch"><input type="checkbox" name="notify_on_room_creation" id="notify_on_room_creation"><span class="slider"></span></label></div>
+                            <div class="setting-item"><label for="notify_on_call_start">Начало звонка</label><label class="switch"><input type="checkbox" name="notify_on_call_start" id="notify_on_call_start"><span class="slider"></span></label></div>
+                            <div class="setting-item"><label for="notify_on_call_end">Завершение звонка</label><label class="switch"><input type="checkbox" name="notify_on_call_end" id="notify_on_call_end"><span class="slider"></span></label></div>
+                            <div class="setting-item"><label for="send_connection_report">Отчет о соединении</label><label class="switch"><input type="checkbox" name="send_connection_report" id="send_connection_report"><span class="slider"></span></label></div>
+                            <div class="setting-item"><label for="notify_on_connection_details">Детали участников</label><label class="switch"><input type="checkbox" name="notify_on_connection_details" id="notify_on_connection_details"><span class="slider"></span></label></div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="notify_on_call_start">
-                            <span>Получать уведомление при начале звонка</span>
-                        </label>
+                    <div class="settings-group">
+                        <h3><span class="icon" id="icon-settings-text"></span>Текстовые отчеты</h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div>
+                                    <label for="notify_send_transcriptions">Присылать транскрибации</label>
+                                    <p class="description">Отправлять текст каждого участника после расшифровки.</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" name="notify_send_transcriptions" id="notify_send_transcriptions"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-item">
+                                <label>Формат транскрибаций</label>
+                                <div class="format-toggle" data-key="notify_transcriptions_format">
+                                    <button type="button" data-value="file" class="active"><span class="icon" id="icon-file-1"></span>Файл</button>
+                                    <button type="button" data-value="message"><span class="icon" id="icon-message-1"></span>Сообщение</button>
+                                </div>
+                            </div>
+                            <div class="setting-item">
+                                <div>
+                                    <label for="notify_send_summary">Присылать краткий пересказ</label>
+                                    <p class="description">Отправлять саммари после анализа диалога.</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" name="notify_send_summary" id="notify_send_summary"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-item">
+                                <label>Формат пересказа</label>
+                                <div class="format-toggle" data-key="notify_summary_format">
+                                    <button type="button" data-value="file"><span class="icon" id="icon-file-2"></span>Файл</button>
+                                    <button type="button" data-value="message" class="active"><span class="icon" id="icon-message-2"></span>Сообщение</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="notify_on_call_end">
-                            <span>Получать уведомление при завершении звонка</span>
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="send_connection_report">
-                            <span>Присылать отчет о качестве соединения</span>
-                        </label>
-                    </div>
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="notify_on_connection_details">
-                            <span>Присылать сообщение об участниках соединения</span>
-                        </label>
-                    </div>
-                    <div class="form-actions">
-                        <button id="save-notification-settings" class="action-btn primary">Сохранить</button>
-                        <span id="settings-saved-indicator" class="saved-indicator">Сохранено!</span>
-                    </div>
+                </form>
+                <div class="form-actions">
+                    <button id="save-notification-settings" class="action-btn primary">Сохранить</button>
+                    <span id="settings-saved-indicator" class="saved-indicator">Сохранено!</span>
                 </div>
             </section>
 
             <section id="recording" class="content-section">
-                <h2>Настройки записи звонков</h2>
-                <p class="section-description">Включение этой опции будет записывать аудиопотоки (локальный и удаленный) от каждого участника звонка.</p>
-                <div class="notification-settings-form">
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="enable_call_recording">
-                            <span>Включить запись аудио звонков</span>
-                        </label>
+                <h2>Настройки записи и обработки</h2>
+                <p class="section-description">Управляйте процессом записи, транскрибации и анализа звонков.</p>
+                <form id="recording-form" class="settings-container">
+                    <div class="settings-group">
+                        <h3><span class="icon" id="icon-settings-audio"></span>Работа с аудио</h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div>
+                                    <label for="enable_call_recording">Включить запись аудио</label>
+                                    <p class="description">Сохранять аудиопотоки участников на сервере.</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" name="enable_call_recording" id="enable_call_recording"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-item">
+                                <label for="audio_bitrate">Качество аудио (битрейт)</label>
+                                <select name="audio_bitrate" id="audio_bitrate" class="filters">
+                                    <option value="8">8 кбит/с (низкое)</option>
+                                    <option value="12">12 кбит/с</option>
+                                    <option value="16" selected>16 кбит/с (стандарт)</option>
+                                    <option value="24">24 кбит/с</option>
+                                    <option value="36">36 кбит/с (высокое)</option>
+                                    <option value="48">48 кбит/с (макс)</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-actions">
-                        <button id="save-recording-settings" class="action-btn primary">Сохранить</button>
-                        <span id="recording-saved-indicator" class="saved-indicator">Сохранено!</span>
+                    <div class="settings-group">
+                        <h3><span class="icon" id="icon-settings-text-2"></span>Работа с текстом</h3>
+                        <div class="settings-card">
+                            <div class="setting-item">
+                                <div>
+                                    <label for="enable_transcription">Транскрибировать аудио</label>
+                                    <p class="description">Преобразовывать аудиозаписи в текст (требует GROQ API).</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" name="enable_transcription" id="enable_transcription"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-item">
+                                <div>
+                                    <label for="enable_dialogue_creation">Создавать файл-диалог</label>
+                                    <p class="description">Объединять транскрибации в единый диалог.</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" name="enable_dialogue_creation" id="enable_dialogue_creation"><span class="slider"></span></label>
+                            </div>
+                            <div class="setting-item">
+                                <div>
+                                    <label for="enable_summary_creation">Создавать краткий пересказ</label>
+                                    <p class="description">Генерировать саммари на основе диалога.</p>
+                                </div>
+                                <label class="switch"><input type="checkbox" name="enable_summary_creation" id="enable_summary_creation"><span class="slider"></span></label>
+                            </div>
+                        </div>
                     </div>
+                </form>
+                <div class="form-actions">
+                    <button id="save-recording-settings" class="action-btn primary">Сохранить</button>
+                    <span id="recording-saved-indicator" class="saved-indicator">Сохранено!</span>
                 </div>
             </section>
 
             <section id="call-records" class="content-section">
-                <div class="section-header">
-                    <h2>Записи звонков</h2>
-                </div>
-                <p class="section-description">Здесь хранятся аудиозаписи звонков в формате .webm.</p>
-                <div id="call-records-list" class="room-list-container">
-                    <div class="skeleton-list"></div>
-                </div>
+                <h2>Записи звонков</h2>
+                <p class="section-description">Здесь хранятся аудиозаписи и текстовые файлы, созданные после звонков.</p>
+                <div id="call-records-list" class="room-list-container"><div class="skeleton-list"></div></div>
             </section>
 
             <section id="reports" class="content-section">
@@ -207,18 +208,17 @@
                     <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
                 </div>
                 <p class="section-description">Здесь хранятся детальные HTML-отчёты о качестве WebRTC соединений.</p>
-                <div id="reports-list" class="room-list-container">
-                    <div class="skeleton-list"></div>
-                </div>
+                <div id="reports-list" class="room-list-container"><div class="skeleton-list"></div></div>
             </section>
 
             <section id="logs" class="content-section">
                 <div class="section-header">
                     <h2>Логи приложения</h2>
-                    <div>
-                        <button id="refresh-logs-btn" class="action-btn">Обновить</button>
-                        <button id="download-logs-btn" class="action-btn">Скачать</button>
-                        <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
+                    <div class="logs-header-actions">
+                        <button id="refresh-logs-btn" class="icon-btn" title="Обновить"><span class="icon" id="icon-refresh"></span></button>
+                        <button id="copy-logs-btn" class="icon-btn" title="Копировать"><span class="icon" id="icon-copy"></span></button>
+                        <button id="download-logs-btn" class="icon-btn" title="Скачать"><span class="icon" id="icon-download"></span></button>
+                        <button id="clear-logs-btn" class="icon-btn danger" title="Очистить"><span class="icon" id="icon-delete"></span></button>
                     </div>
                 </div>
                 <p class="section-description">Последние записи из файла логов `app.log`.</p>
@@ -232,9 +232,19 @@
                     <button id="wipe-db-btn" class="action-btn danger">Очистить базу данных</button>
                 </div>
             </section>
-
         </main>
     </div>
+
+    <div id="viewer-modal" class="modal-overlay">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Просмотр</h3>
+                <button id="modal-close-btn" class="icon-btn"><span class="icon" id="icon-close"></span></button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
+    </div>
+
     <script src="/static/js/admin_icons.js"></script>
     <script type="module" src="/static/js/admin.js"></script>
 </body>

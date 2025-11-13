@@ -1,5 +1,3 @@
-// bot_29-main/static/js/call_orchestrator.js
-
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -252,12 +250,9 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
-    // ИСПРАВЛЕНИЕ: Немедленно сбрасываем состояние, чтобы разрешить новый звонок.
-    // Загрузка записи происходит в фоне.
     state.resetCallState();
     
     uploadRecordings().finally(() => {
-        // Единственное, что мы делаем после загрузки - это снова включаем кнопку "положить трубку".
         hangupBtn.disabled = false;
     });
 }
@@ -436,12 +431,13 @@ function setupEventListeners() {
     uiManager.setupLocalVideoInteraction();
 }
 
-export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled) {
+export function initialize(roomId, rtcConfig, iceServerDetails, recordingSettings) {
     logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
     state.setRoomId(roomId);
     state.setRtcConfig(rtcConfig);
     state.setIceServerDetails(iceServerDetails);
-    state.setIsRecordingEnabled(isRecordingEnabled);
+    state.setIsRecordingEnabled(recordingSettings.is_enabled);
+    state.setAudioBitrate(recordingSettings.audio_bitrate);
 
     media.init(logToScreen);
     monitor.init({
@@ -473,7 +469,7 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
-                    const recorderOptions = { audioBitsPerSecond: 16000 };
+                    const recorderOptions = { audioBitsPerSecond: s.audioBitrate };
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
                     localRecorder.start();
                 }

@@ -54,8 +54,6 @@ export class CallRecorder {
                 this.isRecording = false;
                 this.log(`[RECORDER] Recording stopped. Blob size: ${blob.size} bytes.`);
 
-                // ИСПРАВЛЕНИЕ: Принудительно останавливаем все дорожки (включая клонированную),
-                // чтобы гарантированно освободить микрофон для следующего звонка.
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
                     this.log('[RECORDER] All tracks used for recording have been stopped.');
@@ -67,7 +65,6 @@ export class CallRecorder {
             if (this.mediaRecorder.state === "recording") {
                 this.mediaRecorder.stop();
             } else {
-                // Если запись уже не идет, просто освобождаем ресурсы и выходим
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
                 }

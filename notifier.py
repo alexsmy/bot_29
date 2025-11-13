@@ -45,5 +45,30 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
     except Exception as e:
         logger.error(f"Не удалось отправить уведомление администратору ('{setting_key}'): {e}")
 
+# НОВАЯ ФУНКЦИЯ
+async def send_admin_notification_with_content(message: str, setting_key: str, file_path: str, send_format: str):
+    """
+    Отправляет уведомление администратору, либо как файл, либо как текстовое сообщение,
+    в зависимости от настройки send_format.
+    """
+    if send_format == 'file':
+        await send_admin_notification(message, setting_key, file_path=file_path)
+    elif send_format == 'message':
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Ограничиваем длину сообщения, чтобы не превысить лимит Telegram
+            max_len = 4000
+            if len(content) > max_len:
+                content = content[:max_len] + "\n\n... (сообщение было обрезано)"
+            
+            full_message = f"{message}\n\n<pre>{content}</pre>"
+            await send_admin_notification(full_message, setting_key)
+        except Exception as e:
+            logger.error(f"Не удалось прочитать файл {file_path} для отправки как сообщение: {e}")
+            # Если не удалось отправить как сообщение, отправляем как файл
+            await send_admin_notification(message, setting_key, file_path=file_path)
+
 def schedule_notification(*args, **kwargs):
     asyncio.run_coroutine_threadsafe(send_admin_notification(*args, **kwargs), _bot_app.loop)
