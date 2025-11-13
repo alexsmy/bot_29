@@ -50,7 +50,7 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-8b-8192",
+            model="openai/gpt-oss-120b",
             temperature=0.1,
             max_tokens=8192,
             top_p=1,
