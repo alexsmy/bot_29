@@ -1,4 +1,3 @@
-
 # bot_29-main/routes/admin/recordings.py
 
 import os
@@ -38,7 +37,7 @@ async def list_recordings():
                 continue
             
             # ИСПРАВЛЕНО: Ключ сессии - это "ДАТА_ROOMID"
-            session_key = f"{parts}_{parts}"
+            session_key = f"{parts[0]}_{parts[2]}"
             
             sessions[session_key]["session_id"] = session_key
             sessions[session_key]["files"].append(filename)

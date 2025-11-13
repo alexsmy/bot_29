@@ -1,4 +1,3 @@
-
 # bot_29-main/groq_transcriber.py
 
 import os
@@ -19,6 +18,56 @@ def format_timestamp(seconds: float) -> str:
     hours, minutes = divmod(minutes, 60)
     
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}.{milliseconds:03d}"
+
+async def summarize_dialogue(dialogue_filepath: str):
+    """
+    Отправляет готовый диалог в Groq API для получения краткого пересказа.
+    """
+    api_key = os.environ.get("GROQ_API_KEY")
+    if not api_key:
+        logger.error("[Groq] GROQ_API_KEY не найден. Создание пересказа отменено.")
+        return
+
+    logger.info(f"[Groq] Начало создания краткого пересказа для файла: {os.path.basename(dialogue_filepath)}")
+
+    try:
+        with open(dialogue_filepath, "r", encoding="utf-8") as f:
+            dialogue_content = f.read()
+
+        prompt = (
+            "Твоя задача - составить краткий, но содержательный пересказ диалога. "
+            "Определи основные темы, которые обсуждали собеседники, и ключевые моменты разговора. "
+            "Ответ должен быть только в виде текста пересказа, без каких-либо вступлений, заголовков или пояснений."
+            "\n\nВот текст диалога для анализа:\n"
+            f"{dialogue_content}"
+        )
+
+        client = Groq(api_key=api_key)
+        
+        chat_completion = await asyncio.to_thread(
+            client.chat.completions.create,
+            messages=[{"role": "user", "content": prompt}],
+            model="openai/gpt-oss-120b",
+            temperature=0.1,
+            max_tokens=4096,
+            top_p=1,
+            stream=False
+        )
+
+        summary_text = chat_completion.choices[0].message.content.strip()
+        
+        output_filepath = os.path.splitext(dialogue_filepath)[0].replace('_dialog', '_resume') + ".txt"
+
+        with open(output_filepath, "w", encoding="utf-8") as out_file:
+            out_file.write(summary_text)
+
+        logger.info(f"[Groq] Краткий пересказ успешно создан и сохранен в файл: {os.path.basename(output_filepath)}")
+
+    except FileNotFoundError:
+        logger.error(f"[Groq] Файл диалога для создания пересказа не найден: {dialogue_filepath}")
+    except Exception as e:
+        logger.error(f"[Groq] Ошибка во время создания краткого пересказа: {e}")
+
 
 async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
     """
@@ -59,7 +108,6 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
 
         dialogue_text = chat_completion.choices[0].message.content.strip()
         
-        # Определяем имя выходного файла на основе даты и ID комнаты
         base_name_parts = os.path.basename(file1_path).split('_')
         date_part = base_name_parts[0]
         room_id_part = base_name_parts[2]
@@ -70,6 +118,9 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
             out_file.write(dialogue_text)
 
         logger.info(f"[Groq] Диалог успешно собран и сохранен в файл: {output_filename}")
+        
+        # Запускаем создание краткого пересказа в фоновом режиме
+        asyncio.create_task(summarize_dialogue(output_filepath))
 
     except FileNotFoundError as e:
         logger.error(f"[Groq] Один из файлов для слияния не найден: {e}")
@@ -125,7 +176,6 @@ async def transcribe_audio_file(filepath: str):
 
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
-        # ИСПРАВЛЕНО: Ищем файлы по ID комнаты, а не по полному префиксу
         base_name_parts = os.path.basename(txt_filepath).split('_')
         if len(base_name_parts) < 3:
             logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
@@ -136,8 +186,7 @@ async def transcribe_audio_file(filepath: str):
         search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")
         all_txt_files = glob.glob(search_pattern)
         
-        # Исключаем файлы диалогов из поиска
-        participant_txt_files = [f for f in all_txt_files if not f.endswith('_dialog.txt')]
+        participant_txt_files = [f for f in all_txt_files if not f.endswith('_dialog.txt') and not f.endswith('_resume.txt')]
 
         if len(participant_txt_files) == 2:
             logger.info(f"[Groq] Обнаружены обе транскрипции для сессии с room_id {room_id}. Запускаю слияние.")

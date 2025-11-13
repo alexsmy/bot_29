@@ -1,4 +1,3 @@
-
 // bot_29-main/static/js/admin_call_records.js
 
 import { fetchData } from './admin_api.js';
@@ -23,8 +22,8 @@ function renderActionGroup(fileType, filename, isAvailable) {
 function renderRecordSession(session) {
     const participants = {};
     let dialogFile = null;
+    let resumeFile = null;
 
-    // Сортируем файлы, чтобы участники отображались в одном порядке
     session.files.sort();
 
     session.files.forEach(file => {
@@ -32,9 +31,12 @@ function renderRecordSession(session) {
             dialogFile = file;
             return;
         }
+        if (file.includes('_resume.txt')) {
+            resumeFile = file;
+            return;
+        }
         
         const parts = file.split('_');
-        // Имя файла участника: YYYYMMDD_HHMMSS_roomid_userid.ext
         if (parts.length < 4) return; 
         
         const participantId = parts[3].split('.')[0];
@@ -64,11 +66,19 @@ function renderRecordSession(session) {
         </div>
     `;
 
+    const resumeHtml = `
+        <div class="record-item-actions">
+            <div class="record-item-info" style="min-width: 120px;"><b>Краткий пересказ</b></div>
+            ${renderActionGroup('RESUME', resumeFile, !!resumeFile)}
+        </div>
+    `;
+
     return `
         <div class="record-item" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
             <h4 style="margin: 0.5rem 0; font-family: monospace;">Сессия: ${session.session_id}</h4>
             ${participantsHtml}
             ${dialogFile ? dialogHtml : ''}
+            ${resumeFile ? resumeHtml : ''}
         </div>
     `;
 }
@@ -99,7 +109,6 @@ export function initCallRecords() {
     const navLink = document.querySelector('a[href="#call-records"]');
     navLink.addEventListener('click', loadRecords);
 
-    // Загружаем принудительно, если хэш уже установлен при загрузке страницы
     if (window.location.hash === '#call-records') {
         loadRecords();
     }
