@@ -1,4 +1,4 @@
-// static/js/call_orchestrator.js
+// bot_29-main/static/js/call_orchestrator.js
 
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
@@ -248,8 +248,12 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
+    // ИСПРАВЛЕНИЕ: Немедленно сбрасываем состояние, чтобы разрешить новый звонок.
+    // Загрузка записи происходит в фоне.
+    state.resetCallState();
+    
     uploadRecordings().finally(() => {
-        state.resetCallState();
+        // Единственное, что мы делаем после загрузки - это снова включаем кнопку "положить трубку".
         hangupBtn.disabled = false;
     });
 }
@@ -459,16 +463,13 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
             
-            // ИЗМЕНЕНИЕ: Логика записи
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
-                    // 1. Клонируем аудиодорожку
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
-                    // 2. Создаем рекордер с низким битрейтом для клона
-                    const recorderOptions = { audioBitsPerSecond: 16000 }; // 16 kbps
+                    const recorderOptions = { audioBitsPerSecond: 16000 };
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
                     localRecorder.start();
                 }

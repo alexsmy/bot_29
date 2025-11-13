@@ -309,7 +309,7 @@ async function monitorConnectionStats() {
 
 export function startConnectionMonitoring() {
     if (connectionStatsInterval) clearInterval(connectionStatsInterval);
-    connectionStatsInterval = setInterval(monitorConnectionStats, 3000);
+    connectionStatsInterval = setInterval(monitorConnectionStats, 900);
     initialConnectionToastShown = false;
     connectionTypeReported = false;
     updateConnectionIcon('unknown');
