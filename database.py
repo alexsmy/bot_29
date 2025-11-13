@@ -27,6 +27,24 @@ async def close_pool():
 async def init_db():
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # --- НАЧАЛО ИСПРАВЛЕНИЯ: Простая миграция схемы ---
+        # Проверяем, существует ли таблица admin_settings перед тем, как проверять ее колонки
+        table_exists = await conn.fetchval(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'admin_settings')"
+        )
+        if table_exists:
+            # Проверяем тип колонки 'value'. Если он boolean, меняем на TEXT.
+            column_type = await conn.fetchval(
+                "SELECT data_type FROM information_schema.columns WHERE table_name = 'admin_settings' AND column_name = 'value'"
+            )
+            if column_type and column_type.lower() == 'boolean':
+                logger.warning("Обнаружена устаревшая схема таблицы admin_settings. Обновление value: BOOLEAN -> TEXT...")
+                # Сначала удаляем старые записи, чтобы избежать конфликта типов при ALTER
+                await conn.execute("TRUNCATE TABLE admin_settings;")
+                await conn.execute("ALTER TABLE admin_settings ALTER COLUMN value TYPE TEXT;")
+                logger.info("Схема таблицы admin_settings успешно обновлена.")
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
@@ -95,7 +113,6 @@ async def init_db():
             )
         ''')
         
-        # ИЗМЕНЕНИЕ: Добавляем новые поля для настроек
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_settings (
                 key TEXT PRIMARY KEY,
@@ -103,8 +120,6 @@ async def init_db():
             )
         ''')
         
-        # ИЗМЕНЕНИЕ: Добавляем новые настройки по умолчанию
-        # Значения теперь хранятся как TEXT для универсальности
         await conn.execute('''
             INSERT INTO admin_settings (key, value) VALUES
             ('notify_on_room_creation', 'true'),
@@ -365,7 +380,6 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # ИЗМЕНЕНИЕ: TRUNCATE теперь включает и admin_settings
         await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
@@ -385,7 +399,6 @@ async def get_all_active_sessions():
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
 
-# ИЗМЕНЕНИЕ: Функция теперь возвращает словарь с типизированными значениями
 async def get_admin_settings() -> Dict[str, Any]:
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -394,18 +407,14 @@ async def get_admin_settings() -> Dict[str, Any]:
         for row in rows:
             key = row['key']
             value = row['value']
-            # Преобразуем строковые 'true'/'false' в булевы
             if value.lower() in ('true', 'false'):
                 settings[key] = value.lower() == 'true'
-            # Преобразуем числовые строки в int
             elif value.isdigit():
                 settings[key] = int(value)
-            # Остальные оставляем как есть (строки)
             else:
                 settings[key] = value
         return settings
 
-# ИЗМЕНЕНИЕ: Функция принимает словарь с разными типами значений
 async def update_admin_settings(settings: Dict[str, Any]):
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -416,7 +425,7 @@ async def update_admin_settings(settings: Dict[str, Any]):
                     INSERT INTO admin_settings (key, value) VALUES ($1, $2)
                     ON CONFLICT (key) DO UPDATE SET value = $2
                     """,
-                    key, str(value) # Все значения сохраняем в БД как строки
+                    key, str(value)
                 )
         logger.info("Настройки администратора обновлены.")
 
