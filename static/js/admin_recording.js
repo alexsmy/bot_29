@@ -5,10 +5,14 @@ let enableTranscriptionCheckbox, enableDialogueCheckbox, enableSummaryCheckbox;
 
 function updateDependencies() {
     const isTranscriptionEnabled = enableTranscriptionCheckbox.checked;
+    
     enableDialogueCheckbox.disabled = !isTranscriptionEnabled;
     enableSummaryCheckbox.disabled = !isTranscriptionEnabled;
 
-    // Если транскрибация выключена, выключаем и зависимые опции
+    // Визуально "серим" зависимые элементы
+    enableDialogueCheckbox.closest('.setting-item').style.opacity = isTranscriptionEnabled ? '1' : '0.5';
+    enableSummaryCheckbox.closest('.setting-item').style.opacity = isTranscriptionEnabled ? '1' : '0.5';
+
     if (!isTranscriptionEnabled) {
         enableDialogueCheckbox.checked = false;
         enableSummaryCheckbox.checked = false;
@@ -19,7 +23,9 @@ async function loadRecordingSettings() {
     const settings = await fetchData('admin_settings');
     if (settings) {
         form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            checkbox.checked = settings[checkbox.name] || false;
+            if (settings.hasOwnProperty(checkbox.name)) {
+                checkbox.checked = settings[checkbox.name];
+            }
         });
         form.querySelector('select[name="audio_bitrate"]').value = settings['audio_bitrate'] || '16';
         updateDependencies();
@@ -27,7 +33,14 @@ async function loadRecordingSettings() {
 }
 
 async function saveRecordingSettings() {
-    const payload = {};
+    const currentSettings = await fetchData('admin_settings');
+    if (!currentSettings) {
+        alert('Не удалось загрузить текущие настройки. Сохранение отменено.');
+        return;
+    }
+
+    const payload = { ...currentSettings };
+
     form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
         payload[checkbox.name] = checkbox.checked;
     });

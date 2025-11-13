@@ -6,7 +6,9 @@ async function loadNotificationSettings() {
     const settings = await fetchData('admin_settings');
     if (settings) {
         form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
-            checkbox.checked = settings[checkbox.name] || false;
+            if (settings.hasOwnProperty(checkbox.name)) {
+                checkbox.checked = settings[checkbox.name];
+            }
         });
         form.querySelectorAll('.format-toggle').forEach(toggle => {
             const key = toggle.dataset.key;
@@ -19,7 +21,14 @@ async function loadNotificationSettings() {
 }
 
 async function saveNotificationSettings() {
-    const payload = {};
+    const currentSettings = await fetchData('admin_settings');
+    if (!currentSettings) {
+        alert('Не удалось загрузить текущие настройки. Сохранение отменено.');
+        return;
+    }
+
+    const payload = { ...currentSettings };
+
     form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
         payload[checkbox.name] = checkbox.checked;
     });
@@ -53,6 +62,7 @@ export function initNotifications() {
     form.addEventListener('click', (e) => {
         const button = e.target.closest('.format-toggle button');
         if (button) {
+            e.preventDefault();
             const parent = button.parentElement;
             parent.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
             button.classList.add('active');

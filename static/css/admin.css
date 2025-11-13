@@ -1,3 +1,5 @@
+/* bot_29-main/static/css/admin.css */
+
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -215,7 +217,7 @@ html.dark .logs-panel { border-color: #495057; }
 .sidebar-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); z-index: 999; opacity: 0; visibility: hidden; transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; }
 .sidebar-overlay.is-visible { opacity: 1; visibility: visible; }
 
-/* --- НОВЫЕ СТИЛИ ДЛЯ НАСТРОЕК --- */
+/* --- ИСПРАВЛЕННЫЕ СТИЛИ ДЛЯ НАСТРОЕК --- */
 .settings-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; }
 .settings-group { background-color: var(--surface-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 1.5rem; }
 .settings-group h3 { margin: 0 0 1.5rem 0; font-size: 1.2rem; font-weight: 600; display: flex; align-items: center; gap: 0.5rem; }
@@ -224,17 +226,18 @@ html.dark .logs-panel { border-color: #495057; }
 .setting-item { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
 .setting-item label { font-weight: 500; flex-grow: 1; }
 .setting-item .description { font-size: 0.85em; color: var(--text-secondary); margin-top: 0.25rem; }
-.switch { position: relative; display: inline-block; width: 40px; height: 22px; }
+.switch { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
 .switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 22px; }
-.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .2s; border-radius: 22px; }
+.slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background-color: white; transition: .2s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--accent-color); }
 input:disabled + .slider { background-color: #e0e0e0; cursor: not-allowed; }
 html.dark input:disabled + .slider { background-color: #444; }
-input:checked + .slider:before { transform: translateX(18px); }
-.format-toggle { display: flex; align-items: center; background-color: var(--base-bg); border-radius: 6px; padding: 2px; }
-.format-toggle button { background: none; border: none; padding: 0.4rem 0.6rem; cursor: pointer; border-radius: 4px; font-size: 0.85em; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; }
-.format-toggle button.active { background-color: var(--surface-bg); color: var(--text-primary); box-shadow: var(--shadow-sm); }
+input:checked + .slider:before { transform: translateX(16px); }
+.format-toggle { display: flex; align-items: center; background-color: var(--base-bg); border-radius: 6px; padding: 2px; border: 1px solid var(--border-color); }
+.format-toggle button { background: none; border: none; padding: 0.4rem 0.6rem; cursor: pointer; border-radius: 4px; font-size: 0.85em; font-weight: 500; color: var(--text-secondary); display: flex; align-items: center; gap: 0.3rem; transition: background-color 0.2s, color 0.2s; }
+.format-toggle button.active { background-color: var(--accent-color); color: var(--accent-text); box-shadow: var(--shadow-sm); }
+.format-toggle button:not(.active):hover { color: var(--text-primary); }
 .format-toggle button .icon { width: 14px; height: 14px; }
 .form-actions { margin-top: 2rem; display: flex; align-items: center; gap: 1rem; }
 .saved-indicator { color: var(--success-color); font-weight: 500; opacity: 0; transition: opacity 0.3s; }
