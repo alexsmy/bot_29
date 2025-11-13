@@ -1,3 +1,4 @@
+
 // static/js/call_orchestrator.js
 
 import * as state from './call_state.js';
@@ -17,6 +18,7 @@ import {
 } from './call_ui_elements.js';
 
 let localRecorder = null;
+let recordingStartTimestamp = null; // Временная метка начала записи
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -209,6 +211,8 @@ function uploadRecordings() {
         formData.append('room_id', s.roomId);
         formData.append('user_id', s.currentUser.id);
         formData.append('file', blob, `recording.webm`);
+        // Добавляем временную метку
+        formData.append('startTimestamp', recordingStartTimestamp);
 
         return fetch('/api/record/upload', {
             method: 'POST',
@@ -221,6 +225,7 @@ function uploadRecordings() {
 
     return localRecorder.stop().then(blob => {
         localRecorder = null;
+        recordingStartTimestamp = null; // Сбрасываем метку
         if (blob) {
             return upload(blob);
         }
@@ -459,16 +464,17 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
             
-            // ИЗМЕНЕНИЕ: Логика записи
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
-                    // 1. Клонируем аудиодорожку
+                    // Фиксируем время начала записи. performance.now() более точен для интервалов.
+                    recordingStartTimestamp = Math.round(performance.now());
+                    logToScreen(`[RECORDER] Recording start timestamp captured: ${recordingStartTimestamp}ms`);
+
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
-                    // 2. Создаем рекордер с низким битрейтом для клона
-                    const recorderOptions = { audioBitsPerSecond: 16000 }; // 16 kbps
+                    const recorderOptions = { audioBitsPerSecond: 16000 };
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
                     localRecorder.start();
                 }

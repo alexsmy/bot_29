@@ -1,3 +1,4 @@
+
 # routes/api_router.py
 
 import os
@@ -6,7 +7,7 @@ import shutil
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 
-from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel
 
 import database
@@ -14,6 +15,7 @@ import notifier
 from core import CustomJSONResponse, templates
 from logger_config import logger
 from websocket_manager import manager
+from services.audio_merger import process_and_merge_recordings
 
 router = APIRouter()
 
@@ -91,8 +93,10 @@ async def get_recording_status():
 
 @router.post("/api/record/upload", response_class=CustomJSONResponse)
 async def upload_recording(
+    background_tasks: BackgroundTasks,
     room_id: str = Form(...),
     user_id: str = Form(...),
+    startTimestamp: int = Form(...),
     file: UploadFile = File(...)
 ):
     try:
@@ -109,6 +113,21 @@ async def upload_recording(
             shutil.copyfileobj(file.file, buffer)
 
         logger.info(f"Аудиозапись сохранена: {filepath}")
+
+        # Логируем метаданные в БД
+        await database.log_call_recording(
+            room_id=room_id,
+            user_id=user_id,
+            start_timestamp_ms=startTimestamp,
+            file_path=filepath
+        )
+
+        # Проверяем, есть ли пара для этой записи, и если да, запускаем сведение
+        recording_pair = await database.find_unprocessed_recording_pair(room_id)
+        if recording_pair:
+            logger.info(f"Найдена пара записей для комнаты {room_id}. Запускаем процесс сведения.")
+            background_tasks.add_task(process_and_merge_recordings, recording_pair)
+
         return {"status": "ok", "filename": filename}
     except Exception as e:
         logger.error(f"Ошибка при загрузке аудиозаписи: {e}")

@@ -11,3 +11,4 @@ user-agents
 httpx
 twilio
 python-multipart
+pydub
