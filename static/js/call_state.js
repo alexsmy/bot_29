@@ -49,7 +49,5 @@ export function resetCallState() {
     setIsVideoEnabled(true);
     setIsSpeakerMuted(false);
     setIsEndingCall(false);
-    // ИСПРАВЛЕНИЕ: Удалена строка setTargetUser({}), которая была причиной проблемы.
-    // Информация о собеседнике не должна сбрасываться при завершении звонка,
-    // так как он все еще находится в комнате.
+    setTargetUser({});
 }

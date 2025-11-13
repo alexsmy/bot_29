@@ -140,6 +140,10 @@ function handleUserList(users) {
 }
 
 async function initiateCall(userToCall, callType) {
+    if (state.getState().isEndingCall) {
+        logToScreen("[CALL] Attempted to initiate call while previous one is ending. Aborted.");
+        return;
+    }
     logToScreen(`[CALL] Initiating call to user ${userToCall.id}, type: ${callType}`);
     state.setIsCallInitiator(true);
     state.setCurrentCallType(callType);
