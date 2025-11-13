@@ -3,7 +3,7 @@
 
 import os
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse
 from collections import defaultdict
 
 from core import CustomJSONResponse
@@ -27,22 +27,21 @@ async def list_recordings():
         
         sessions = defaultdict(lambda: {"session_id": "", "files": []})
         
-        # Сортируем файлы, чтобы они обрабатывались в предсказуемом порядке
         sorted_files = sorted(os.listdir(RECORDS_DIR), reverse=True)
 
         for filename in sorted_files:
             if not filename.endswith(('.webm', '.txt')):
                 continue
             
-            # Ключ сессии - это YYYYMMDD_HHMMSS_roomid
             parts = filename.split('_')
             if len(parts) < 3:
-                continue # Пропускаем некорректные имена файлов
+                continue
             
-            session_id = "_".join(parts[:3])
+            # ИСПРАВЛЕНО: Ключ сессии - это "ДАТА_ROOMID"
+            session_key = f"{parts}_{parts}"
             
-            sessions[session_id]["session_id"] = session_id
-            sessions[session_id]["files"].append(filename)
+            sessions[session_key]["session_id"] = session_key
+            sessions[session_key]["files"].append(filename)
         
         return list(sessions.values())
 

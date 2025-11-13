@@ -24,14 +24,18 @@ function renderRecordSession(session) {
     const participants = {};
     let dialogFile = null;
 
+    // Сортируем файлы, чтобы участники отображались в одном порядке
+    session.files.sort();
+
     session.files.forEach(file => {
-        if (file.endsWith('_dialog.txt')) {
+        if (file.includes('_dialog.txt')) {
             dialogFile = file;
             return;
         }
         
         const parts = file.split('_');
-        if (parts.length < 4) return; // Пропускаем, если имя файла неполное
+        // Имя файла участника: YYYYMMDD_HHMMSS_roomid_userid.ext
+        if (parts.length < 4) return; 
         
         const participantId = parts[3].split('.')[0];
         if (!participants[participantId]) {
