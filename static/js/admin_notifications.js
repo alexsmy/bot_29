@@ -24,9 +24,14 @@ async function saveNotificationSettings() {
         return;
     }
 
-    const payload = { ...currentSettings };
+    const payload = {
+        ...currentSettings
+    };
+
     notificationCheckboxes.forEach(checkbox => {
-        payload[checkbox.name] = checkbox.checked;
+        if (payload.hasOwnProperty(checkbox.name)) {
+            payload[checkbox.name] = checkbox.checked;
+        }
     });
 
     const dialogMethod = document.querySelector('input[name="dialog_delivery_method"]:checked').value;
