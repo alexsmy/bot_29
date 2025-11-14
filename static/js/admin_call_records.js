@@ -17,48 +17,60 @@ function renderActionGroup(fileType, filename, isAvailable) {
     `;
 }
 
-// ИСПРАВЛЕНИЕ: Полностью переработанная функция рендеринга для корректной группировки
+// ИСПРАВЛЕНИЕ: Полностью переработанная функция рендеринга для корректной группировки звонков
 function renderRecordSession(session) {
-    const calls = {}; // Группируем файлы по уникальному идентификатору звонка (timestamp)
+    const calls = {};
+    const participantFiles = session.files.filter(f => 
+        !f.includes('_dialog') && !f.includes('_resume') && f.split('_').length >= 4
+    );
 
-    // 1. Группируем все файлы по их timestamp (YYYYMMDD_HHMMSS)
-    session.files.forEach(file => {
+    // 1. Группируем файлы участников в звонки по временной близости
+    participantFiles.forEach(file => {
         const parts = file.split('_');
-        // Пропускаем файлы с неверным форматом имени
-        if (parts.length < 3) return;
+        const fileTimestamp = new Date(`${parts[0].slice(0,4)}-${parts[0].slice(4,6)}-${parts[0].slice(6,8)}T${parts[1].slice(0,2)}:${parts[1].slice(2,4)}:${parts[1].slice(4,6)}Z`).getTime();
+        const userId = parts[3].split('.')[0];
 
-        const timestamp = `${parts[0]}_${parts[1]}`;
-        
-        if (!calls[timestamp]) {
-            calls[timestamp] = { 
-                timestamp: timestamp, 
-                participants: {}, 
-                dialogFile: null, 
-                resumeFile: null 
-            };
+        let foundCall = false;
+        // Ищем существующий звонок, к которому можно отнести этот файл (в пределах 5 секунд)
+        for (const callId in calls) {
+            if (Math.abs(calls[callId].timestamp - fileTimestamp) < 5000) {
+                calls[callId].files.push(file);
+                foundCall = true;
+                break;
+            }
         }
 
-        if (file.includes('_dialog.txt')) {
-            calls[timestamp].dialogFile = file;
-        } else if (file.includes('_resume.txt')) {
-            calls[timestamp].resumeFile = file;
-        } else if (parts.length >= 4) { // Это файл участника
-            const userId = parts[3].split('.')[0];
-            if (!calls[timestamp].participants[userId]) {
-                calls[timestamp].participants[userId] = { id: userId, webm: null, txt: null };
-            }
-
-            if (file.endsWith('.webm')) {
-                calls[timestamp].participants[userId].webm = file;
-            } else if (file.endsWith('.txt')) {
-                calls[timestamp].participants[userId].txt = file;
-            }
+        // Если подходящий звонок не найден, создаем новый
+        if (!foundCall) {
+            const callId = `${parts[0]}_${parts[1]}`;
+            calls[callId] = {
+                id: callId,
+                timestamp: fileTimestamp,
+                files: [file]
+            };
         }
     });
 
-    // 2. Рендерим HTML для каждого звонка
-    let callsHtml = Object.values(calls).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).map(call => {
-        let participantsHtml = Object.values(call.participants).map(p => `
+    // 2. Рендерим HTML для каждого сгруппированного звонка
+    let callsHtml = Object.values(calls).sort((a, b) => b.timestamp - a.timestamp).map(call => {
+        const participants = {};
+        
+        // Распределяем файлы по участникам внутри звонка
+        call.files.forEach(file => {
+            const parts = file.split('_');
+            const userId = parts[3].split('.')[0];
+            if (!participants[userId]) {
+                participants[userId] = { id: userId, webm: null, txt: null };
+            }
+            if (file.endsWith('.webm')) participants[userId].webm = file;
+            else if (file.endsWith('.txt')) participants[userId].txt = file;
+        });
+
+        // Ищем соответствующие файлы диалога и саммари
+        const dialogFile = session.files.find(f => f.startsWith(call.id) && f.includes('_dialog.txt'));
+        const resumeFile = session.files.find(f => f.startsWith(call.id) && f.includes('_resume.txt'));
+
+        let participantsHtml = Object.values(participants).map(p => `
             <div class="record-item-actions">
                 <div class="record-item-info" style="min-width: 120px;">Участник: ${p.id.substring(0, 8)}...</div>
                 ${renderActionGroup('WEBM', p.webm, !!p.webm)}
@@ -69,20 +81,20 @@ function renderRecordSession(session) {
         const dialogHtml = `
             <div class="record-item-actions">
                 <div class="record-item-info" style="min-width: 120px;"><b>Общий диалог</b></div>
-                ${renderActionGroup('DIALOG', call.dialogFile, !!call.dialogFile)}
+                ${renderActionGroup('DIALOG', dialogFile, !!dialogFile)}
             </div>
         `;
 
         const resumeHtml = `
             <div class="record-item-actions">
                 <div class="record-item-info" style="min-width: 120px;"><b>Краткий пересказ</b></div>
-                ${renderActionGroup('RESUME', call.resumeFile, !!call.resumeFile)}
+                ${renderActionGroup('RESUME', resumeFile, !!resumeFile)}
             </div>
         `;
 
         return `
             <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 1rem; margin-top: 1rem;">
-                <h5 style="margin: 0.5rem 0; font-family: monospace;">Звонок: ${call.timestamp}</h5>
+                <h5 style="margin: 0.5rem 0; font-family: monospace;">Звонок: ${call.id}</h5>
                 ${participantsHtml}
                 ${dialogHtml}
                 ${resumeHtml}
