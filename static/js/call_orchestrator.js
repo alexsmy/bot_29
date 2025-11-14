@@ -198,8 +198,8 @@ function declineCall() {
     state.setTargetUser({});
 }
 
-function uploadRecordings() {
-    if (!state.getState().isRecordingEnabled || !localRecorder) {
+function uploadRecordings(isRecordingEnabled, roomId, userId, callId) {
+    if (!isRecordingEnabled || !localRecorder) {
         return Promise.resolve();
     }
 
@@ -210,11 +210,10 @@ function uploadRecordings() {
             logToScreen(`[RECORDER] No data to upload.`);
             return Promise.resolve();
         }
-        const s = state.getState();
         const formData = new FormData();
-        formData.append('room_id', s.roomId);
-        formData.append('user_id', s.currentUser.id);
-        formData.append('call_id', s.currentCallId);
+        formData.append('room_id', roomId);
+        formData.append('user_id', userId);
+        formData.append('call_id', callId);
         formData.append('file', blob, `recording.webm`);
 
         return fetch('/api/record/upload', {
@@ -255,10 +254,11 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
-    uploadRecordings().finally(() => {
-        state.resetCallState();
-        hangupBtn.disabled = false;
-    });
+    const s = state.getState();
+    uploadRecordings(s.isRecordingEnabled, s.roomId, s.currentUser.id, s.currentCallId);
+    
+    state.resetCallState();
+    hangupBtn.disabled = false;
 }
 
 async function initializeLocalMedia(callType) {

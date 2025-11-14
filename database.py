@@ -392,7 +392,7 @@ async def update_admin_settings(settings: Dict[str, bool]):
                 await conn.execute(
                     """
                     INSERT INTO admin_settings (key, value) VALUES ($1, $2)
-                    ON CONFLICT (key) DO UPDATE SET value = $2
+                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                     """,
                     key, value
                 )
