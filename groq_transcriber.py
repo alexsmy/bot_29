@@ -109,9 +109,13 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         dialogue_text = chat_completion.choices[0].message.content.strip()
         
         base_name_parts = os.path.basename(file1_path).split('_')
+        # ИСПРАВЛЕНИЕ: Формат имени файла YYYYMMDD_HHMMSS_ROOMID_USERID.ext
+        # parts[0] = YYYYMMDD, parts[1] = HHMMSS, parts[2] = ROOMID
         date_part = base_name_parts[0]
-        room_id_part = base_name_parts[1] # ИСПРАВЛЕНО: Индекс room_id был неверным
-        output_filename = f"{date_part}_{room_id_part}_dialog.txt"
+        time_part = base_name_parts[1]
+        room_id_part = base_name_parts[2]
+        # Создаем имя файла, включающее время, чтобы оно было уникальным для каждого звонка
+        output_filename = f"{date_part}_{time_part}_{room_id_part}_dialog.txt"
         output_filepath = os.path.join(RECORDS_DIR, output_filename)
 
         with open(output_filepath, "w", encoding="utf-8") as out_file:
@@ -127,7 +131,7 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
             setting_key_message='notify_on_dialog_as_message'
         )
         
-        # ИСПРАВЛЕНИЕ: Переименовываем обработанные файлы, чтобы они не мешали следующим звонкам
+        # Переименовываем обработанные файлы, чтобы они не мешали следующим звонкам
         try:
             os.rename(file1_path, file1_path + ".processed")
             os.rename(file2_path, file2_path + ".processed")
@@ -188,16 +192,17 @@ async def transcribe_audio_file(filepath: str):
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
         base_name_parts = os.path.basename(txt_filepath).split('_')
-        if len(base_name_parts) < 3:
+        if len(base_name_parts) < 4: # ИСПРАВЛЕНИЕ: Проверяем корректность имени файла (должно быть 4 части)
             logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
             return
             
-        room_id = base_name_parts[1] # ИСПРАВЛЕНО: Индекс room_id был неверным
+        # ИСПРАВЛЕНИЕ: Индекс для room_id - 2
+        room_id = base_name_parts[2]
         
+        # ИСПРАВЛЕНИЕ: Ищем файлы, которые еще не были обработаны
         search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")
         all_txt_files = glob.glob(search_pattern)
         
-        # ИСПРАВЛЕНИЕ: Фильтруем также файлы, которые уже были обработаны
         participant_txt_files = [
             f for f in all_txt_files 
             if not f.endswith('_dialog.txt') 
