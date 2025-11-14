@@ -1,5 +1,3 @@
-// bot_29-main/static/js/admin_call_records.js
-
 import { fetchData } from './admin_api.js';
 
 let recordsListContainer;
@@ -19,46 +17,47 @@ function renderActionGroup(fileType, filename, isAvailable) {
     `;
 }
 
-// ИСПРАВЛЕНИЕ: Полностью переработанная функция рендеринга
+// ИСПРАВЛЕНИЕ: Полностью переработанная функция рендеринга для корректной группировки
 function renderRecordSession(session) {
-    const calls = {}; // Группируем файлы по звонкам
+    const calls = {}; // Группируем файлы по уникальному идентификатору звонка (timestamp)
 
-    // Сначала группируем все файлы по их уникальному timestamp (дата_время)
+    // 1. Группируем все файлы по их timestamp (YYYYMMDD_HHMMSS)
     session.files.forEach(file => {
         const parts = file.split('_');
-        if (parts.length < 4) return; // Пропускаем dialog и resume файлы на этом этапе
+        // Пропускаем файлы с неверным форматом имени
+        if (parts.length < 3) return;
 
         const timestamp = `${parts[0]}_${parts[1]}`;
-        const userId = parts[3].split('.')[0];
-
+        
         if (!calls[timestamp]) {
-            calls[timestamp] = { timestamp: timestamp, participants: {} };
-        }
-        if (!calls[timestamp].participants[userId]) {
-            calls[timestamp].participants[userId] = { id: userId, webm: null, txt: null };
+            calls[timestamp] = { 
+                timestamp: timestamp, 
+                participants: {}, 
+                dialogFile: null, 
+                resumeFile: null 
+            };
         }
 
-        if (file.endsWith('.webm')) {
-            calls[timestamp].participants[userId].webm = file;
-        } else if (file.endsWith('.txt') && !file.includes('dialog') && !file.includes('resume')) {
-            calls[timestamp].participants[userId].txt = file;
-        }
-    });
+        if (file.includes('_dialog.txt')) {
+            calls[timestamp].dialogFile = file;
+        } else if (file.includes('_resume.txt')) {
+            calls[timestamp].resumeFile = file;
+        } else if (parts.length >= 4) { // Это файл участника
+            const userId = parts[3].split('.')[0];
+            if (!calls[timestamp].participants[userId]) {
+                calls[timestamp].participants[userId] = { id: userId, webm: null, txt: null };
+            }
 
-    // Ищем файлы диалога и саммари и привязываем их к ближайшему по времени звонку
-    session.files.forEach(file => {
-        if (file.includes('_dialog.txt') || file.includes('_resume.txt')) {
-            const parts = file.split('_');
-            const timestamp = `${parts[0]}_${parts[1]}`;
-            if (calls[timestamp]) {
-                if (file.includes('_dialog.txt')) calls[timestamp].dialogFile = file;
-                if (file.includes('_resume.txt')) calls[timestamp].resumeFile = file;
+            if (file.endsWith('.webm')) {
+                calls[timestamp].participants[userId].webm = file;
+            } else if (file.endsWith('.txt')) {
+                calls[timestamp].participants[userId].txt = file;
             }
         }
     });
 
-    // Рендерим HTML для каждого звонка
-    let callsHtml = Object.values(calls).map(call => {
+    // 2. Рендерим HTML для каждого звонка
+    let callsHtml = Object.values(calls).sort((a, b) => b.timestamp.localeCompare(a.timestamp)).map(call => {
         let participantsHtml = Object.values(call.participants).map(p => `
             <div class="record-item-actions">
                 <div class="record-item-info" style="min-width: 120px;">Участник: ${p.id.substring(0, 8)}...</div>
@@ -67,19 +66,19 @@ function renderRecordSession(session) {
             </div>
         `).join('');
 
-        const dialogHtml = call.dialogFile ? `
+        const dialogHtml = `
             <div class="record-item-actions">
                 <div class="record-item-info" style="min-width: 120px;"><b>Общий диалог</b></div>
-                ${renderActionGroup('DIALOG', call.dialogFile, true)}
+                ${renderActionGroup('DIALOG', call.dialogFile, !!call.dialogFile)}
             </div>
-        ` : '';
+        `;
 
-        const resumeHtml = call.resumeFile ? `
+        const resumeHtml = `
             <div class="record-item-actions">
                 <div class="record-item-info" style="min-width: 120px;"><b>Краткий пересказ</b></div>
-                ${renderActionGroup('RESUME', call.resumeFile, true)}
+                ${renderActionGroup('RESUME', call.resumeFile, !!call.resumeFile)}
             </div>
-        ` : '';
+        `;
 
         return `
             <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 1rem; margin-top: 1rem;">
