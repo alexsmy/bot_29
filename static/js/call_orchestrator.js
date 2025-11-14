@@ -1,5 +1,3 @@
-// bot_29-main/static/js/call_orchestrator.js
-
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -97,6 +95,10 @@ function proceedToCall(asSpectator = false) {
         },
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
+        onCallStarted: (data) => {
+            state.setCurrentCallId(data.call_id);
+            logToScreen(`[CALL] Call started with ID: ${data.call_id}`);
+        },
         onCallAccepted: () => {
             uiManager.stopRingOutSound();
             const localStream = media.getLocalStream();
@@ -212,6 +214,7 @@ function uploadRecordings() {
         const formData = new FormData();
         formData.append('room_id', s.roomId);
         formData.append('user_id', s.currentUser.id);
+        formData.append('call_id', s.currentCallId);
         formData.append('file', blob, `recording.webm`);
 
         return fetch('/api/record/upload', {
@@ -252,12 +255,9 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
-    // ИСПРАВЛЕНИЕ: Немедленно сбрасываем состояние, чтобы разрешить новый звонок.
-    // Загрузка записи происходит в фоне.
     state.resetCallState();
     
     uploadRecordings().finally(() => {
-        // Единственное, что мы делаем после загрузки - это снова включаем кнопку "положить трубку".
         hangupBtn.disabled = false;
     });
 }

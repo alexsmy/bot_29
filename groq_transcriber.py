@@ -110,8 +110,9 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         
         base_name_parts = os.path.basename(file1_path).split('_')
         date_part = base_name_parts[0]
-        room_id_part = base_name_parts[2]
-        output_filename = f"{date_part}_{room_id_part}_dialog.txt"
+        room_id_part = base_name_parts[1]
+        call_id_part = base_name_parts[2]
+        output_filename = f"{date_part}_{room_id_part}_{call_id_part}_dialog.txt"
         output_filepath = os.path.join(RECORDS_DIR, output_filename)
 
         with open(output_filepath, "w", encoding="utf-8") as out_file:
@@ -180,19 +181,20 @@ async def transcribe_audio_file(filepath: str):
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
         base_name_parts = os.path.basename(txt_filepath).split('_')
-        if len(base_name_parts) < 3:
+        if len(base_name_parts) < 4:
             logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
             return
             
-        room_id = base_name_parts[2]
+        room_id = base_name_parts[1]
+        call_id = base_name_parts[2]
         
-        search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")
+        search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_{call_id}_*.txt")
         all_txt_files = glob.glob(search_pattern)
         
         participant_txt_files = [f for f in all_txt_files if not f.endswith('_dialog.txt') and not f.endswith('_resume.txt')]
 
         if len(participant_txt_files) == 2:
-            logger.info(f"[Groq] Обнаружены обе транскрипции для сессии с room_id {room_id}. Запускаю слияние.")
+            logger.info(f"[Groq] Обнаружены обе транскрипции для звонка {call_id} в комнате {room_id}. Запускаю слияние.")
             asyncio.create_task(merge_transcriptions_to_dialogue(participant_txt_files[0], participant_txt_files[1]))
 
     except Exception as e:

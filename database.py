@@ -160,23 +160,25 @@ async def log_connection(room_id, ip_address, user_agent, parsed_data):
             parsed_data['country'], parsed_data['city']
         )
 
-async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_ip: Optional[str], initiator_ip: Optional[str]):
+async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_ip: Optional[str], initiator_ip: Optional[str]) -> Optional[int]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
         if not session_row:
             logger.error(f"Не удалось найти сессию для room_id {room_id} при старте звонка.")
-            return
+            return None
         session_id = session_row['session_id']
 
-        await conn.execute(
+        call_id = await conn.fetchval(
             """
             INSERT INTO call_history (session_id, call_type, call_started_at, participant1_ip, participant2_ip, initiator_ip)
             VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING call_id
             """,
             session_id, call_type, datetime.now(timezone.utc), p1_ip, p2_ip, initiator_ip
         )
         await conn.execute("UPDATE call_sessions SET status = 'active' WHERE session_id = $1", session_id)
+        return call_id
 
 
 async def log_call_end(room_id):
