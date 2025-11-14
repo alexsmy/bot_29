@@ -2,13 +2,8 @@ import asyncio
 import random
 import httpx
 from logger_config import logger
-from config import BOT_USERNAME, WEB_APP_URL
 
-# ИЗМЕНЕНИЕ: Теперь мы напрямую используем WEB_APP_URL, импортированный из config.py
-APP_URL = WEB_APP_URL
-if not APP_URL or APP_URL.startswith("http://localhost"):
-    logger.warning("[KeepAlive] Внешний URL (WEB_APP_URL) не настроен. Задача самоподдержки не будет запущена.")
-    APP_URL = None
+# Убираем проверку URL с уровня модуля
 
 # Минимальное и максимальное время ожидания в минутах
 MIN_WAIT_MINUTES = 11
@@ -31,13 +26,20 @@ async def start_keep_alive_task():
     Основная задача, которая периодически отправляет запросы на главную страницу
     приложения, чтобы предотвратить его "засыпание" на хостинге.
     """
-    if not APP_URL:
-        return
+    # Начальная задержка в 60 секунд, чтобы дать основному приложению полностью запуститься
+    logger.info("[KeepAlive] Задача самоподдержки инициализирована, запуск проверки через 60 секунд...")
+    await asyncio.sleep(60)
+
+    # ИЗМЕНЕНИЕ: Импортируем и проверяем конфигурацию ВНУТРИ запущенной задачи
+    from config import BOT_USERNAME, WEB_APP_URL
+
+    APP_URL = WEB_APP_URL
+    # Улучшенная проверка: теперь мы также проверяем, что URL не является локальным
+    if not APP_URL or "localhost" in APP_URL:
+        logger.warning(f"[KeepAlive] Внешний URL (WEB_APP_URL='{APP_URL}') не настроен корректно. Задача самоподдержки не будет запущена.")
+        return # Корректно выходим из задачи
 
     logger.info(f"[KeepAlive] Задача самоподдержки запускается. Целевой URL: {APP_URL}")
-
-    # Начальная задержка в 60 секунд, чтобы дать основному приложению полностью запуститься
-    await asyncio.sleep(60)
 
     if not await check_internet_connection():
         logger.error("[KeepAlive] Задача самоподдержки остановлена из-за отсутствия подключения к интернету.")
