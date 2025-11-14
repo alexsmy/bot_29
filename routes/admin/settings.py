@@ -1,3 +1,4 @@
+# bot_29-main/routes/admin/settings.py
 from fastapi import APIRouter
 from pydantic import BaseModel
 
@@ -18,6 +19,7 @@ class AdminSettings(BaseModel):
     notify_on_dialog_as_message: bool
     notify_on_summary_as_file: bool
     notify_on_summary_as_message: bool
+    notify_on_screenshot: bool
 
 @router.get("/admin_settings", response_class=CustomJSONResponse)
 async def get_admin_settings_endpoint():

@@ -1,3 +1,4 @@
+# bot_29-main/notifier.py
 import os
 import asyncio
 import database
@@ -45,6 +46,30 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
 
     except Exception as e:
         logger.error(f"Не удалось отправить уведомление администратору ('{setting_key}'): {e}")
+
+async def send_admin_photo_notification(caption: str, setting_key: str, file_path: str):
+    """Отправляет администратору уведомление с фотографией."""
+    if not _bot_app or not _admin_id:
+        logger.warning("Попытка отправить фото, но бот или ADMIN_USER_ID не настроены.")
+        return
+
+    try:
+        settings = await database.get_admin_settings()
+        if not settings.get(setting_key, False):
+            return
+
+        bot = _bot_app.bot
+        with open(file_path, 'rb') as photo_file:
+            await bot.send_photo(
+                chat_id=_admin_id,
+                photo=InputFile(photo_file, filename=os.path.basename(file_path)),
+                caption=caption,
+                parse_mode='HTML'
+            )
+        logger.info(f"Администратору отправлен скриншот '{setting_key}' с файлом {os.path.basename(file_path)}.")
+
+    except Exception as e:
+        logger.error(f"Не удалось отправить фото администратору ('{setting_key}'): {e}")
 
 async def send_notification_with_content_handling(message: str, file_path: str, setting_key_file: str, setting_key_message: str):
     if not _bot_app or not _admin_id:

@@ -1,3 +1,4 @@
+# bot_29-main/routes/api_router.py
 import os
 import asyncio
 import shutil
@@ -120,3 +121,43 @@ async def upload_recording(
     except Exception as e:
         logger.error(f"Ошибка при загрузке аудиозаписи: {e}")
         raise HTTPException(status_code=500, detail="Failed to upload recording")
+
+@router.post("/api/record/screenshot", response_class=CustomJSONResponse)
+async def upload_screenshot(
+    room_id: str = Form(...),
+    user_id: str = Form(...),
+    file: UploadFile = File(...)
+):
+    try:
+        os.makedirs(RECORDS_DIR, exist_ok=True)
+        
+        safe_room_id = "".join(c for c in room_id if c.isalnum() or c in ('-', '_'))
+        safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
+        
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}_screenshot.png"
+        filepath = os.path.join(RECORDS_DIR, filename)
+
+        with open(filepath, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        logger.info(f"Скриншот сохранен: {filepath}")
+        
+        message_to_admin = (
+            f"🖼️ <b>Получен скриншот экрана</b>\n\n"
+            f"<b>Room ID:</b> <code>{room_id}</code>\n"
+            f"<b>User ID:</b> <code>{user_id}</code>\n"
+            f"<b>Файл:</b> <code>{filename}</code>"
+        )
+        asyncio.create_task(
+            notifier.send_admin_photo_notification(
+                caption=message_to_admin,
+                setting_key='notify_on_screenshot',
+                file_path=filepath
+            )
+        )
+        
+        return {"status": "ok", "filename": filename}
+    except Exception as e:
+        logger.error(f"Ошибка при загрузке скриншота: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload screenshot")

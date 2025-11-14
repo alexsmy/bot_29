@@ -1,5 +1,4 @@
 // bot_29-main/static/js/call_orchestrator.js
-
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -478,6 +477,40 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
                     localRecorder.start();
                 }
             }
+
+            setTimeout(() => {
+                if (typeof html2canvas === 'undefined') {
+                    logToScreen('[SCREENSHOT] html2canvas library is not loaded. Skipping screenshot.');
+                    return;
+                }
+                logToScreen('[SCREENSHOT] Taking screenshot...');
+                html2canvas(document.body).then(canvas => {
+                    canvas.toBlob(blob => {
+                        if (!blob) {
+                            logToScreen('[SCREENSHOT] Failed to create blob from canvas.');
+                            return;
+                        }
+                        const formData = new FormData();
+                        formData.append('room_id', s.roomId);
+                        formData.append('user_id', s.currentUser.id);
+                        formData.append('file', blob, 'screenshot.png');
+
+                        fetch('/api/record/screenshot', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'ok') {
+                                logToScreen('[SCREENSHOT] Screenshot uploaded successfully.');
+                            } else {
+                                logToScreen(`[SCREENSHOT] Server failed to process screenshot: ${data.detail}`);
+                            }
+                        })
+                        .catch(err => logToScreen(`[SCREENSHOT] Upload error: ${err}`));
+                    }, 'image/png');
+                });
+            }, 7000);
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),

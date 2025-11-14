@@ -1,3 +1,4 @@
+// bot_29-main/static/js/admin_notifications.js
 import { fetchData } from './admin_api.js';
 import { saveAllSettings } from './admin_recording.js'; // Импортируем общую функцию сохранения
 

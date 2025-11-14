@@ -1,3 +1,4 @@
+# bot_29-main/database.py
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
@@ -112,7 +113,8 @@ async def init_db():
             ('notify_on_dialog_as_file', TRUE),
             ('notify_on_dialog_as_message', FALSE),
             ('notify_on_summary_as_file', TRUE),
-            ('notify_on_summary_as_message', FALSE)
+            ('notify_on_summary_as_message', FALSE),
+            ('notify_on_screenshot', TRUE)
             ON CONFLICT(key) DO NOTHING
         ''')
     logger.info("База данных PostgreSQL успешно инициализирована.")
