@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -166,48 +167,6 @@
                             <span>Присылать сообщение об участниках соединения</span>
                         </label>
                     </div>
-
-                    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
-                    <h3>Материалы звонка</h3>
-                    <p class="section-description" style="margin-bottom: 1rem;">Настройки отправки записей и расшифровок (требуется включенная запись звонков).</p>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="send_audio_recording">
-                            <span>Присылать аудиозаписи звонков (.webm)</span>
-                        </label>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="send_transcript">
-                            <span>Присылать текстовую расшифровку (диалог)</span>
-                        </label>
-                        <div class="mode-selector" style="margin-left: 2rem; margin-top: 0.5rem;">
-                            <label style="margin-right: 1rem;">
-                                <input type="radio" name="transcript_mode" value="file"> Как файл (.txt)
-                            </label>
-                            <label>
-                                <input type="radio" name="transcript_mode" value="message"> Как сообщение
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label class="checkbox-label">
-                            <input type="checkbox" name="send_summary">
-                            <span>Присылать краткий пересказ (саммери)</span>
-                        </label>
-                        <div class="mode-selector" style="margin-left: 2rem; margin-top: 0.5rem;">
-                            <label style="margin-right: 1rem;">
-                                <input type="radio" name="summary_mode" value="file"> Как файл (.txt)
-                            </label>
-                            <label>
-                                <input type="radio" name="summary_mode" value="message"> Как сообщение
-                            </label>
-                        </div>
-                    </div>
-
                     <div class="form-actions">
                         <button id="save-notification-settings" class="action-btn primary">Сохранить</button>
                         <span id="settings-saved-indicator" class="saved-indicator">Сохранено!</span>

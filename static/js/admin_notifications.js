@@ -1,22 +1,12 @@
 import { fetchData } from './admin_api.js';
 
-let saveNotificationsBtn, savedIndicator, notificationCheckboxes, notificationRadios;
+let saveNotificationsBtn, savedIndicator, notificationCheckboxes;
 
 async function loadNotificationSettings() {
     const settings = await fetchData('admin_settings');
     if (settings) {
-        // Загружаем чекбоксы
         notificationCheckboxes.forEach(checkbox => {
-            if (settings.hasOwnProperty(checkbox.name)) {
-                checkbox.checked = settings[checkbox.name];
-            }
-        });
-
-        // Загружаем радио-кнопки
-        notificationRadios.forEach(radio => {
-            if (settings.hasOwnProperty(radio.name) && settings[radio.name] === radio.value) {
-                radio.checked = true;
-            }
+            checkbox.checked = settings[checkbox.name] || false;
         });
     }
 }
@@ -29,22 +19,8 @@ async function saveNotificationSettings() {
     }
 
     const payload = { ...currentSettings };
-    
-    // Собираем значения чекбоксов
     notificationCheckboxes.forEach(checkbox => {
         payload[checkbox.name] = checkbox.checked;
-    });
-
-    // Собираем значения радио-кнопок
-    // Сначала находим уникальные имена групп радио-кнопок
-    const radioNames = new Set();
-    notificationRadios.forEach(r => radioNames.add(r.name));
-    
-    radioNames.forEach(name => {
-        const selected = document.querySelector(`input[name="${name}"]:checked`);
-        if (selected) {
-            payload[name] = selected.value;
-        }
     });
 
     const result = await fetchData('admin_settings', {
@@ -65,7 +41,6 @@ export function initNotifications() {
     saveNotificationsBtn = document.getElementById('save-notification-settings');
     savedIndicator = document.getElementById('settings-saved-indicator');
     notificationCheckboxes = document.querySelectorAll('#notifications input[type="checkbox"]');
-    notificationRadios = document.querySelectorAll('#notifications input[type="radio"]');
 
     saveNotificationsBtn.addEventListener('click', saveNotificationSettings);
 
