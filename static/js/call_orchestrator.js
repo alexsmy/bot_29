@@ -255,9 +255,8 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
-    state.resetCallState();
-    
     uploadRecordings().finally(() => {
+        state.resetCallState();
         hangupBtn.disabled = false;
     });
 }

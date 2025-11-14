@@ -4,7 +4,6 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 let reconnectTimeoutId = null;
 let isGracefulDisconnect = false;
 
-// Функция для логирования, которую предоставит основной модуль
 let logToServer;
 
 function handleWebSocketReconnect(roomId, handlers) {
@@ -25,7 +24,7 @@ function handleWebSocketReconnect(roomId, handlers) {
 
 export function initializeWebSocket(roomId, handlers, logger) {
     isGracefulDisconnect = false;
-    logToServer = logger; // Сохраняем функцию логирования
+    logToServer = logger; 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/private/${roomId}`;
     logToServer(`[WS] Attempting a new connection.`);
@@ -45,11 +44,11 @@ export function initializeWebSocket(roomId, handlers, logger) {
         const message = JSON.parse(event.data);
         logToServer(`[WS] Received message: ${message.type}`);
         
-        // Диспетчер сообщений: вызываем нужный обработчик из переданных
         switch (message.type) {
             case 'identity': handlers.onIdentity(message.data); break;
             case 'user_list': handlers.onUserList(message.data); break;
             case 'incoming_call': handlers.onIncomingCall(message.data); break;
+            case 'call_started': handlers.onCallStarted(message.data); break;
             case 'call_accepted': handlers.onCallAccepted(message.data); break;
             case 'offer': handlers.onOffer(message.data); break;
             case 'answer': handlers.onAnswer(message.data); break;
