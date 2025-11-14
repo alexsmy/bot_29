@@ -92,7 +92,6 @@ async def get_recording_status():
 async def upload_recording(
     room_id: str = Form(...),
     user_id: str = Form(...),
-    call_id: str = Form(...),
     file: UploadFile = File(...)
 ):
     try:
@@ -100,10 +99,9 @@ async def upload_recording(
         
         safe_room_id = "".join(c for c in room_id if c.isalnum() or c in ('-', '_'))
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
-        safe_call_id = "".join(c for c in call_id if c.isalnum())
         
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d")
-        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_call_id}_{safe_user_id[:8]}.webm"
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}.webm"
         filepath = os.path.join(RECORDS_DIR, filename)
 
         with open(filepath, "wb") as buffer:
