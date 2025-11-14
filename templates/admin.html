@@ -57,7 +57,6 @@
                 <a href="#reports" class="nav-link">
                     <span class="icon" id="icon-reports"></span> Отчёты
                 </a>
-                <!-- НОВАЯ ССЫЛКА -->
                 <a href="#explorer" class="nav-link">
                     <span class="icon" id="icon-explorer"></span> Проводник
                 </a>
@@ -255,7 +254,6 @@
                 </div>
             </section>
             
-            <!-- НОВАЯ СЕКЦИЯ -->
             <section id="explorer" class="content-section">
                 <div class="section-header">
                     <h2>Проводник</h2>
@@ -290,6 +288,19 @@
 
         </main>
     </div>
+
+    <!-- НОВАЯ СТРУКТУРА ДЛЯ МОДАЛЬНОГО ОКНА -->
+    <div id="explorer-modal" class="explorer-modal">
+        <div class="modal-overlay"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title"></h3>
+                <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+            </div>
+            <div id="modal-body" class="modal-body"></div>
+        </div>
+    </div>
+
     <script src="/static/js/admin_icons.js"></script>
     <script type="module" src="/static/js/admin.js"></script>
 </body>

@@ -11,7 +11,7 @@ const ICONS = {
     recording: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9Z" /></svg>`,
     callRecords: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M13,9V3.5L18.5,9H13Z" /></svg>`,
     reports: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M13.5,16V19H10.5V16H13.5M13.5,10V14H10.5V10H13.5M13,9V3.5L18.5,9H13Z" /></svg>`,
-    explorer: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.1,10L4,18V8H20V18H12.1L10.1,10H6.1M18,6H10L8,4H4A2,2 0 0,0 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8A2,2 0 0,0 20,6H18Z" /></svg>`, // <-- НОВАЯ ИКОНКА
+    explorer: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6.1,10L4,18V8H20V18H12.1L10.1,10H6.1M18,6H10L8,4H4A2,2 0 0,0 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V8A2,2 0 0,0 20,6H18Z" /></svg>`,
     logs: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M13.5,4H12V2H19V9H17V5.5L12.5,10L10,7.5L5,12.5L3.5,11L10,4.5L12.5,7L16,3.5V4H13.5M5,14H21V20H5V14M7,16V18H19V16H7Z" /></svg>`,
     danger: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2L1,21H23M12,6L19.53,19H4.47M11,10V14H13V10M11,16V18H13V16" /></svg>`,
     person: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z" /></svg>`,
