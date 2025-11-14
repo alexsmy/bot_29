@@ -8,6 +8,7 @@ import { initNotifications } from './admin_notifications.js';
 import { initRecording } from './admin_recording.js';
 import { initCallRecords } from './admin_call_records.js';
 import { initReports } from './admin_reports.js';
+import { initExplorer } from './admin_explorer.js'; // <-- ИМПОРТ
 import { initLogs } from './admin_logs.js';
 import { initDangerZone } from './admin_danger_zone.js';
 
@@ -26,11 +27,18 @@ document.addEventListener('DOMContentLoaded', () => {
     initRecording();
     initCallRecords();
     initReports();
+    initExplorer(); // <-- ИНИЦИАЛИЗАЦИЯ
     initLogs();
     initDangerZone();
 
     setInterval(() => {
         loadStats();
         loadActiveRooms();
+        loadActiveRooms();
+        loadLogs();
+        loadReports();
+        loadRecording();
+        loadCallRecords();
+        LoadConnections();
     }, 10000);
 });

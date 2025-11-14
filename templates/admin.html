@@ -57,6 +57,10 @@
                 <a href="#reports" class="nav-link">
                     <span class="icon" id="icon-reports"></span> Отчёты
                 </a>
+                <!-- НОВАЯ ССЫЛКА -->
+                <a href="#explorer" class="nav-link">
+                    <span class="icon" id="icon-explorer"></span> Проводник
+                </a>
                 <a href="#logs" class="nav-link">
                     <span class="icon" id="icon-logs"></span> Логи
                 </a>
@@ -247,6 +251,18 @@
                 </div>
                 <p class="section-description">Здесь хранятся детальные HTML-отчёты о качестве WebRTC соединений.</p>
                 <div id="reports-list" class="room-list-container">
+                    <div class="skeleton-list"></div>
+                </div>
+            </section>
+            
+            <!-- НОВАЯ СЕКЦИЯ -->
+            <section id="explorer" class="content-section">
+                <div class="section-header">
+                    <h2>Проводник</h2>
+                    <button id="refresh-explorer-btn" class="action-btn">Обновить</button>
+                </div>
+                <p class="section-description">Структура файлов и папок проекта. Позволяет увидеть, где хранятся логи, записи и отчеты.</p>
+                <div id="file-explorer-container" class="file-explorer">
                     <div class="skeleton-list"></div>
                 </div>
             </section>

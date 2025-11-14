@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from .admin import (
-    auth, connections, danger_zone, logs, reports, rooms, settings, stats, users, views, recordings
+    auth, connections, danger_zone, logs, reports, rooms, settings, stats, users, views, recordings, explorer
 )
 
 router = APIRouter()
@@ -18,6 +18,7 @@ api_router.include_router(connections.router, tags=["Connections"])
 api_router.include_router(settings.router, tags=["Settings"])
 api_router.include_router(reports.router, tags=["Reports"])
 api_router.include_router(recordings.router, tags=["Recordings"])
+api_router.include_router(explorer.router, tags=["Explorer"]) # <-- ДОБАВЛЕНО
 api_router.include_router(logs.router, tags=["Logs"])
 api_router.include_router(danger_zone.router, tags=["Danger Zone"])
 
