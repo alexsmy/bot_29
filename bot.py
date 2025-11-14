@@ -12,6 +12,8 @@ from logger_config import logger
 
 # Импортируем обработчики из новых модулей
 from handlers import public_handlers, admin_handlers, inline_handlers
+# ИМПОРТИРУЕМ НОВЫЙ МОДУЛЬ
+from keep_alive import start_keep_alive_task
 
 bot_app_instance = None
 
@@ -79,8 +81,11 @@ async def main() -> None:
         
         server_task = asyncio.create_task(server.serve())
         bot_task = asyncio.create_task(application.updater.start_polling())
+        # СОЗДАЕМ И ЗАПУСКАЕМ ЗАДАЧУ САМОПОДДЕРЖКИ
+        keep_alive_task = asyncio.create_task(start_keep_alive_task())
         
-        await asyncio.gather(server_task, bot_task)
+        # ДОБАВЛЯЕМ ЗАДАЧУ В ОБЩИЙ ПУЛ
+        await asyncio.gather(server_task, bot_task, keep_alive_task)
         
         await application.stop()
     
