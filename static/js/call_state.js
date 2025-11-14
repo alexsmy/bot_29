@@ -19,7 +19,6 @@ const state = {
     isCallInitiator: false,
     isEndingCall: false,
     isRecordingEnabled: false,
-    audioBitrate: 16000, // Битрейт по умолчанию
 };
 
 export function getState() {
@@ -44,7 +43,6 @@ export function setIceServerDetails(details) { state.iceServerDetails = details;
 export function setIsCallInitiator(initiator) { state.isCallInitiator = initiator; }
 export function setIsEndingCall(ending) { state.isEndingCall = ending; }
 export function setIsRecordingEnabled(enabled) { state.isRecordingEnabled = enabled; }
-export function setAudioBitrate(bitrate) { state.audioBitrate = bitrate; }
 
 export function resetCallState() {
     setIsMuted(false);

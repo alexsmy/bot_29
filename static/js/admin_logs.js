@@ -1,10 +1,12 @@
 // static/js/admin_logs.js
 
+// Этот модуль отвечает за логику раздела "Логи".
+
 import { fetchData } from './admin_api.js';
 import { highlightLogs } from './admin_utils.js';
 
 let logsContent;
-const API_TOKEN = document.body.dataset.token;
+const API_TOKEN = document.body.dataset.token; // Токен нужен для формирования ссылок
 
 async function loadLogs() {
     const logs = await fetchData('logs');
@@ -16,15 +18,6 @@ export function initLogs() {
 
     document.getElementById('refresh-logs-btn').addEventListener('click', loadLogs);
     
-    document.getElementById('copy-logs-btn').addEventListener('click', () => {
-        // ИСПРАВЛЕНИЕ: Используем .innerText для сохранения переносов строк
-        navigator.clipboard.writeText(logsContent.innerText).then(() => {
-            alert('Логи скопированы в буфер обмена!');
-        }, () => {
-            alert('Не удалось скопировать логи.');
-        });
-    });
-
     document.getElementById('download-logs-btn').addEventListener('click', () => {
         window.location.href = `/api/admin/logs/download?token=${API_TOKEN}`;
     });

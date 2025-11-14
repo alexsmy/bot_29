@@ -5,7 +5,6 @@ import asyncio
 import glob
 from groq import Groq
 from logger_config import logger
-import database
 import notifier
 
 RECORDS_DIR = "call_records"
@@ -25,11 +24,6 @@ async def summarize_dialogue(dialogue_filepath: str):
     """
     Отправляет готовый диалог в Groq API для получения краткого пересказа.
     """
-    settings = await database.get_admin_settings()
-    if not settings.get('enable_summary_creation', False):
-        logger.info("[Groq] Создание краткого пересказа отключено в настройках.")
-        return
-
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         logger.error("[Groq] GROQ_API_KEY не найден. Создание пересказа отменено.")
@@ -54,7 +48,7 @@ async def summarize_dialogue(dialogue_filepath: str):
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-70b-8192",
+            model="openai/gpt-oss-120b",
             temperature=0.1,
             max_tokens=4096,
             top_p=1,
@@ -69,15 +63,9 @@ async def summarize_dialogue(dialogue_filepath: str):
             out_file.write(summary_text)
 
         logger.info(f"[Groq] Краткий пересказ успешно создан и сохранен в файл: {os.path.basename(output_filepath)}")
-
-        if settings.get('notify_send_summary', False):
-            message_caption = f"📄 <b>Краткий пересказ звонка</b>\n\n<b>Сессия:</b> <code>{os.path.basename(output_filepath)}</code>"
-            await notifier.send_admin_notification_with_content(
-                message=message_caption,
-                setting_key='notify_send_summary',
-                file_path=output_filepath,
-                send_format=settings.get('notify_summary_format', 'file')
-            )
+        
+        # Отправляем саммери администратору согласно настройкам
+        await notifier.send_text_content(output_filepath, 'summary')
 
     except FileNotFoundError:
         logger.error(f"[Groq] Файл диалога для создания пересказа не найден: {dialogue_filepath}")
@@ -89,11 +77,6 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
     """
     Объединяет две транскрипции в один диалог с помощью Groq API.
     """
-    settings = await database.get_admin_settings()
-    if not settings.get('enable_dialogue_creation', False):
-        logger.info("[Groq] Создание диалога отключено в настройках.")
-        return
-
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
         logger.error("[Groq] GROQ_API_KEY не найден. Слияние диалога отменено.")
@@ -120,7 +103,7 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-70b-8192",
+            model="openai/gpt-oss-120b",
             temperature=0.1,
             max_tokens=8192,
             top_p=1,
@@ -131,7 +114,6 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         
         base_name_parts = os.path.basename(file1_path).split('_')
         date_part = base_name_parts[0]
-        # ИСПРАВЛЕНИЕ: ID комнаты находится на 3-й позиции (индекс 2)
         room_id_part = base_name_parts[2]
         output_filename = f"{date_part}_{room_id_part}_dialog.txt"
         output_filepath = os.path.join(RECORDS_DIR, output_filename)
@@ -141,6 +123,10 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
 
         logger.info(f"[Groq] Диалог успешно собран и сохранен в файл: {output_filename}")
         
+        # Отправляем диалог администратору согласно настройкам
+        await notifier.send_text_content(output_filepath, 'transcript')
+        
+        # Запускаем создание краткого пересказа в фоновом режиме
         asyncio.create_task(summarize_dialogue(output_filepath))
 
     except FileNotFoundError as e:
@@ -154,10 +140,8 @@ async def transcribe_audio_file(filepath: str):
     Отправляет аудиофайл в Groq API для транскрипции и сохраняет результат.
     После сохранения проверяет наличие второго файла и запускает слияние.
     """
-    settings = await database.get_admin_settings()
-    if not settings.get('enable_transcription', False):
-        logger.info("[Groq] Транскрибация аудио отключена в настройках.")
-        return
+    # Сначала отправляем аудиофайл администратору, если включено
+    await notifier.send_audio_content(filepath)
 
     api_key = os.environ.get("GROQ_API_KEY")
     if not api_key:
@@ -202,21 +186,11 @@ async def transcribe_audio_file(filepath: str):
 
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
-        if settings.get('notify_send_transcriptions', False):
-            message_caption = f"📄 <b>Транскрибация аудио</b>\n\n<b>Файл:</b> <code>{os.path.basename(txt_filepath)}</code>"
-            await notifier.send_admin_notification_with_content(
-                message=message_caption,
-                setting_key='notify_send_transcriptions',
-                file_path=txt_filepath,
-                send_format=settings.get('notify_transcriptions_format', 'file')
-            )
-
         base_name_parts = os.path.basename(txt_filepath).split('_')
         if len(base_name_parts) < 3:
             logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
             return
             
-        # ИСПРАВЛЕНИЕ: ID комнаты находится на 3-й позиции (индекс 2)
         room_id = base_name_parts[2]
         
         search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")

@@ -29,13 +29,12 @@ async function main() {
     const roomId = path.split('/')[2];
     let rtcConfig = null;
     let iceServerDetails = {};
-    let recordingSettings = { is_enabled: false, audio_bitrate: 16000 };
+    let isRecordingEnabled = false;
 
     try {
-        // ИСПРАВЛЕНИЕ: Запрашиваем /api/recording/settings вместо /api/recording/status
         const [iceResponse, recordingResponse] = await Promise.all([
             fetch('/api/ice-servers'),
-            fetch('/api/recording/settings')
+            fetch('/api/recording/status')
         ]);
 
         if (!iceResponse.ok) throw new Error(`Server responded with status ${iceResponse.status} for ICE servers`);
@@ -59,9 +58,9 @@ async function main() {
         console.log("ICE servers configuration loaded.");
 
         if (recordingResponse.ok) {
-            // ИСПРАВЛЕНИЕ: Обрабатываем новый формат ответа
-            recordingSettings = await recordingResponse.json();
-            console.log(`Call recording is ${recordingSettings.is_enabled ? 'ENABLED' : 'DISABLED'} with bitrate ${recordingSettings.audio_bitrate}.`);
+            const recordingStatus = await recordingResponse.json();
+            isRecordingEnabled = recordingStatus.is_enabled;
+            console.log(`Call recording is ${isRecordingEnabled ? 'ENABLED' : 'DISABLED'}.`);
         }
 
     } catch (error) {
@@ -75,8 +74,7 @@ async function main() {
         };
     }
 
-    // ИСПРАВЛЕНИЕ: Передаем весь объект с настройками записи
-    orchestrator.initialize(roomId, rtcConfig, iceServerDetails, recordingSettings);
+    orchestrator.initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled);
 }
 
 document.addEventListener('DOMContentLoaded', main);

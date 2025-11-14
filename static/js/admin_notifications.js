@@ -1,21 +1,22 @@
 import { fetchData } from './admin_api.js';
 
-let saveNotificationsBtn, savedIndicator, form;
+let saveNotificationsBtn, savedIndicator, notificationCheckboxes, notificationRadios;
 
 async function loadNotificationSettings() {
     const settings = await fetchData('admin_settings');
     if (settings) {
-        form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+        // Загружаем чекбоксы
+        notificationCheckboxes.forEach(checkbox => {
             if (settings.hasOwnProperty(checkbox.name)) {
                 checkbox.checked = settings[checkbox.name];
             }
         });
-        form.querySelectorAll('.format-toggle').forEach(toggle => {
-            const key = toggle.dataset.key;
-            const value = settings[key] || 'file';
-            toggle.querySelectorAll('button').forEach(btn => {
-                btn.classList.toggle('active', btn.dataset.value === value);
-            });
+
+        // Загружаем радио-кнопки
+        notificationRadios.forEach(radio => {
+            if (settings.hasOwnProperty(radio.name) && settings[radio.name] === radio.value) {
+                radio.checked = true;
+            }
         });
     }
 }
@@ -28,14 +29,22 @@ async function saveNotificationSettings() {
     }
 
     const payload = { ...currentSettings };
-
-    form.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+    
+    // Собираем значения чекбоксов
+    notificationCheckboxes.forEach(checkbox => {
         payload[checkbox.name] = checkbox.checked;
     });
-    form.querySelectorAll('.format-toggle').forEach(toggle => {
-        const key = toggle.dataset.key;
-        const activeButton = toggle.querySelector('button.active');
-        payload[key] = activeButton ? activeButton.dataset.value : 'file';
+
+    // Собираем значения радио-кнопок
+    // Сначала находим уникальные имена групп радио-кнопок
+    const radioNames = new Set();
+    notificationRadios.forEach(r => radioNames.add(r.name));
+    
+    radioNames.forEach(name => {
+        const selected = document.querySelector(`input[name="${name}"]:checked`);
+        if (selected) {
+            payload[name] = selected.value;
+        }
     });
 
     const result = await fetchData('admin_settings', {
@@ -53,21 +62,12 @@ async function saveNotificationSettings() {
 }
 
 export function initNotifications() {
-    form = document.getElementById('notifications-form');
     saveNotificationsBtn = document.getElementById('save-notification-settings');
     savedIndicator = document.getElementById('settings-saved-indicator');
+    notificationCheckboxes = document.querySelectorAll('#notifications input[type="checkbox"]');
+    notificationRadios = document.querySelectorAll('#notifications input[type="radio"]');
 
     saveNotificationsBtn.addEventListener('click', saveNotificationSettings);
-
-    form.addEventListener('click', (e) => {
-        const button = e.target.closest('.format-toggle button');
-        if (button) {
-            e.preventDefault();
-            const parent = button.parentElement;
-            parent.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-        }
-    });
 
     loadNotificationSettings();
 }

@@ -252,9 +252,12 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
+    // ИСПРАВЛЕНИЕ: Немедленно сбрасываем состояние, чтобы разрешить новый звонок.
+    // Загрузка записи происходит в фоне.
     state.resetCallState();
     
     uploadRecordings().finally(() => {
+        // Единственное, что мы делаем после загрузки - это снова включаем кнопку "положить трубку".
         hangupBtn.disabled = false;
     });
 }
@@ -433,13 +436,12 @@ function setupEventListeners() {
     uiManager.setupLocalVideoInteraction();
 }
 
-export function initialize(roomId, rtcConfig, iceServerDetails, recordingSettings) {
+export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled) {
     logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
     state.setRoomId(roomId);
     state.setRtcConfig(rtcConfig);
     state.setIceServerDetails(iceServerDetails);
-    state.setIsRecordingEnabled(recordingSettings.is_enabled);
-    state.setAudioBitrate(recordingSettings.audio_bitrate);
+    state.setIsRecordingEnabled(isRecordingEnabled);
 
     media.init(logToScreen);
     monitor.init({
@@ -471,7 +473,7 @@ export function initialize(roomId, rtcConfig, iceServerDetails, recordingSetting
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
-                    const recorderOptions = { audioBitsPerSecond: s.audioBitrate };
+                    const recorderOptions = { audioBitsPerSecond: 16000 };
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
                     localRecorder.start();
                 }

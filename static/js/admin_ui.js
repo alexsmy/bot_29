@@ -13,19 +13,6 @@ function populateIcons() {
     document.getElementById('icon-reports').innerHTML = ICONS.reports;
     document.getElementById('icon-logs').innerHTML = ICONS.logs;
     document.getElementById('icon-danger').innerHTML = ICONS.danger;
-    document.getElementById('icon-settings-rooms').innerHTML = ICONS.settingsGroup;
-    document.getElementById('icon-settings-text').innerHTML = ICONS.settingsGroup;
-    document.getElementById('icon-settings-audio').innerHTML = ICONS.settingsGroup;
-    document.getElementById('icon-settings-text-2').innerHTML = ICONS.settingsGroup;
-    document.getElementById('icon-file-1').innerHTML = ICONS.file;
-    document.getElementById('icon-message-1').innerHTML = ICONS.message;
-    document.getElementById('icon-file-2').innerHTML = ICONS.file;
-    document.getElementById('icon-message-2').innerHTML = ICONS.message;
-    document.getElementById('icon-refresh').innerHTML = ICONS.refresh;
-    document.getElementById('icon-copy').innerHTML = ICONS.copy;
-    document.getElementById('icon-download').innerHTML = ICONS.download;
-    document.getElementById('icon-delete').innerHTML = ICONS.delete;
-    document.getElementById('icon-close').innerHTML = ICONS.close;
 }
 
 function setupThemeToggle() {

@@ -27,24 +27,6 @@ async def close_pool():
 async def init_db():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # --- НАЧАЛО ИСПРАВЛЕНИЯ: Простая миграция схемы ---
-        # Проверяем, существует ли таблица admin_settings перед тем, как проверять ее колонки
-        table_exists = await conn.fetchval(
-            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'admin_settings')"
-        )
-        if table_exists:
-            # Проверяем тип колонки 'value'. Если он boolean, меняем на TEXT.
-            column_type = await conn.fetchval(
-                "SELECT data_type FROM information_schema.columns WHERE table_name = 'admin_settings' AND column_name = 'value'"
-            )
-            if column_type and column_type.lower() == 'boolean':
-                logger.warning("Обнаружена устаревшая схема таблицы admin_settings. Обновление value: BOOLEAN -> TEXT...")
-                # Сначала удаляем старые записи, чтобы избежать конфликта типов при ALTER
-                await conn.execute("TRUNCATE TABLE admin_settings;")
-                await conn.execute("ALTER TABLE admin_settings ALTER COLUMN value TYPE TEXT;")
-                logger.info("Схема таблицы admin_settings успешно обновлена.")
-        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
-
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
@@ -113,6 +95,8 @@ async def init_db():
             )
         ''')
         
+        # ИЗМЕНЕНИЕ: Создаем таблицу с value TEXT, а не BOOLEAN
+        # Если таблица уже существует со старым типом, мы попытаемся изменить тип колонки
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_settings (
                 key TEXT PRIMARY KEY,
@@ -120,24 +104,34 @@ async def init_db():
             )
         ''')
         
-        await conn.execute('''
-            INSERT INTO admin_settings (key, value) VALUES
-            ('notify_on_room_creation', 'true'),
-            ('notify_on_call_start', 'true'),
-            ('notify_on_call_end', 'true'),
-            ('send_connection_report', 'true'),
-            ('notify_on_connection_details', 'true'),
-            ('enable_call_recording', 'false'),
-            ('enable_transcription', 'true'),
-            ('enable_dialogue_creation', 'true'),
-            ('enable_summary_creation', 'true'),
-            ('audio_bitrate', '16'),
-            ('notify_send_transcriptions', 'false'),
-            ('notify_transcriptions_format', 'file'),
-            ('notify_send_summary', 'false'),
-            ('notify_summary_format', 'message')
-            ON CONFLICT(key) DO NOTHING
-        ''')
+        # Миграция: проверяем тип колонки и меняем при необходимости
+        try:
+            await conn.execute("ALTER TABLE admin_settings ALTER COLUMN value TYPE TEXT USING value::text")
+        except Exception:
+            pass # Игнорируем ошибку, если колонка уже TEXT
+
+        # Инициализация настроек по умолчанию
+        default_settings = {
+            'notify_on_room_creation': 'true',
+            'notify_on_call_start': 'true',
+            'notify_on_call_end': 'true',
+            'send_connection_report': 'true',
+            'notify_on_connection_details': 'true',
+            'enable_call_recording': 'false',
+            # Новые настройки
+            'send_audio_recording': 'false',
+            'send_transcript': 'false',
+            'transcript_mode': 'file', # file или message
+            'send_summary': 'false',
+            'summary_mode': 'message' # file или message
+        }
+        
+        for key, value in default_settings.items():
+            await conn.execute(
+                "INSERT INTO admin_settings (key, value) VALUES ($1, $2) ON CONFLICT(key) DO NOTHING",
+                key, value
+            )
+
     logger.info("База данных PostgreSQL успешно инициализирована.")
 
 async def log_user(user_id, first_name, last_name, username):
@@ -405,14 +399,14 @@ async def get_admin_settings() -> Dict[str, Any]:
         rows = await conn.fetch("SELECT key, value FROM admin_settings")
         settings = {}
         for row in rows:
-            key = row['key']
-            value = row['value']
-            if value.lower() in ('true', 'false'):
-                settings[key] = value.lower() == 'true'
-            elif value.isdigit():
-                settings[key] = int(value)
+            val = row['value']
+            # Конвертируем строки 'true'/'false' в boolean для удобства
+            if val.lower() == 'true':
+                settings[row['key']] = True
+            elif val.lower() == 'false':
+                settings[row['key']] = False
             else:
-                settings[key] = value
+                settings[row['key']] = val
         return settings
 
 async def update_admin_settings(settings: Dict[str, Any]):
@@ -420,12 +414,14 @@ async def update_admin_settings(settings: Dict[str, Any]):
     async with pool.acquire() as conn:
         async with conn.transaction():
             for key, value in settings.items():
+                # Конвертируем boolean в строки перед сохранением
+                val_str = str(value).lower() if isinstance(value, bool) else str(value)
                 await conn.execute(
                     """
                     INSERT INTO admin_settings (key, value) VALUES ($1, $2)
                     ON CONFLICT (key) DO UPDATE SET value = $2
                     """,
-                    key, str(value)
+                    key, val_str
                 )
         logger.info("Настройки администратора обновлены.")
 

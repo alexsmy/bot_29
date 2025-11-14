@@ -19,7 +19,8 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
 
     try:
         settings = await database.get_admin_settings()
-        if not settings.get(setting_key, False):
+        # Если setting_key передан, проверяем настройку. Если None - отправляем безусловно (для внутренних нужд)
+        if setting_key and not settings.get(setting_key, False):
             return
 
         bot = _bot_app.bot
@@ -45,30 +46,78 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
     except Exception as e:
         logger.error(f"Не удалось отправить уведомление администратору ('{setting_key}'): {e}")
 
-# НОВАЯ ФУНКЦИЯ
-async def send_admin_notification_with_content(message: str, setting_key: str, file_path: str, send_format: str):
+async def send_audio_content(file_path: str):
+    """Отправляет аудиофайл администратору, если включена настройка."""
+    if not _bot_app or not _admin_id:
+        return
+
+    try:
+        settings = await database.get_admin_settings()
+        if not settings.get('send_audio_recording', False):
+            return
+
+        bot = _bot_app.bot
+        with open(file_path, 'rb') as audio_file:
+            await bot.send_audio(
+                chat_id=_admin_id,
+                audio=InputFile(audio_file, filename=os.path.basename(file_path)),
+                caption=f"🎤 Аудиозапись: {os.path.basename(file_path)}"
+            )
+        logger.info(f"Администратору отправлена аудиозапись: {os.path.basename(file_path)}")
+    except Exception as e:
+        logger.error(f"Ошибка при отправке аудиозаписи: {e}")
+
+async def send_text_content(file_path: str, content_type: str):
     """
-    Отправляет уведомление администратору, либо как файл, либо как текстовое сообщение,
-    в зависимости от настройки send_format.
+    Отправляет текстовый контент (транскрипцию или саммери) администратору.
+    content_type: 'transcript' или 'summary'
     """
-    if send_format == 'file':
-        await send_admin_notification(message, setting_key, file_path=file_path)
-    elif send_format == 'message':
-        try:
+    if not _bot_app or not _admin_id:
+        return
+
+    try:
+        settings = await database.get_admin_settings()
+        
+        setting_enabled_key = f"send_{content_type}" # send_transcript или send_summary
+        setting_mode_key = f"{content_type}_mode"     # transcript_mode или summary_mode
+        
+        if not settings.get(setting_enabled_key, False):
+            return
+
+        mode = settings.get(setting_mode_key, 'file')
+        bot = _bot_app.bot
+        filename = os.path.basename(file_path)
+        
+        if mode == 'file':
+            with open(file_path, 'rb') as doc_file:
+                await bot.send_document(
+                    chat_id=_admin_id,
+                    document=InputFile(doc_file, filename=filename),
+                    caption=f"📄 {content_type.capitalize()}: {filename}"
+                )
+            logger.info(f"Администратору отправлен файл {content_type}: {filename}")
+            
+        elif mode == 'message':
             with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+                text = f.read()
             
-            # Ограничиваем длину сообщения, чтобы не превысить лимит Telegram
+            header = f"📝 <b>{content_type.capitalize()} ({filename})</b>\n\n"
+            full_text = header + text
+            
+            # Telegram имеет лимит 4096 символов. Разбиваем сообщение.
             max_len = 4000
-            if len(content) > max_len:
-                content = content[:max_len] + "\n\n... (сообщение было обрезано)"
+            parts = [full_text[i:i+max_len] for i in range(0, len(full_text), max_len)]
             
-            full_message = f"{message}\n\n<pre>{content}</pre>"
-            await send_admin_notification(full_message, setting_key)
-        except Exception as e:
-            logger.error(f"Не удалось прочитать файл {file_path} для отправки как сообщение: {e}")
-            # Если не удалось отправить как сообщение, отправляем как файл
-            await send_admin_notification(message, setting_key, file_path=file_path)
+            for part in parts:
+                await bot.send_message(
+                    chat_id=_admin_id,
+                    text=part,
+                    parse_mode='HTML' if part == parts[0] else None # HTML только для заголовка
+                )
+            logger.info(f"Администратору отправлен текст {content_type} сообщением.")
+
+    except Exception as e:
+        logger.error(f"Ошибка при отправке текстового контента ({content_type}): {e}")
 
 def schedule_notification(*args, **kwargs):
     asyncio.run_coroutine_threadsafe(send_admin_notification(*args, **kwargs), _bot_app.loop)

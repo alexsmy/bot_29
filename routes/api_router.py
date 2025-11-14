@@ -1,3 +1,5 @@
+# bot_29-main/routes/api_router.py
+
 import os
 import asyncio
 import shutil
@@ -82,14 +84,11 @@ async def get_room_lifetime(room_id: str):
     remaining_seconds = (expiry_time - datetime.now(timezone.utc)).total_seconds()
     return {"remaining_seconds": max(0, remaining_seconds)}
 
-# ИЗМЕНЕНИЕ: Эндпоинт теперь возвращает больше настроек
-@router.get("/api/recording/settings", response_class=CustomJSONResponse)
-async def get_recording_settings():
+@router.get("/api/recording/status", response_class=CustomJSONResponse)
+async def get_recording_status():
     settings = await database.get_admin_settings()
-    return {
-        "is_enabled": settings.get('enable_call_recording', False),
-        "audio_bitrate": settings.get('audio_bitrate', 16) * 1000 # Отправляем в битах
-    }
+    is_enabled = settings.get('enable_call_recording', False)
+    return {"is_enabled": is_enabled}
 
 @router.post("/api/record/upload", response_class=CustomJSONResponse)
 async def upload_recording(

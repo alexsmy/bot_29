@@ -29,35 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     initLogs();
     initDangerZone();
 
-    // ИЗМЕНЕНИЕ: Запускаем авто-обновление при активации соответствующей вкладки
-    const navLinks = document.querySelectorAll('.nav-link');
-    let dataUpdateInterval = null;
-
-    const startDataUpdateInterval = () => {
-        if (dataUpdateInterval) clearInterval(dataUpdateInterval);
-        dataUpdateInterval = setInterval(() => {
-            const activeTabId = document.querySelector('.content-section.active')?.id;
-            if (activeTabId === 'stats') loadStats();
-            if (activeTabId === 'rooms') loadActiveRooms();
-        }, 10000);
-    };
-
-    const stopDataUpdateInterval = () => {
-        if (dataUpdateInterval) clearInterval(dataUpdateInterval);
-        dataUpdateInterval = null;
-    };
-
-    navLinks.forEach(link => {
-        link.addEventListener('click', (e) => {
-            const targetId = link.getAttribute('href').substring(1);
-            if (targetId === 'stats' || targetId === 'rooms') {
-                startDataUpdateInterval();
-            } else {
-                stopDataUpdateInterval();
-            }
-        });
-    });
-
-    // Запускаем интервал для вкладки по умолчанию
-    startDataUpdateInterval();
+    setInterval(() => {
+        loadStats();
+        loadActiveRooms();
+    }, 10000);
 });
