@@ -133,9 +133,16 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         
         # Переименовываем обработанные файлы, чтобы они не мешали следующим звонкам
         try:
-            os.rename(file1_path, file1_path + ".processed")
-            os.rename(file2_path, file2_path + ".processed")
-            logger.info(f"[Groq] Исходные файлы транскрипции переименованы в *.processed")
+            # ИСПРАВЛЕНИЕ: Вставляем суффикс ".processed" перед расширением файла,
+            # чтобы сохранить исходное расширение (.txt) и обеспечить корректное
+            # отображение и чтение файла в админ-панели.
+            base1, ext1 = os.path.splitext(file1_path)
+            os.rename(file1_path, f"{base1}.processed{ext1}")
+
+            base2, ext2 = os.path.splitext(file2_path)
+            os.rename(file2_path, f"{base2}.processed{ext2}")
+            
+            logger.info(f"[Groq] Исходные файлы транскрипции переименованы в *.processed.txt")
         except OSError as e:
             logger.error(f"[Groq] Не удалось переименовать обработанные файлы: {e}")
 
@@ -207,7 +214,7 @@ async def transcribe_audio_file(filepath: str):
             f for f in all_txt_files 
             if not f.endswith('_dialog.txt') 
             and not f.endswith('_resume.txt')
-            and not f.endswith('.processed')
+            and not f.endswith('.processed.txt') # Исключаем уже обработанные файлы
         ]
 
         if len(participant_txt_files) == 2:
