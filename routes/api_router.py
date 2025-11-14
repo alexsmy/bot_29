@@ -1,5 +1,3 @@
-# bot_29-main/routes/api_router.py
-
 import os
 import asyncio
 import shutil
@@ -111,7 +109,11 @@ async def upload_recording(
 
         logger.info(f"Аудиозапись сохранена: {filepath}")
         
-        # Запускаем транскрипцию в фоновом режиме
+        message_to_admin = f"🎤 <b>Получена аудиозапись звонка</b>\n\n<b>Файл:</b> <code>{filename}</code>"
+        asyncio.create_task(
+            notifier.send_admin_notification(message_to_admin, 'notify_on_audio_record', file_path=filepath)
+        )
+        
         asyncio.create_task(transcribe_audio_file(filepath))
         
         return {"status": "ok", "filename": filename}

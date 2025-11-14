@@ -107,7 +107,12 @@ async def init_db():
             ('notify_on_call_end', TRUE),
             ('send_connection_report', TRUE),
             ('notify_on_connection_details', TRUE),
-            ('enable_call_recording', FALSE)
+            ('enable_call_recording', FALSE),
+            ('notify_on_audio_record', FALSE),
+            ('notify_on_dialog_as_file', TRUE),
+            ('notify_on_dialog_as_message', FALSE),
+            ('notify_on_summary_as_file', TRUE),
+            ('notify_on_summary_as_message', FALSE)
             ON CONFLICT(key) DO NOTHING
         ''')
     logger.info("База данных PostgreSQL успешно инициализирована.")

@@ -13,6 +13,11 @@ class AdminSettings(BaseModel):
     send_connection_report: bool
     notify_on_connection_details: bool
     enable_call_recording: bool
+    notify_on_audio_record: bool
+    notify_on_dialog_as_file: bool
+    notify_on_dialog_as_message: bool
+    notify_on_summary_as_file: bool
+    notify_on_summary_as_message: bool
 
 @router.get("/admin_settings", response_class=CustomJSONResponse)
 async def get_admin_settings_endpoint():

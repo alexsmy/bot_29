@@ -8,6 +8,12 @@ async function loadNotificationSettings() {
         notificationCheckboxes.forEach(checkbox => {
             checkbox.checked = settings[checkbox.name] || false;
         });
+
+        document.querySelector('input[name="dialog_delivery_method"][value="file"]').checked = settings.notify_on_dialog_as_file;
+        document.querySelector('input[name="dialog_delivery_method"][value="message"]').checked = settings.notify_on_dialog_as_message;
+        
+        document.querySelector('input[name="summary_delivery_method"][value="file"]').checked = settings.notify_on_summary_as_file;
+        document.querySelector('input[name="summary_delivery_method"][value="message"]').checked = settings.notify_on_summary_as_message;
     }
 }
 
@@ -22,6 +28,14 @@ async function saveNotificationSettings() {
     notificationCheckboxes.forEach(checkbox => {
         payload[checkbox.name] = checkbox.checked;
     });
+
+    const dialogMethod = document.querySelector('input[name="dialog_delivery_method"]:checked').value;
+    payload.notify_on_dialog_as_file = dialogMethod === 'file';
+    payload.notify_on_dialog_as_message = dialogMethod === 'message';
+
+    const summaryMethod = document.querySelector('input[name="summary_delivery_method"]:checked').value;
+    payload.notify_on_summary_as_file = summaryMethod === 'file';
+    payload.notify_on_summary_as_message = summaryMethod === 'message';
 
     const result = await fetchData('admin_settings', {
         method: 'POST',
@@ -40,7 +54,7 @@ async function saveNotificationSettings() {
 export function initNotifications() {
     saveNotificationsBtn = document.getElementById('save-notification-settings');
     savedIndicator = document.getElementById('settings-saved-indicator');
-    notificationCheckboxes = document.querySelectorAll('#notifications input[type="checkbox"]');
+    notificationCheckboxes = document.querySelectorAll('#notifications-form input[type="checkbox"]');
 
     saveNotificationsBtn.addEventListener('click', saveNotificationSettings);
 

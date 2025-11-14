@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -9,6 +8,21 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/admin.css">
+    <style>
+        .delivery-method {
+            padding-left: 2.25rem;
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 1.5rem;
+        }
+        .delivery-method label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9em;
+            color: var(--text-secondary);
+        }
+    </style>
 </head>
 <body data-token="{{ token }}" data-token-expires-at="{{ expires_at }}">
     <div class="dashboard-container">
@@ -136,7 +150,7 @@
             <section id="notifications" class="content-section">
                 <h2>Настройки уведомлений</h2>
                 <p class="section-description">Управляйте тем, какие уведомления вы хотите получать от бота.</p>
-                <div class="notification-settings-form">
+                <div id="notifications-form" class="notification-settings-form">
                     <div class="form-group">
                         <label class="checkbox-label">
                             <input type="checkbox" name="notify_on_room_creation">
@@ -166,6 +180,31 @@
                             <input type="checkbox" name="notify_on_connection_details">
                             <span>Присылать сообщение об участниках соединения</span>
                         </label>
+                    </div>
+                    <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 1.5rem 0;">
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="notify_on_audio_record">
+                            <span>Присылать аудио-файл (.webm) после записи</span>
+                        </label>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <span>Присылать готовый диалог</span>
+                        </label>
+                        <div class="delivery-method">
+                            <label><input type="radio" name="dialog_delivery_method" value="file" checked><span>Файлом (.txt)</span></label>
+                            <label><input type="radio" name="dialog_delivery_method" value="message"><span>Сообщением</span></label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <span>Присылать краткий пересказ</span>
+                        </label>
+                        <div class="delivery-method">
+                            <label><input type="radio" name="summary_delivery_method" value="file" checked><span>Файлом (.txt)</span></label>
+                            <label><input type="radio" name="summary_delivery_method" value="message"><span>Сообщением</span></label>
+                        </div>
                     </div>
                     <div class="form-actions">
                         <button id="save-notification-settings" class="action-btn primary">Сохранить</button>
