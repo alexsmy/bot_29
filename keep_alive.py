@@ -1,13 +1,15 @@
 import asyncio
 import random
+import os
 import httpx
 from logger_config import logger
 
-# Убираем проверку URL с уровня модуля
-
 # Минимальное и максимальное время ожидания в минутах
-MIN_WAIT_MINUTES = 11
+MIN_WAIT_MINUTES = 12
 MAX_WAIT_MINUTES = 14
+
+# "Железный" запасной URL, как вы и просили
+FALLBACK_URL = "https://bot-29-nx0w.onrender.com"
 
 async def check_internet_connection():
     """Проверяет базовое подключение к интернету, обращаясь к google.com."""
@@ -26,18 +28,22 @@ async def start_keep_alive_task():
     Основная задача, которая периодически отправляет запросы на главную страницу
     приложения, чтобы предотвратить его "засыпание" на хостинге.
     """
-    # Начальная задержка в 60 секунд, чтобы дать основному приложению полностью запуститься
     logger.info("[KeepAlive] Задача самоподдержки инициализирована, запуск проверки через 60 секунд...")
     await asyncio.sleep(60)
 
-    # ИЗМЕНЕНИЕ: Импортируем и проверяем конфигурацию ВНУТРИ запущенной задачи
-    from config import BOT_USERNAME, WEB_APP_URL
+    # ИЗМЕНЕНИЕ: Считываем переменную окружения напрямую внутри задачи
+    app_url_from_env = os.environ.get("WEB_APP_URL")
+    bot_username_from_env = os.environ.get("BOT_USERNAME")
 
-    APP_URL = WEB_APP_URL
-    # Улучшенная проверка: теперь мы также проверяем, что URL не является локальным
-    if not APP_URL or "localhost" in APP_URL:
-        logger.warning(f"[KeepAlive] Внешний URL (WEB_APP_URL='{APP_URL}') не настроен корректно. Задача самоподдержки не будет запущена.")
-        return # Корректно выходим из задачи
+    APP_URL = None
+    
+    # Проверяем, что переменная из окружения корректна
+    if app_url_from_env and "localhost" not in app_url_from_env and "0.0.0.0" not in app_url_from_env:
+        APP_URL = app_url_from_env
+        logger.info(f"[KeepAlive] Используется URL из переменной окружения WEB_APP_URL.")
+    else:
+        APP_URL = FALLBACK_URL
+        logger.warning(f"[KeepAlive] WEB_APP_URL не найден или некорректен ('{app_url_from_env}'). Используется запасной URL.")
 
     logger.info(f"[KeepAlive] Задача самоподдержки запускается. Целевой URL: {APP_URL}")
 
@@ -46,7 +52,7 @@ async def start_keep_alive_task():
         return
 
     headers = {
-        "User-Agent": f"KeepAlive-Bot/{BOT_USERNAME or 'Internal'}"
+        "User-Agent": f"KeepAlive-Bot/{bot_username_from_env or 'Internal'}"
     }
 
     while True:
