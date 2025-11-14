@@ -110,7 +110,7 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         
         base_name_parts = os.path.basename(file1_path).split('_')
         date_part = base_name_parts[0]
-        room_id_part = base_name_parts[2]
+        room_id_part = base_name_parts[1] # ИСПРАВЛЕНО: Индекс room_id был неверным
         output_filename = f"{date_part}_{room_id_part}_dialog.txt"
         output_filepath = os.path.join(RECORDS_DIR, output_filename)
 
@@ -127,6 +127,14 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
             setting_key_message='notify_on_dialog_as_message'
         )
         
+        # ИСПРАВЛЕНИЕ: Переименовываем обработанные файлы, чтобы они не мешали следующим звонкам
+        try:
+            os.rename(file1_path, file1_path + ".processed")
+            os.rename(file2_path, file2_path + ".processed")
+            logger.info(f"[Groq] Исходные файлы транскрипции переименованы в *.processed")
+        except OSError as e:
+            logger.error(f"[Groq] Не удалось переименовать обработанные файлы: {e}")
+
         asyncio.create_task(summarize_dialogue(output_filepath))
 
     except FileNotFoundError as e:
@@ -184,12 +192,18 @@ async def transcribe_audio_file(filepath: str):
             logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
             return
             
-        room_id = base_name_parts[2]
+        room_id = base_name_parts[1] # ИСПРАВЛЕНО: Индекс room_id был неверным
         
         search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")
         all_txt_files = glob.glob(search_pattern)
         
-        participant_txt_files = [f for f in all_txt_files if not f.endswith('_dialog.txt') and not f.endswith('_resume.txt')]
+        # ИСПРАВЛЕНИЕ: Фильтруем также файлы, которые уже были обработаны
+        participant_txt_files = [
+            f for f in all_txt_files 
+            if not f.endswith('_dialog.txt') 
+            and not f.endswith('_resume.txt')
+            and not f.endswith('.processed')
+        ]
 
         if len(participant_txt_files) == 2:
             logger.info(f"[Groq] Обнаружены обе транскрипции для сессии с room_id {room_id}. Запускаю слияние.")

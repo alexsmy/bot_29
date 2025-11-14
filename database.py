@@ -387,9 +387,10 @@ async def update_admin_settings(settings: Dict[str, bool]):
     async with pool.acquire() as conn:
         async with conn.transaction():
             for key, value in settings.items():
+                # ИСПРАВЛЕНИЕ: Добавлено явное приведение типа к BOOLEAN для параметра $2
                 await conn.execute(
                     """
-                    INSERT INTO admin_settings (key, value) VALUES ($1, $2)
+                    INSERT INTO admin_settings (key, value) VALUES ($1, $2::boolean)
                     ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
                     """,
                     key, value
