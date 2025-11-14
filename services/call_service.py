@@ -34,23 +34,16 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
         p2_ip = receiver.get('ip_address') if receiver else None
         initiator_ip = p1_ip
 
-        new_call_id = await database.log_call_start(
+        asyncio.create_task(database.log_call_start(
             room.room_id,
             room.pending_call_type,
             p1_ip,
             p2_ip,
             initiator_ip
-        )
-        
-        if new_call_id:
-            call_started_message = {
-                "type": "call_started",
-                "data": {"call_id": new_call_id}
-            }
-            await room.broadcast_message(call_started_message)
+        ))
         
         message_to_admin = (
-            f"📞 <b>Звонок начался (ID: {new_call_id})</b>\n\n"
+            f"📞 <b>Звонок начался</b>\n\n"
             f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
             f"<b>Тип:</b> {room.pending_call_type}\n"
             f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"

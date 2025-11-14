@@ -1,8 +1,9 @@
+// bot_29-main/static/js/call_state.js
+
 const state = {
     currentUser: {},
     targetUser: {},
     currentCallType: 'audio',
-    currentCallId: null,
     callTimerInterval: null,
     lifetimeTimerInterval: null,
     isSpeakerMuted: false,
@@ -27,7 +28,6 @@ export function getState() {
 export function setCurrentUser(user) { state.currentUser = user; }
 export function setTargetUser(user) { state.targetUser = user; }
 export function setCurrentCallType(type) { state.currentCallType = type; }
-export function setCurrentCallId(id) { state.currentCallId = id; }
 export function setCallTimerInterval(interval) { state.callTimerInterval = interval; }
 export function setLifetimeTimerInterval(interval) { state.lifetimeTimerInterval = interval; }
 export function setIsSpeakerMuted(muted) { state.isSpeakerMuted = muted; }
@@ -50,5 +50,4 @@ export function resetCallState() {
     setIsSpeakerMuted(false);
     setIsEndingCall(false);
     setTargetUser({});
-    setCurrentCallId(null);
 }

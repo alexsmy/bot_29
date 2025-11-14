@@ -1,3 +1,5 @@
+# bot_29-main/routes/admin/recordings.py
+
 import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
@@ -31,10 +33,11 @@ async def list_recordings():
                 continue
             
             parts = filename.split('_')
-            if len(parts) < 4:
+            if len(parts) < 3:
                 continue
             
-            session_key = f"{parts[0]}_{parts[1]}_{parts[2]}"
+            # ИСПРАВЛЕНО: Ключ сессии - это "ДАТА_ROOMID"
+            session_key = f"{parts[0]}_{parts[2]}"
             
             sessions[session_key]["session_id"] = session_key
             sessions[session_key]["files"].append(filename)

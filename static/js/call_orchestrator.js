@@ -1,3 +1,5 @@
+// bot_29-main/static/js/call_orchestrator.js
+
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -95,10 +97,6 @@ function proceedToCall(asSpectator = false) {
         },
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
-        onCallStarted: (data) => {
-            state.setCurrentCallId(data.call_id);
-            logToScreen(`[CALL] Call started with ID: ${data.call_id}`);
-        },
         onCallAccepted: () => {
             uiManager.stopRingOutSound();
             const localStream = media.getLocalStream();
@@ -198,8 +196,8 @@ function declineCall() {
     state.setTargetUser({});
 }
 
-function uploadRecordings(isRecordingEnabled, roomId, userId, callId) {
-    if (!isRecordingEnabled || !localRecorder) {
+function uploadRecordings() {
+    if (!state.getState().isRecordingEnabled || !localRecorder) {
         return Promise.resolve();
     }
 
@@ -210,10 +208,10 @@ function uploadRecordings(isRecordingEnabled, roomId, userId, callId) {
             logToScreen(`[RECORDER] No data to upload.`);
             return Promise.resolve();
         }
+        const s = state.getState();
         const formData = new FormData();
-        formData.append('room_id', roomId);
-        formData.append('user_id', userId);
-        formData.append('call_id', callId);
+        formData.append('room_id', s.roomId);
+        formData.append('user_id', s.currentUser.id);
         formData.append('file', blob, `recording.webm`);
 
         return fetch('/api/record/upload', {
@@ -254,11 +252,14 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
-    const s = state.getState();
-    uploadRecordings(s.isRecordingEnabled, s.roomId, s.currentUser.id, s.currentCallId);
-    
+    // ИСПРАВЛЕНИЕ: Немедленно сбрасываем состояние, чтобы разрешить новый звонок.
+    // Загрузка записи происходит в фоне.
     state.resetCallState();
-    hangupBtn.disabled = false;
+    
+    uploadRecordings().finally(() => {
+        // Единственное, что мы делаем после загрузки - это снова включаем кнопку "положить трубку".
+        hangupBtn.disabled = false;
+    });
 }
 
 async function initializeLocalMedia(callType) {
