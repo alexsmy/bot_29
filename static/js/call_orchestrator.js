@@ -12,14 +12,13 @@ import {
     closeSessionBtn, instructionsBtn, acceptBtn, declineBtn, hangupBtn, speakerBtn,
     muteBtn, videoBtn, screenShareBtn, localVideo, remoteVideo, localVideoContainer,
     toggleLocalViewBtn, toggleRemoteViewBtn, connectionStatus, deviceSettingsBtn,
-    cameraSelectCall, micSelectCall, speakerSelectCall
+    cameraSelectCall, micSelectCall, speakerSelectCall, callScreen
 } from './call_ui_elements.js';
 
 let localRecorder = null;
 
-// ИЗМЕНЕНИЕ: Добавлены константы для управления качеством скриншота
-const SCREENSHOT_SCALE = 0.75; // Масштаб (1 = 100%, 0.5 = 50%)
-const SCREENSHOT_QUALITY = 0.7; // Качество JPEG (от 0.0 до 1.0)
+const SCREENSHOT_SCALE = 0.8; 
+const SCREENSHOT_QUALITY = 0.75; 
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -399,41 +398,59 @@ async function takeAndUploadScreenshot() {
         return;
     }
 
-    logToScreen('[SCREENSHOT] Taking screenshot with advanced video handling...');
+    logToScreen('[SCREENSHOT] Starting multi-layer screenshot process...');
 
-    const onclone = (clonedDoc) => {
+    const oncloneHandler = (clonedDoc) => {
         const handleVideoElement = (originalVideo, clonedVideo) => {
             if (!clonedVideo || originalVideo.videoWidth === 0 || originalVideo.videoHeight === 0) return;
-
             const canvas = clonedDoc.createElement('canvas');
             canvas.width = originalVideo.videoWidth;
             canvas.height = originalVideo.videoHeight;
-            
             const ctx = canvas.getContext('2d');
             if (originalVideo.id === 'localVideo') {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
             }
             ctx.drawImage(originalVideo, 0, 0, canvas.width, canvas.height);
-            
             canvas.style.cssText = getComputedStyle(originalVideo).cssText;
             clonedVideo.parentNode.replaceChild(canvas, clonedVideo);
         };
-
         handleVideoElement(remoteVideo, clonedDoc.getElementById('remoteVideo'));
         handleVideoElement(localVideo, clonedDoc.getElementById('localVideo'));
     };
 
     try {
-        const canvas = await html2canvas(document.body, { 
+        const callScreenEl = document.getElementById('call-screen');
+        const uiOverlayEl = document.querySelector('.call-ui-overlay');
+
+        // 1. Снимок фона с видео
+        const backgroundCanvas = await html2canvas(callScreenEl, {
             useCORS: true,
-            onclone: onclone,
+            onclone: oncloneHandler,
+            scale: SCREENSHOT_SCALE,
+            ignoreElements: (element) => element.classList.contains('call-ui-overlay')
+        });
+
+        // 2. Снимок UI с прозрачным фоном
+        const uiCanvas = await html2canvas(uiOverlayEl, {
+            useCORS: true,
+            backgroundColor: null, // Прозрачный фон
             scale: SCREENSHOT_SCALE
         });
+
+        // 3. Композиция
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = backgroundCanvas.width;
+        finalCanvas.height = backgroundCanvas.height;
+        const ctx = finalCanvas.getContext('2d');
         
-        canvas.toBlob(blob => {
+        ctx.drawImage(backgroundCanvas, 0, 0);
+        ctx.drawImage(uiCanvas, 0, 0);
+
+        // 4. Загрузка
+        finalCanvas.toBlob(blob => {
             if (!blob) {
-                logToScreen('[SCREENSHOT] Failed to create blob from canvas.');
+                logToScreen('[SCREENSHOT] Failed to create final blob from canvas.');
                 return;
             }
             const formData = new FormData();
@@ -455,8 +472,9 @@ async function takeAndUploadScreenshot() {
             })
             .catch(err => logToScreen(`[SCREENSHOT] Upload error: ${err}`));
         }, 'image/jpeg', SCREENSHOT_QUALITY);
+
     } catch (error) {
-        logToScreen(`[SCREENSHOT] Error during html2canvas execution: ${error}`);
+        logToScreen(`[SCREENSHOT] Error during multi-layer html2canvas execution: ${error}`);
     }
 }
 
@@ -541,7 +559,7 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
-                    const recorderOptions = { audioBitsPerSecond: 16000 };
+                    const recorderOptions = { audioBitsPerSecond: 8000 };
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
                     localRecorder.start();
                 }
