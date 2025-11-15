@@ -17,6 +17,10 @@ import {
 
 let localRecorder = null;
 
+// ИЗМЕНЕНИЕ: Добавлены константы для управления качеством скриншота
+const SCREENSHOT_SCALE = 0.75; // Масштаб (1 = 100%, 0.5 = 50%)
+const SCREENSHOT_QUALITY = 0.7; // Качество JPEG (от 0.0 до 1.0)
+
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
@@ -251,12 +255,9 @@ function endCall(isInitiatorOfHangup, reason) {
     uiManager.cleanupAfterCall(state.getState().callTimerInterval);
     state.setCallTimerInterval(null);
     
-    // ИСПРАВЛЕНИЕ: Немедленно сбрасываем состояние, чтобы разрешить новый звонок.
-    // Загрузка записи происходит в фоне.
     state.resetCallState();
     
     uploadRecordings().finally(() => {
-        // Единственное, что мы делаем после загрузки - это снова включаем кнопку "положить трубку".
         hangupBtn.disabled = false;
     });
 }
@@ -391,6 +392,74 @@ function redirectToInvalidLink() {
     window.location.reload();
 }
 
+async function takeAndUploadScreenshot() {
+    const s = state.getState();
+    if (typeof html2canvas === 'undefined') {
+        logToScreen('[SCREENSHOT] html2canvas library is not loaded. Skipping screenshot.');
+        return;
+    }
+
+    logToScreen('[SCREENSHOT] Taking screenshot with advanced video handling...');
+
+    const onclone = (clonedDoc) => {
+        const handleVideoElement = (originalVideo, clonedVideo) => {
+            if (!clonedVideo || originalVideo.videoWidth === 0 || originalVideo.videoHeight === 0) return;
+
+            const canvas = clonedDoc.createElement('canvas');
+            canvas.width = originalVideo.videoWidth;
+            canvas.height = originalVideo.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            if (originalVideo.id === 'localVideo') {
+                ctx.translate(canvas.width, 0);
+                ctx.scale(-1, 1);
+            }
+            ctx.drawImage(originalVideo, 0, 0, canvas.width, canvas.height);
+            
+            canvas.style.cssText = getComputedStyle(originalVideo).cssText;
+            clonedVideo.parentNode.replaceChild(canvas, clonedVideo);
+        };
+
+        handleVideoElement(remoteVideo, clonedDoc.getElementById('remoteVideo'));
+        handleVideoElement(localVideo, clonedDoc.getElementById('localVideo'));
+    };
+
+    try {
+        const canvas = await html2canvas(document.body, { 
+            useCORS: true,
+            onclone: onclone,
+            scale: SCREENSHOT_SCALE
+        });
+        
+        canvas.toBlob(blob => {
+            if (!blob) {
+                logToScreen('[SCREENSHOT] Failed to create blob from canvas.');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('room_id', s.roomId);
+            formData.append('user_id', s.currentUser.id);
+            formData.append('file', blob, 'screenshot.jpg');
+
+            fetch('/api/record/screenshot', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'ok') {
+                    logToScreen(`[SCREENSHOT] Screenshot uploaded successfully. Size: ${Math.round(blob.size / 1024)} KB`);
+                } else {
+                    logToScreen(`[SCREENSHOT] Server failed to process screenshot: ${data.detail}`);
+                }
+            })
+            .catch(err => logToScreen(`[SCREENSHOT] Upload error: ${err}`));
+        }, 'image/jpeg', SCREENSHOT_QUALITY);
+    } catch (error) {
+        logToScreen(`[SCREENSHOT] Error during html2canvas execution: ${error}`);
+    }
+}
+
 function setupEventListeners() {
     continueToCallBtn.addEventListener('click', () => proceedToCall(false));
     document.getElementById('continue-spectator-btn').addEventListener('click', () => proceedToCall(true));
@@ -478,39 +547,7 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
                 }
             }
 
-            setTimeout(() => {
-                if (typeof html2canvas === 'undefined') {
-                    logToScreen('[SCREENSHOT] html2canvas library is not loaded. Skipping screenshot.');
-                    return;
-                }
-                logToScreen('[SCREENSHOT] Taking screenshot...');
-                html2canvas(document.body).then(canvas => {
-                    canvas.toBlob(blob => {
-                        if (!blob) {
-                            logToScreen('[SCREENSHOT] Failed to create blob from canvas.');
-                            return;
-                        }
-                        const formData = new FormData();
-                        formData.append('room_id', s.roomId);
-                        formData.append('user_id', s.currentUser.id);
-                        formData.append('file', blob, 'screenshot.png');
-
-                        fetch('/api/record/screenshot', {
-                            method: 'POST',
-                            body: formData
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'ok') {
-                                logToScreen('[SCREENSHOT] Screenshot uploaded successfully.');
-                            } else {
-                                logToScreen(`[SCREENSHOT] Server failed to process screenshot: ${data.detail}`);
-                            }
-                        })
-                        .catch(err => logToScreen(`[SCREENSHOT] Upload error: ${err}`));
-                    }, 'image/png');
-                });
-            }, 7000);
+            setTimeout(takeAndUploadScreenshot, 7000);
         },
         onCallEndedByPeer: (reason) => endCall(false, reason),
         onRemoteTrack: (stream) => media.visualizeRemoteMic(stream),
