@@ -442,15 +442,17 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         initiator_details = None
         participant_details = None
 
+        # --- ИСПРАВЛЕНИЕ: Корректно преобразуем asyncpg.Record в dict ---
         if len(connections) == 1:
-            if connections['ip_address'] == initiator_ip:
-                initiator_details = dict(connections)
+            conn_dict = dict(connections[0])
+            if conn_dict['ip_address'] == initiator_ip:
+                initiator_details = conn_dict
             else:
-                participant_details = dict(connections)
+                participant_details = conn_dict
         
         elif len(connections) == 2:
-            conn1 = dict(connections)
-            conn2 = dict(connections)
+            conn1 = dict(connections[0])
+            conn2 = dict(connections[1])
             if conn1['ip_address'] == initiator_ip:
                 initiator_details = conn1
                 participant_details = conn2
@@ -459,8 +461,10 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
                 participant_details = conn1
             else:
                 logger.warning(f"Не удалось сопоставить IP инициатора {initiator_ip} для комнаты {room_id}. Роли назначены по порядку подключения.")
+                # conn1 - более новое подключение, conn2 - более старое. Инициатор обычно старше.
                 initiator_details = conn2
                 participant_details = conn1
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
         return {
             "initiator": initiator_details,

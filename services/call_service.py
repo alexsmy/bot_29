@@ -1,23 +1,26 @@
 import asyncio
 import os
-import glob # --- НОВОЕ ---
+import glob
 from datetime import datetime, timezone
 
 import database
 import notifier
 from websocket_manager import RoomManager
 from logger_config import logger
-# --- НОВОЕ ---
 from groq_transcriber import transcribe_audio_file
 
 RECORDS_DIR = "call_records"
 
-# --- НОВАЯ ФУНКЦИЯ СБОРКИ АУДИО ---
 async def assemble_audio_chunks(session_folder_path: str, user_id: str):
     """
     Находит, сортирует и объединяет аудио-чанки в один файл для указанного пользователя.
     """
     try:
+        # --- ИСПРАВЛЕНИЕ: Добавляем задержку перед началом сборки ---
+        logger.info(f"[ASSEMBLER] Ожидание 10 секунд для получения финальных чанков для пользователя {user_id}...")
+        await asyncio.sleep(10)
+        # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))[:8]
         search_pattern = os.path.join(session_folder_path, f"{safe_user_id}_chunk_*.webm")
         chunk_files = glob.glob(search_pattern)
@@ -135,16 +138,11 @@ async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hang
             notifier.send_admin_notification(message_to_admin, 'notify_on_call_end')
         )
         
-        # --- НОВОЕ: Запускаем сборку аудио-чанков в фоне ---
         if room.current_call_record_path:
             logger.info(f"Звонок завершен. Запускаю фоновую задачу сборки аудио для комнаты {room.room_id}")
-            # Запускаем сборку для обоих участников
             asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, initiator_id))
             asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, target_id))
     
-    # Путь к папке записи (`current_call_record_path`) больше не сбрасывается здесь,
-    # он будет перезаписан при следующем успешном `accept_call`.
-        
     await room.send_personal_message({"type": "call_ended"}, target_id)
     await room.set_user_status(initiator_id, "available")
     await room.set_user_status(target_id, "available")
