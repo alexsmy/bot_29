@@ -1,6 +1,4 @@
 
-// static/js/admin_explorer.js
-
 import { fetchData } from './admin_api.js';
 
 const API_TOKEN = document.body.dataset.token;
@@ -22,7 +20,7 @@ const ICONS_EXPLORER = {
 };
 
 let explorerContainer, viewerModal, viewerModalTitle, viewerModalBody, viewerModalCloseBtn,
-    actionModal, actionModalTitle, actionViewBtn, actionDownloadBtn, actionModalCloseBtn;
+    actionModal, actionViewBtn, actionDownloadBtn;
 
 // Определяем типы файлов для иконок и доступных действий
 const FILE_TYPE_MAP = {
@@ -123,7 +121,6 @@ function closeAllModals() {
 
 function showActionModal(x, y, path, filename) {
     closeAllModals();
-    actionModalTitle.textContent = filename;
 
     const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
     actionViewBtn.disabled = !VIEWABLE_EXTENSIONS.includes(extension);
@@ -138,10 +135,11 @@ function showActionModal(x, y, path, filename) {
     actionDownloadBtn = newDownloadBtn;
 
     // Добавляем новые обработчики
-    actionViewBtn.addEventListener('click', () => viewFile(path, filename));
+    if (!actionViewBtn.disabled) {
+        actionViewBtn.addEventListener('click', () => viewFile(path, filename));
+    }
     actionDownloadBtn.addEventListener('click', () => {
         const downloadUrl = `/api/admin/explorer/file-download?path=${encodeURIComponent(path)}&token=${API_TOKEN}`;
-        // Создаем временную ссылку для скачивания, чтобы задать имя файла
         const a = document.createElement('a');
         a.href = downloadUrl;
         a.download = filename;
@@ -151,10 +149,25 @@ function showActionModal(x, y, path, filename) {
         closeAllModals();
     });
 
-    // Позиционируем модальное окно
-    actionModal.style.left = `${x + 15}px`;
-    actionModal.style.top = `${y + 15}px`;
-    actionModal.classList.add('visible');
+    // ИЗМЕНЕНИЕ: Динамически определяем положение меню, чтобы оно не выходило за пределы экрана
+    actionModal.classList.add('visible'); // Сначала делаем видимым, чтобы получить размеры
+    const modalHeight = actionModal.offsetHeight;
+    const modalWidth = actionModal.offsetWidth;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+
+    let top = y + 5;
+    let left = x + 5;
+
+    if (y + modalHeight + 10 > viewportHeight) {
+        top = y - modalHeight - 5; // Открываем вверх
+    }
+    if (x + modalWidth + 10 > viewportWidth) {
+        left = x - modalWidth - 5; // Открываем влево
+    }
+
+    actionModal.style.top = `${top}px`;
+    actionModal.style.left = `${left}px`;
 }
 
 async function viewFile(path, filename) {
@@ -167,7 +180,15 @@ async function viewFile(path, filename) {
     const fileUrl = `/api/admin/explorer/file-download?path=${encodeURIComponent(path)}&token=${API_TOKEN}`;
 
     if (['.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg'].includes(extension)) {
-        viewerModalBody.innerHTML = `<img src="${fileUrl}" alt="${filename}">`;
+        const img = new Image();
+        img.src = fileUrl;
+        img.alt = filename;
+        // ИЗМЕНЕНИЕ: Добавляем логику масштабирования по клику
+        img.addEventListener('click', () => {
+            img.classList.toggle('zoomed-in');
+        });
+        viewerModalBody.innerHTML = '';
+        viewerModalBody.appendChild(img);
     } else if (['.webm', '.mp3', '.wav', '.ogg'].includes(extension)) {
         viewerModalBody.innerHTML = `<audio controls autoplay><source src="${fileUrl}"></audio>`;
     } else {
@@ -236,10 +257,8 @@ export function initExplorer() {
     viewerModalCloseBtn = document.getElementById('viewer-modal-close-btn');
     
     actionModal = document.getElementById('action-modal');
-    actionModalTitle = document.getElementById('action-modal-title');
     actionViewBtn = document.getElementById('action-view-btn');
     actionDownloadBtn = document.getElementById('action-download-btn');
-    actionModalCloseBtn = document.getElementById('action-modal-close-btn');
 
     const refreshBtn = document.getElementById('refresh-explorer-btn');
     const modalOverlay = document.querySelector('.modal-overlay');
@@ -261,8 +280,9 @@ export function initExplorer() {
     });
 
     viewerModalCloseBtn.addEventListener('click', closeAllModals);
-    actionModalCloseBtn.addEventListener('click', closeAllModals);
     modalOverlay.addEventListener('click', closeAllModals);
+    
+    // Закрытие меню действий при клике вне его
     document.addEventListener('click', (e) => {
         if (actionModal.classList.contains('visible') && !actionModal.contains(e.target) && !e.target.closest('.file-item')) {
             closeAllModals();
