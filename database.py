@@ -1,4 +1,3 @@
-
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
@@ -496,7 +495,7 @@ async def count_spam_strikes(user_id: int) -> int:
     pool = await get_pool()
     async with pool.acquire() as conn:
         time_window = datetime.now(timezone.utc) - timedelta(minutes=SPAM_TIME_WINDOW_MINUTES)
-        spam_actions = ('Sent unhandled text message', 'Sent an attachment')
+        spam_actions = ('Sent unhandled text message', 'Sent an attachment', 'Exceeded daily room creation limit')
         
         count = await conn.fetchval(
             """
@@ -506,6 +505,37 @@ async def count_spam_strikes(user_id: int) -> int:
             user_id, spam_actions, time_window
         )
         return count or 0
+
+# --- НОВЫЕ ФУНКЦИИ ДЛЯ ОГРАНИЧЕНИЯ СОЗДАНИЯ КОМНАТ ---
+
+async def count_active_rooms_by_user(user_id: int) -> int:
+    """Подсчитывает количество активных (не истекших) комнат для пользователя."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        count = await conn.fetchval(
+            """
+            SELECT COUNT(*) FROM call_sessions
+            WHERE generated_by_user_id = $1 AND expires_at > NOW() AND closed_at IS NULL
+            """,
+            user_id
+        )
+        return count or 0
+
+async def count_recent_room_creations_by_user(user_id: int) -> int:
+    """Подсчитывает количество комнат, созданных пользователем за последние 24 часа."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        time_window = datetime.now(timezone.utc) - timedelta(hours=24)
+        count = await conn.fetchval(
+            """
+            SELECT COUNT(*) FROM call_sessions
+            WHERE generated_by_user_id = $1 AND created_at >= $2
+            """,
+            user_id, time_window
+        )
+        return count or 0
+
+# --- КОНЕЦ НОВЫХ ФУНКЦИЙ ---
 
 # --- НОВАЯ ФУНКЦИЯ ДЛЯ СБРОСА СЧЕТЧИКА СПАМА ---
 async def forgive_spam_strikes(user_id: int):
@@ -517,7 +547,7 @@ async def forgive_spam_strikes(user_id: int):
     async with pool.acquire() as conn:
         # Сдвигаем время на 1 минуту раньше, чем окно проверки, чтобы гарантированно их исключить
         new_timestamp = datetime.now(timezone.utc) - timedelta(minutes=SPAM_TIME_WINDOW_MINUTES + 1)
-        spam_actions = ('Sent unhandled text message', 'Sent an attachment')
+        spam_actions = ('Sent unhandled text message', 'Sent an attachment', 'Exceeded daily room creation limit')
         
         await conn.execute(
             """

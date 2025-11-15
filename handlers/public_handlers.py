@@ -1,9 +1,9 @@
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
 from telegram.ext import ContextTypes, filters
 
+import database
 from logger_config import logger
-from config import PRIVATE_ROOM_LIFETIME_HOURS
+from config import PRIVATE_ROOM_LIFETIME_HOURS, MAX_ACTIVE_ROOMS_PER_USER, MAX_ROOM_CREATIONS_PER_DAY
 from bot_utils import log_user_and_action, read_template_content, format_hours, check_and_handle_spam
 from services import room_service
 
@@ -97,6 +97,9 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 async def handle_create_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает нажатие на кнопку 'Создать приватную ссылку'."""
+    query = update.callback_query
+    user = update.effective_user
+
     # --- ИЗМЕНЕНИЕ: Проверяем пользователя перед обработкой ---
     if await check_and_handle_spam(update, context, "Used create_private_link button"):
         await query.answer("Действие временно недоступно.", show_alert=True)
@@ -104,10 +107,34 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
     # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     await log_user_and_action(update, "create_private_link")
-    query = update.callback_query
-    await query.answer("Создаю ссылку...")
+    
+    # --- НОВАЯ ЛОГИКА: Проверка лимитов на создание комнат ---
+    # 1. Проверка на количество одновременно активных комнат
+    active_rooms_count = await database.count_active_rooms_by_user(user.id)
+    if active_rooms_count >= MAX_ACTIVE_ROOMS_PER_USER:
+        logger.warning(f"Пользователь {user.id} попытался создать комнату сверх лимита активных ({active_rooms_count}/{MAX_ACTIVE_ROOMS_PER_USER}).")
+        await query.answer(f"Достигнут лимит активных комнат ({MAX_ACTIVE_ROOMS_PER_USER}).", show_alert=True)
+        await query.message.reply_text(
+            f"У вас уже есть {active_rooms_count} активных комнат. "
+            "Пожалуйста, используйте их или дождитесь, пока их срок действия истечет, прежде чем создавать новые."
+        )
+        return
 
-    user = update.effective_user
+    # 2. Проверка на суточный лимит созданных комнат
+    daily_creations_count = await database.count_recent_room_creations_by_user(user.id)
+    if daily_creations_count >= MAX_ROOM_CREATIONS_PER_DAY:
+        logger.warning(f"Пользователь {user.id} превысил суточный лимит создания комнат ({daily_creations_count}/{MAX_ROOM_CREATIONS_PER_DAY}).")
+        
+        # Регистрируем это как спам-действие. Если это действие приведет к блокировке, функция вернет True.
+        is_now_blocked = await check_and_handle_spam(update, context, "Exceeded daily room creation limit")
+        
+        await query.answer("Вы превысили дневной лимит на создание комнат.", show_alert=True)
+        if is_now_blocked:
+            await query.message.reply_text("За превышение суточного лимита на создание комнат ваш аккаунт был временно заблокирован.")
+        return
+    # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
+    await query.answer("Создаю ссылку...")
     logger.info(f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
     
     await room_service.create_and_send_room_link(context, query.message.chat_id, user.id, PRIVATE_ROOM_LIFETIME_HOURS)
