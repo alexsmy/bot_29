@@ -17,8 +17,8 @@ import {
 
 let localRecorder = null;
 
-const SCREENSHOT_SCALE = 0.75; 
-const SCREENSHOT_QUALITY = 0.7; 
+const SCREENSHOT_SCALE = 0.8; 
+const SCREENSHOT_QUALITY = 0.75; 
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -398,73 +398,44 @@ async function takeAndUploadScreenshot() {
         return;
     }
 
-    logToScreen('[SCREENSHOT] Starting single-layer screenshot with advanced onclone...');
+    logToScreen('[SCREENSHOT] Starting single-capture screenshot process...');
 
     const oncloneHandler = (clonedDoc) => {
-        const replaceVideoWithCanvas = (originalVideo, clonedVideo) => {
-            if (!clonedVideo || originalVideo.videoWidth === 0 || originalVideo.videoHeight === 0) {
-                return;
-            }
-
-            const canvas = clonedDoc.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            const style = getComputedStyle(originalVideo);
-            const rect = originalVideo.getBoundingClientRect();
-
-            canvas.width = rect.width;
-            canvas.height = rect.height;
-
-            const videoRatio = originalVideo.videoWidth / originalVideo.videoHeight;
-            const canvasRatio = canvas.width / canvas.height;
-            let drawWidth = canvas.width;
-            let drawHeight = canvas.height;
-            let x = 0;
-            let y = 0;
-
-            const objectFit = style.objectFit;
-            if (objectFit === 'contain') {
-                if (videoRatio > canvasRatio) {
-                    drawHeight = canvas.width / videoRatio;
-                    y = (canvas.height - drawHeight) / 2;
-                } else {
-                    drawWidth = canvas.height * videoRatio;
-                    x = (canvas.width - drawWidth) / 2;
-                }
-            } else if (objectFit === 'cover') {
-                if (videoRatio > canvasRatio) {
-                    drawWidth = canvas.height * videoRatio;
-                    x = (canvas.width - drawWidth) / 2;
-                } else {
-                    drawHeight = canvas.width / videoRatio;
-                    y = (canvas.height - drawHeight) / 2;
-                }
-            }
+        const handleVideoElement = (originalVideo, clonedVideo) => {
+            if (!clonedVideo || originalVideo.videoWidth === 0 || originalVideo.videoHeight === 0) return;
             
+            const canvas = clonedDoc.createElement('canvas');
+            canvas.width = originalVideo.videoWidth;
+            canvas.height = originalVideo.videoHeight;
+            const ctx = canvas.getContext('2d');
+
             if (originalVideo.id === 'localVideo') {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
             }
             
-            ctx.drawImage(originalVideo, x, y, drawWidth, drawHeight);
-            
+            ctx.drawImage(originalVideo, 0, 0, canvas.width, canvas.height);
+            canvas.style.cssText = getComputedStyle(originalVideo).cssText;
             clonedVideo.parentNode.replaceChild(canvas, clonedVideo);
         };
 
-        replaceVideoWithCanvas(remoteVideo, clonedDoc.getElementById('remoteVideo'));
-        replaceVideoWithCanvas(localVideo, clonedDoc.getElementById('localVideo'));
+        const clonedRemoteVideo = clonedDoc.getElementById('remoteVideo');
+        const clonedLocalVideo = clonedDoc.getElementById('localVideo');
+        
+        if (clonedRemoteVideo) handleVideoElement(remoteVideo, clonedRemoteVideo);
+        if (clonedLocalVideo) handleVideoElement(localVideo, clonedLocalVideo);
     };
 
     try {
-        const canvas = await html2canvas(document.body, { 
+        const canvas = await html2canvas(document.getElementById('call-screen'), { 
             useCORS: true,
             onclone: oncloneHandler,
-            scale: SCREENSHOT_SCALE,
-            backgroundColor: '#1c1c1e' // Явно задаем фон
+            scale: SCREENSHOT_SCALE
         });
         
         canvas.toBlob(blob => {
             if (!blob) {
-                logToScreen('[SCREENSHOT] Failed to create final blob from canvas.');
+                logToScreen('[SCREENSHOT] Failed to create blob from canvas.');
                 return;
             }
             const formData = new FormData();
@@ -486,7 +457,6 @@ async function takeAndUploadScreenshot() {
             })
             .catch(err => logToScreen(`[SCREENSHOT] Upload error: ${err}`));
         }, 'image/jpeg', SCREENSHOT_QUALITY);
-
     } catch (error) {
         logToScreen(`[SCREENSHOT] Error during html2canvas execution: ${error}`);
     }
