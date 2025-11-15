@@ -1,56 +1,66 @@
-# bot_29-main/routes/admin/recordings.py
 
 import os
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
-from collections import defaultdict
+from typing import List
 
 from core import CustomJSONResponse
+from logger_config import logger
 
 RECORDS_DIR = "call_records"
 router = APIRouter()
 
-def sanitize_filename(filename: str) -> str:
-    if ".." in filename or "/" in filename or "\\" in filename:
-        raise HTTPException(status_code=400, detail="Invalid filename.")
-    return filename
+def sanitize_path_component(component: str) -> str:
+    """Проверяет компонент пути на наличие опасных последовательностей."""
+    if ".." in component or "/" in component or "\\" in component:
+        raise HTTPException(status_code=400, detail="Invalid path component.")
+    return component
 
 @router.get("/recordings", response_class=CustomJSONResponse)
 async def list_recordings():
     """
-    Возвращает список сессий звонков с их файлами (аудио, транскрипции, диалоги).
+    Возвращает список папок сессий звонков с их файлами.
     """
-    try:
-        if not os.path.exists(RECORDS_DIR):
-            return []
-        
-        sessions = defaultdict(lambda: {"session_id": "", "files": []})
-        
-        sorted_files = sorted(os.listdir(RECORDS_DIR), reverse=True)
+    if not os.path.exists(RECORDS_DIR) or not os.path.isdir(RECORDS_DIR):
+        return []
 
-        for filename in sorted_files:
-            if not filename.endswith(('.webm', '.txt')):
+    sessions = []
+    try:
+        # Сканируем директорию и фильтруем только папки
+        session_dirs = sorted(
+            [d.name for d in os.scandir(RECORDS_DIR) if d.is_dir()],
+            reverse=True
+        )
+
+        for dir_name in session_dirs:
+            session_path = os.path.join(RECORDS_DIR, dir_name)
+            try:
+                # Получаем список файлов внутри папки сессии
+                files = sorted(
+                    [f for f in os.listdir(session_path) if os.path.isfile(os.path.join(session_path, f))],
+                    reverse=True
+                )
+                sessions.append({
+                    "session_id": dir_name,
+                    "files": files
+                })
+            except OSError as e:
+                logger.error(f"Не удалось прочитать содержимое папки {session_path}: {e}")
                 continue
-            
-            parts = filename.split('_')
-            if len(parts) < 3:
-                continue
-            
-            # ИСПРАВЛЕНО: Ключ сессии - это "ДАТА_ROOMID"
-            session_key = f"{parts[0]}_{parts[2]}"
-            
-            sessions[session_key]["session_id"] = session_key
-            sessions[session_key]["files"].append(filename)
         
-        return list(sessions.values())
+        return sessions
 
     except Exception as e:
+        logger.error(f"Ошибка при листинге записей: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to list recordings: {e}")
 
-@router.get("/recordings/{filename}")
-async def get_recording(filename: str):
-    safe_filename = sanitize_filename(filename)
-    filepath = os.path.join(RECORDS_DIR, safe_filename)
+@router.get("/recordings/{session_id}/{filename}")
+async def get_recording(session_id: str, filename: str):
+    """Скачивает конкретный файл из папки сессии."""
+    safe_session_id = sanitize_path_component(session_id)
+    safe_filename = sanitize_path_component(filename)
+    
+    filepath = os.path.join(RECORDS_DIR, safe_session_id, safe_filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Recording not found.")
     
@@ -59,6 +69,8 @@ async def get_recording(filename: str):
         media_type = 'audio/webm'
     elif safe_filename.endswith('.txt'):
         media_type = 'text/plain'
+    elif safe_filename.endswith('.png'):
+        media_type = 'image/png'
 
     return FileResponse(
         path=filepath, 
@@ -66,14 +78,19 @@ async def get_recording(filename: str):
         headers={"Content-Disposition": f"attachment; filename={safe_filename}"}
     )
 
-@router.delete("/recordings/{filename}", response_class=CustomJSONResponse)
-async def delete_recording(filename: str):
-    safe_filename = sanitize_filename(filename)
-    filepath = os.path.join(RECORDS_DIR, safe_filename)
+@router.delete("/recordings/{session_id}/{filename}", response_class=CustomJSONResponse)
+async def delete_recording(session_id: str, filename: str):
+    """Удаляет конкретный файл из папки сессии."""
+    safe_session_id = sanitize_path_component(session_id)
+    safe_filename = sanitize_path_component(filename)
+
+    filepath = os.path.join(RECORDS_DIR, safe_session_id, safe_filename)
     if not os.path.exists(filepath):
         raise HTTPException(status_code=404, detail="Recording not found.")
     try:
         os.remove(filepath)
+        logger.info(f"Администратор удалил файл: {filepath}")
         return {"status": "deleted", "filename": safe_filename}
     except Exception as e:
+        logger.error(f"Ошибка при удалении файла {filepath}: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete recording: {e}")

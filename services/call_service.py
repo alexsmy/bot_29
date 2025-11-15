@@ -1,9 +1,13 @@
 import asyncio
+import os
 from datetime import datetime, timezone
 
 import database
 import notifier
 from websocket_manager import RoomManager
+from logger_config import logger
+
+RECORDS_DIR = "call_records"
 
 async def start_call(room: RoomManager, caller_id: str, target_id: str, call_type: str):
     room.pending_call_type = call_type
@@ -27,6 +31,18 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
     if room.pending_call_type:
         room.details_notification_sent = False
         
+        # ИЗМЕНЕНИЕ: Создаем папку для записи этого конкретного звонка
+        try:
+            call_start_time = datetime.now(timezone.utc)
+            folder_name = f"{call_start_time.strftime('%Y%m%d_%H%M%S')}_{room.room_id[:8]}"
+            record_path = os.path.join(RECORDS_DIR, folder_name)
+            os.makedirs(record_path, exist_ok=True)
+            room.current_call_record_path = record_path
+            logger.info(f"Создана директория для записи звонка: {record_path}")
+        except OSError as e:
+            logger.error(f"Не удалось создать директорию для записи звонка: {e}")
+            room.current_call_record_path = None # Сбрасываем, если не удалось создать
+
         initiator = room.users.get(caller_id)
         receiver = room.users.get(acceptor_id)
         
@@ -46,7 +62,7 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
             f"📞 <b>Звонок начался</b>\n\n"
             f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
             f"<b>Тип:</b> {room.pending_call_type}\n"
-            f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
+            f"<b>Время:</b> {call_start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}"
         )
         asyncio.create_task(
             notifier.send_admin_notification(message_to_admin, 'notify_on_call_start')
@@ -58,6 +74,8 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
 async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hangup: bool):
     room.cancel_call_timeout(initiator_id, target_id)
     room.details_notification_sent = False
+    # ИЗМЕНЕНИЕ: Сбрасываем путь к папке записи после завершения звонка
+    room.current_call_record_path = None
     
     if is_hangup:
         asyncio.create_task(database.log_call_end(room.room_id))

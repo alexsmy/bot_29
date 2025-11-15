@@ -1,6 +1,3 @@
-
-# websocket_manager.py 53
-
 import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -23,6 +20,8 @@ class RoomManager:
         self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
         self.details_notification_sent: bool = False
+        # ДОБАВЛЕНО: Поле для хранения пути к директории записи текущего звонка
+        self.current_call_record_path: Optional[str] = None
 
     async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:

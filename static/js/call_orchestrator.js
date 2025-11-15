@@ -17,8 +17,8 @@ import {
 
 let localRecorder = null;
 
-const SCREENSHOT_SCALE = 0.9; 
-const SCREENSHOT_QUALITY = 0.8; 
+const SCREENSHOT_SCALE = 1.0; 
+const SCREENSHOT_QUALITY = 0.75; 
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;

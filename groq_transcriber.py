@@ -1,3 +1,4 @@
+
 import os
 import asyncio
 import glob
@@ -51,6 +52,7 @@ async def summarize_dialogue(dialogue_filepath: str):
 
         summary_text = chat_completion.choices[0].message.content.strip()
         
+        # ИЗМЕНЕНИЕ: Сохраняем файл в той же директории, что и диалог
         output_filepath = os.path.splitext(dialogue_filepath)[0].replace('_dialog', '_resume') + ".txt"
 
         with open(output_filepath, "w", encoding="utf-8") as out_file:
@@ -58,7 +60,9 @@ async def summarize_dialogue(dialogue_filepath: str):
 
         logger.info(f"[Groq] Краткий пересказ успешно создан и сохранен в файл: {os.path.basename(output_filepath)}")
         
-        message_to_admin = f"📄 <b>Краткий пересказ звонка</b>\n\n<b>Сессия:</b> <code>{os.path.basename(output_filepath)}</code>"
+        # ИЗМЕНЕНИЕ: В сообщении указываем папку и файл
+        session_folder = os.path.basename(os.path.dirname(output_filepath))
+        message_to_admin = f"📄 <b>Краткий пересказ звонка</b>\n\n<b>Сессия:</b> <code>{session_folder}/{os.path.basename(output_filepath)}</code>"
         await notifier.send_notification_with_content_handling(
             message=message_to_admin,
             file_path=output_filepath,
@@ -108,22 +112,20 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
 
         dialogue_text = chat_completion.choices[0].message.content.strip()
         
-        base_name_parts = os.path.basename(file1_path).split('_')
-        # ИСПРАВЛЕНИЕ: Формат имени файла YYYYMMDD_HHMMSS_ROOMID_USERID.ext
-        # parts[0] = YYYYMMDD, parts[1] = HHMMSS, parts[2] = ROOMID
-        date_part = base_name_parts[0]
-        time_part = base_name_parts[1]
-        room_id_part = base_name_parts[2]
-        # Создаем имя файла, включающее время, чтобы оно было уникальным для каждого звонка
-        output_filename = f"{date_part}_{time_part}_{room_id_part}_dialog.txt"
-        output_filepath = os.path.join(RECORDS_DIR, output_filename)
+        # ИЗМЕНЕНИЕ: Сохраняем файл диалога в ту же папку, где лежат исходные транскрипции
+        record_dir = os.path.dirname(file1_path)
+        # Имя файла диалога будет основано на имени папки (которое содержит дату и room_id)
+        base_folder_name = os.path.basename(record_dir)
+        output_filename = f"{base_folder_name}_dialog.txt"
+        output_filepath = os.path.join(record_dir, output_filename)
 
         with open(output_filepath, "w", encoding="utf-8") as out_file:
             out_file.write(dialogue_text)
 
         logger.info(f"[Groq] Диалог успешно собран и сохранен в файл: {output_filename}")
         
-        message_to_admin = f"💬 <b>Диалог звонка</b>\n\n<b>Сессия:</b> <code>{output_filename}</code>"
+        # ИЗМЕНЕНИЕ: В сообщении указываем папку и файл
+        message_to_admin = f"💬 <b>Диалог звонка</b>\n\n<b>Сессия:</b> <code>{base_folder_name}/{output_filename}</code>"
         await notifier.send_notification_with_content_handling(
             message=message_to_admin,
             file_path=output_filepath,
@@ -131,11 +133,7 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
             setting_key_message='notify_on_dialog_as_message'
         )
         
-        # Переименовываем обработанные файлы, чтобы они не мешали следующим звонкам
         try:
-            # ИСПРАВЛЕНИЕ: Вставляем суффикс ".processed" перед расширением файла,
-            # чтобы сохранить исходное расширение (.txt) и обеспечить корректное
-            # отображение и чтение файла в админ-панели.
             base1, ext1 = os.path.splitext(file1_path)
             os.rename(file1_path, f"{base1}.processed{ext1}")
 
@@ -198,27 +196,21 @@ async def transcribe_audio_file(filepath: str):
 
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
-        base_name_parts = os.path.basename(txt_filepath).split('_')
-        if len(base_name_parts) < 4: # ИСПРАВЛЕНИЕ: Проверяем корректность имени файла (должно быть 4 части)
-            logger.warning(f"[Groq] Некорректное имя файла для поиска пары: {txt_filepath}")
-            return
-            
-        # ИСПРАВЛЕНИЕ: Индекс для room_id - 2
-        room_id = base_name_parts[2]
+        # ИЗМЕНЕНИЕ: Ищем парный файл в той же директории
+        record_dir = os.path.dirname(txt_filepath)
+        search_pattern = os.path.join(record_dir, "*.txt")
         
-        # ИСПРАВЛЕНИЕ: Ищем файлы, которые еще не были обработаны
-        search_pattern = os.path.join(RECORDS_DIR, f"*_{room_id}_*.txt")
-        all_txt_files = glob.glob(search_pattern)
+        all_txt_files_in_dir = glob.glob(search_pattern)
         
         participant_txt_files = [
-            f for f in all_txt_files 
+            f for f in all_txt_files_in_dir 
             if not f.endswith('_dialog.txt') 
             and not f.endswith('_resume.txt')
-            and not f.endswith('.processed.txt') # Исключаем уже обработанные файлы
+            and not f.endswith('.processed.txt')
         ]
 
         if len(participant_txt_files) == 2:
-            logger.info(f"[Groq] Обнаружены обе транскрипции для сессии с room_id {room_id}. Запускаю слияние.")
+            logger.info(f"[Groq] Обнаружены обе транскрипции для сессии в папке {os.path.basename(record_dir)}. Запускаю слияние.")
             asyncio.create_task(merge_transcriptions_to_dialogue(participant_txt_files[0], participant_txt_files[1]))
 
     except Exception as e:

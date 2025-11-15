@@ -1,4 +1,3 @@
-# bot_29-main/routes/api_router.py
 import os
 import asyncio
 import shutil
@@ -96,21 +95,29 @@ async def upload_recording(
     file: UploadFile = File(...)
 ):
     try:
-        os.makedirs(RECORDS_DIR, exist_ok=True)
+        # ИЗМЕНЕНИЕ: Определяем директорию для сохранения
+        room = await manager.get_or_restore_room(room_id)
+        if room and room.current_call_record_path:
+            save_dir = room.current_call_record_path
+        else:
+            save_dir = RECORDS_DIR
+            logger.warning(f"Не найдена активная директория для звонка в комнате {room_id}. Файл будет сохранен в корневую папку записей.")
         
-        safe_room_id = "".join(c for c in room_id if c.isalnum() or c in ('-', '_'))
+        os.makedirs(save_dir, exist_ok=True)
+        
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
         
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}.webm"
-        filepath = os.path.join(RECORDS_DIR, filename)
+        # ИЗМЕНЕНИЕ: Упрощаем имя файла, т.к. room_id уже есть в имени папки
+        filename = f"{timestamp}_{safe_user_id[:8]}.webm"
+        filepath = os.path.join(save_dir, filename)
 
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         logger.info(f"Аудиозапись сохранена: {filepath}")
         
-        message_to_admin = f"🎤 <b>Получена аудиозапись звонка</b>\n\n<b>Файл:</b> <code>{filename}</code>"
+        message_to_admin = f"🎤 <b>Получена аудиозапись звонка</b>\n\n<b>Файл:</b> <code>{os.path.basename(save_dir)}/{filename}</code>"
         asyncio.create_task(
             notifier.send_admin_notification(message_to_admin, 'notify_on_audio_record', file_path=filepath)
         )
@@ -129,14 +136,22 @@ async def upload_screenshot(
     file: UploadFile = File(...)
 ):
     try:
-        os.makedirs(RECORDS_DIR, exist_ok=True)
+        # ИЗМЕНЕНИЕ: Определяем директорию для сохранения
+        room = await manager.get_or_restore_room(room_id)
+        if room and room.current_call_record_path:
+            save_dir = room.current_call_record_path
+        else:
+            save_dir = RECORDS_DIR
+            logger.warning(f"Не найдена активная директория для звонка в комнате {room_id}. Скриншот будет сохранен в корневую папку записей.")
+
+        os.makedirs(save_dir, exist_ok=True)
         
-        safe_room_id = "".join(c for c in room_id if c.isalnum() or c in ('-', '_'))
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
         
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        filename = f"{timestamp}_{safe_room_id[:8]}_{safe_user_id[:8]}_screenshot.png"
-        filepath = os.path.join(RECORDS_DIR, filename)
+        # ИЗМЕНЕНИЕ: Упрощаем имя файла
+        filename = f"{timestamp}_{safe_user_id[:8]}_screenshot.png"
+        filepath = os.path.join(save_dir, filename)
 
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -147,7 +162,7 @@ async def upload_screenshot(
             f"🖼️ <b>Получен скриншот экрана</b>\n\n"
             f"<b>Room ID:</b> <code>{room_id}</code>\n"
             f"<b>User ID:</b> <code>{user_id}</code>\n"
-            f"<b>Файл:</b> <code>{filename}</code>"
+            f"<b>Файл:</b> <code>{os.path.basename(save_dir)}/{filename}</code>"
         )
         asyncio.create_task(
             notifier.send_admin_photo_notification(

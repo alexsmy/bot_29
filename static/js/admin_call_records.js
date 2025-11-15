@@ -3,139 +3,135 @@ import { fetchData } from './admin_api.js';
 let recordsListContainer;
 const API_TOKEN = document.body.dataset.token;
 
-function renderActionGroup(fileType, filename, isAvailable) {
-    const buttons = isAvailable ? `
-        <button class="action-btn" onclick="window.location.href='/api/admin/recordings/${filename}?token=${API_TOKEN}'">Скачать</button>
-        <button class="action-btn danger" data-filename="${filename}">Удалить</button>
-    ` : `<button class="action-btn disabled" disabled>Нет файла</button>`;
+function getFileIcon(filename) {
+    if (filename.endsWith('.webm')) return '🎤';
+    if (filename.includes('_screenshot.png')) return '🖼️';
+    if (filename.includes('_dialog.txt')) return '💬';
+    if (filename.includes('_resume.txt')) return '📄';
+    if (filename.endsWith('.txt')) return '📝';
+    return '📁';
+}
 
+function renderFileItem(session_id, filename) {
+    const icon = getFileIcon(filename);
     return `
-        <div class="action-group">
-            <span class="file-type">${fileType}</span>
-            ${buttons}
+        <div class="file-item">
+            <span class="file-icon">${icon}</span>
+            <span class="file-name">${filename}</span>
+            <div class="file-actions">
+                <button class="action-btn" onclick="window.location.href='/api/admin/recordings/${session_id}/${filename}?token=${API_TOKEN}'">Скачать</button>
+                <button class="action-btn danger" data-session-id="${session_id}" data-filename="${filename}">Удалить</button>
+            </div>
         </div>
     `;
 }
 
-// ИСПРАВЛЕНИЕ: Полностью переработанная функция рендеринга для корректной группировки звонков
 function renderRecordSession(session) {
-    const calls = {};
-    const participantFiles = session.files.filter(f => 
-        !f.includes('_dialog') && !f.includes('_resume') && f.split('_').length >= 4
-    );
-
-    // 1. Группируем файлы участников в звонки по временной близости
-    participantFiles.forEach(file => {
-        const parts = file.split('_');
-        const fileTimestamp = new Date(`${parts[0].slice(0,4)}-${parts[0].slice(4,6)}-${parts[0].slice(6,8)}T${parts[1].slice(0,2)}:${parts[1].slice(2,4)}:${parts[1].slice(4,6)}Z`).getTime();
-        const userId = parts[3].split('.')[0];
-
-        let foundCall = false;
-        // Ищем существующий звонок, к которому можно отнести этот файл (в пределах 5 секунд)
-        for (const callId in calls) {
-            if (Math.abs(calls[callId].timestamp - fileTimestamp) < 5000) {
-                calls[callId].files.push(file);
-                foundCall = true;
-                break;
-            }
-        }
-
-        // Если подходящий звонок не найден, создаем новый
-        if (!foundCall) {
-            const callId = `${parts[0]}_${parts[1]}`;
-            calls[callId] = {
-                id: callId,
-                timestamp: fileTimestamp,
-                files: [file]
-            };
-        }
-    });
-
-    // 2. Рендерим HTML для каждого сгруппированного звонка
-    let callsHtml = Object.values(calls).sort((a, b) => b.timestamp - a.timestamp).map(call => {
-        const participants = {};
-        
-        // Распределяем файлы по участникам внутри звонка
-        call.files.forEach(file => {
-            const parts = file.split('_');
-            const userId = parts[3].split('.')[0];
-            if (!participants[userId]) {
-                participants[userId] = { id: userId, webm: null, txt: null };
-            }
-            if (file.endsWith('.webm')) participants[userId].webm = file;
-            else if (file.endsWith('.txt')) participants[userId].txt = file;
-        });
-
-        // Ищем соответствующие файлы диалога и саммари
-        const dialogFile = session.files.find(f => f.startsWith(call.id) && f.includes('_dialog.txt'));
-        const resumeFile = session.files.find(f => f.startsWith(call.id) && f.includes('_resume.txt'));
-
-        let participantsHtml = Object.values(participants).map(p => `
-            <div class="record-item-actions">
-                <div class="record-item-info" style="min-width: 120px;">Участник: ${p.id.substring(0, 8)}...</div>
-                ${renderActionGroup('WEBM', p.webm, !!p.webm)}
-                ${renderActionGroup('TXT', p.txt, !!p.txt)}
-            </div>
-        `).join('');
-
-        const dialogHtml = `
-            <div class="record-item-actions">
-                <div class="record-item-info" style="min-width: 120px;"><b>Общий диалог</b></div>
-                ${renderActionGroup('DIALOG', dialogFile, !!dialogFile)}
-            </div>
-        `;
-
-        const resumeHtml = `
-            <div class="record-item-actions">
-                <div class="record-item-info" style="min-width: 120px;"><b>Краткий пересказ</b></div>
-                ${renderActionGroup('RESUME', resumeFile, !!resumeFile)}
-            </div>
-        `;
-
-        return `
-            <div style="border: 1px solid var(--border-color); border-radius: 6px; padding: 0.5rem 1rem; margin-top: 1rem;">
-                <h5 style="margin: 0.5rem 0; font-family: monospace;">Звонок: ${call.id}</h5>
-                ${participantsHtml}
-                ${dialogHtml}
-                ${resumeHtml}
-            </div>
-        `;
-    }).join('');
+    const filesHtml = session.files.map(file => renderFileItem(session.session_id, file)).join('');
 
     return `
-        <div class="record-item" style="flex-direction: column; align-items: stretch; gap: 0.5rem;">
-            <h4 style="margin: 0.5rem 0; font-family: monospace;">Сессия комнаты: ${session.session_id}</h4>
-            ${callsHtml}
-        </div>
+        <details class="record-session-item">
+            <summary>
+                <span class="session-id">${session.session_id}</span>
+                <span class="file-count-badge">${session.files.length} файлов</span>
+            </summary>
+            <div class="session-files-container">
+                ${filesHtml || '<p class="empty-list-small">В этой сессии нет файлов.</p>'}
+            </div>
+        </details>
     `;
 }
-
 
 async function loadRecords() {
+    recordsListContainer.innerHTML = '<div class="skeleton-list"></div>';
     const sessions = await fetchData('recordings');
     if (sessions && sessions.length > 0) {
         recordsListContainer.innerHTML = sessions.map(renderRecordSession).join('');
     } else {
-        recordsListContainer.innerHTML = '<p class="empty-list">Записи не найдены.</p>';
+        recordsListContainer.innerHTML = '<p class="empty-list">Записи звонков не найдены.</p>';
     }
 }
 
 export function initCallRecords() {
     recordsListContainer = document.getElementById('call-records-list');
 
+    // Добавляем стили для нового отображения
+    const style = document.createElement('style');
+    style.textContent = `
+        .record-session-item {
+            background-color: var(--surface-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            transition: box-shadow 0.2s;
+        }
+        .record-session-item:hover {
+            box-shadow: var(--shadow-md);
+        }
+        .record-session-item summary {
+            padding: 1rem 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .session-id {
+            font-family: monospace;
+            color: var(--accent-color);
+        }
+        .file-count-badge {
+            font-size: 0.8em;
+            font-weight: 500;
+            padding: 0.2rem 0.6rem;
+            border-radius: 4px;
+            background-color: var(--base-bg);
+            color: var(--text-secondary);
+        }
+        .session-files-container {
+            padding: 0 1.25rem 1.25rem;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+        .file-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+        }
+        .file-item:hover {
+            background-color: var(--base-bg);
+        }
+        .file-icon { font-size: 1.2em; }
+        .file-name { flex-grow: 1; font-family: monospace; font-size: 0.9em; }
+        .file-actions { display: flex; gap: 0.5rem; }
+        .empty-list-small { font-size: 0.9em; color: var(--text-secondary); padding: 0.5rem; }
+    `;
+    document.head.appendChild(style);
+
     recordsListContainer.addEventListener('click', async (e) => {
         if (e.target.classList.contains('danger') && e.target.dataset.filename) {
             const filename = e.target.dataset.filename;
-            if (confirm(`Удалить файл "${filename}"?`)) {
-                await fetchData(`recordings/${filename}`, { method: 'DELETE' });
-                loadRecords();
+            const sessionId = e.target.dataset.sessionId;
+            if (confirm(`Удалить файл "${filename}" из сессии "${sessionId}"?`)) {
+                await fetchData(`recordings/${sessionId}/${filename}`, { method: 'DELETE' });
+                loadRecords(); // Перезагружаем список
             }
         }
     });
 
     const navLink = document.querySelector('a[href="#call-records"]');
-    navLink.addEventListener('click', loadRecords);
+    navLink.addEventListener('click', (e) => {
+        // Загружаем только если вкладка еще не была загружена
+        if (!recordsListContainer.innerHTML.trim() || recordsListContainer.querySelector('.skeleton-list')) {
+            loadRecords();
+        }
+    });
 
+    // Загружаем, если хэш уже установлен при загрузке страницы
     if (window.location.hash === '#call-records') {
         loadRecords();
     }
