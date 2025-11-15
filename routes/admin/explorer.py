@@ -1,4 +1,3 @@
-# routes/admin/explorer.py
 
 import os
 from datetime import datetime
@@ -14,6 +13,9 @@ router = APIRouter()
 EXCLUDED_DIRS = {'.git', '__pycache__', '.venv', '.idea', 'node_modules'}
 EXCLUDED_FILES = {'.DS_Store'}
 TEXT_EXTENSIONS = {'.py', '.js', '.css', '.html', '.json', '.txt', '.log', '.md', '.yaml', '.yml', '.toml', '.sh', '.bat'}
+# ДОБАВЛЕНО: Определяем расширения, которые не являются текстовыми, чтобы не пытаться их читать
+NON_TEXT_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.webm', '.mp3', '.wav', '.ogg', '.zip', '.rar', '.7z', '.pdf', '.doc', '.docx', '.xls', '.xlsx'}
+
 
 # Получаем абсолютный путь к корневой директории проекта
 PROJECT_ROOT = os.path.abspath(".")
@@ -84,8 +86,12 @@ async def get_file_content(path: str = Query(...)):
         raise HTTPException(status_code=404, detail="File not found.")
 
     _, extension = os.path.splitext(path)
+    # ИЗМЕНЕНИЕ: Проверяем, что файл не является бинарным/изображением перед чтением
+    if extension.lower() in NON_TEXT_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Cannot view this file type as text.")
     if extension.lower() not in TEXT_EXTENSIONS:
-        raise HTTPException(status_code=400, detail="File is not a readable text file.")
+        # Для неизвестных типов файлов тоже не пытаемся читать как текст
+        logger.warning(f"Попытка просмотра файла с неизвестным расширением '{extension}' как текста.")
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -109,4 +115,5 @@ async def download_file(path: str = Query(...)):
     if not os.path.exists(path) or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found.")
     
+    # ИЗМЕНЕНИЕ: Убрано принудительное скачивание (attachment), чтобы браузер мог отображать изображения
     return FileResponse(path, filename=os.path.basename(path))

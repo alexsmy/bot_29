@@ -1,4 +1,4 @@
-<!-- bot_29-main/templates/admin.html -->
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -296,15 +296,25 @@
         </main>
     </div>
 
-    <!-- НОВАЯ СТРУКТУРА ДЛЯ МОДАЛЬНОГО ОКНА -->
-    <div id="explorer-modal" class="explorer-modal">
+    <!-- ИЗМЕНЕНИЕ: Модальное окно для просмотра файлов -->
+    <div id="viewer-modal" class="viewer-modal">
         <div class="modal-overlay"></div>
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modal-title"></h3>
-                <button id="modal-close-btn" class="modal-close-btn">&times;</button>
+                <h3 id="viewer-modal-title"></h3>
+                <button id="viewer-modal-close-btn" class="modal-close-btn">&times;</button>
             </div>
-            <div id="modal-body" class="modal-body"></div>
+            <div id="viewer-modal-body" class="viewer-modal-body"></div>
+        </div>
+    </div>
+
+    <!-- НОВОЕ: Модальное окно для выбора действий с файлом -->
+    <div id="action-modal" class="action-modal">
+        <button id="action-modal-close-btn">&times;</button>
+        <div id="action-modal-title"></div>
+        <div class="action-modal-buttons">
+            <button id="action-view-btn" class="action-btn">Просмотр</button>
+            <button id="action-download-btn" class="action-btn">Скачать</button>
         </div>
     </div>
 

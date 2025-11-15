@@ -1,4 +1,3 @@
-/* bot_29-main/static/css/admin.css */
 
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -35,6 +34,13 @@
     --icon-color-location: #fd7e14;
     --initiator-color: #fd7e14;
     --receiver-color: #6f42c1;
+
+    /* НОВЫЕ ЦВЕТА ДЛЯ ИКОНОК ПРОВОДНИКА */
+    --icon-color-code: #4c6ef5;
+    --icon-color-image: #e67e22;
+    --icon-color-audio: #9b59b6;
+    --icon-color-archive: #c0392b;
+    --icon-color-doc: #2980b9;
 }
 
 html.dark {
@@ -59,6 +65,13 @@ html.dark {
     --icon-color-location: #ff9a40;
     --initiator-color: #ff9a40;
     --receiver-color: #be95ff;
+
+    /* НОВЫЕ ЦВЕТА ДЛЯ ИКОНОК ПРОВОДНИКА (ТЕМНАЯ ТЕМА) */
+    --icon-color-code: #748ffc;
+    --icon-color-image: #f39c12;
+    --icon-color-audio: #be95ff;
+    --icon-color-archive: #e74c3c;
+    --icon-color-doc: #3498db;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -711,6 +724,13 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     flex-shrink: 0;
     color: var(--text-secondary);
 }
+/* НОВЫЕ СТИЛИ ДЛЯ ЦВЕТНЫХ ИКОНОК */
+.tree-item .icon-code { color: var(--icon-color-code); }
+.tree-item .icon-image { color: var(--icon-color-image); }
+.tree-item .icon-audio { color: var(--icon-color-audio); }
+.tree-item .icon-archive { color: var(--icon-color-archive); }
+.tree-item .icon-doc { color: var(--icon-color-doc); }
+
 .tree-item .caret {
     transition: transform 0.2s ease-in-out;
 }
@@ -852,8 +872,8 @@ html.dark .logs-panel { border-color: #495057; }
     visibility: visible;
 }
 
-/* СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА ПРОВОДНИКА */
-.explorer-modal {
+/* СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА ПРОСМОТРА */
+.viewer-modal {
     position: fixed;
     top: 0;
     left: 0;
@@ -864,7 +884,7 @@ html.dark .logs-panel { border-color: #495057; }
     align-items: center;
     justify-content: center;
 }
-.explorer-modal.visible {
+.viewer-modal.visible {
     display: flex;
 }
 .modal-overlay {
@@ -918,16 +938,20 @@ html.dark .logs-panel { border-color: #495057; }
 .modal-close-btn:hover {
     color: var(--text-primary);
 }
-.modal-body {
+.viewer-modal-body {
     padding: 0;
     overflow: auto;
     flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
-.modal-body pre {
+.viewer-modal-body pre {
     margin: 0;
     height: 100%;
+    width: 100%;
 }
-.modal-body code {
+.viewer-modal-body code {
     display: block;
     padding: 1.5rem;
     font-family: 'Courier New', Courier, monospace;
@@ -937,10 +961,73 @@ html.dark .logs-panel { border-color: #495057; }
     white-space: pre-wrap;
     word-break: break-all;
 }
-.modal-body audio {
-    width: 100%;
-    margin-top: 2rem;
+.viewer-modal-body audio {
+    width: 90%;
+    margin: 2rem auto;
 }
+.viewer-modal-body img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    padding: 1rem;
+}
+
+/* НОВЫЕ СТИЛИ ДЛЯ МОДАЛЬНОГО ОКНА ДЕЙСТВИЙ */
+.action-modal {
+    display: none;
+    position: fixed;
+    z-index: 2010;
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-md);
+    padding: 0.75rem;
+    min-width: 200px;
+}
+.action-modal.visible {
+    display: block;
+}
+#action-modal-title {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.action-modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.action-modal-buttons button {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+}
+.action-modal-buttons button:disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    background-color: var(--base-bg);
+}
+#action-modal-close-btn {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    line-height: 1;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 0.25rem;
+}
+#action-modal-close-btn:hover {
+    color: var(--text-primary);
+}
+
 
 /* СТИЛИ ДЛЯ ПОДСВЕТКИ СИНТАКСИСА */
 .hl-comment { color: #6a9955; }
