@@ -1,3 +1,4 @@
+
 import asyncio
 import os
 from datetime import datetime, timezone
@@ -31,7 +32,7 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
     if room.pending_call_type:
         room.details_notification_sent = False
         
-        # ИЗМЕНЕНИЕ: Создаем папку для записи этого конкретного звонка
+        # Создаем папку для записи этого конкретного звонка
         try:
             call_start_time = datetime.now(timezone.utc)
             folder_name = f"{call_start_time.strftime('%Y%m%d_%H%M%S')}_{room.room_id[:8]}"
@@ -74,8 +75,10 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
 async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hangup: bool):
     room.cancel_call_timeout(initiator_id, target_id)
     room.details_notification_sent = False
-    # ИЗМЕНЕНИЕ: Сбрасываем путь к папке записи после завершения звонка
-    room.current_call_record_path = None
+    
+    # ИЗМЕНЕНИЕ: Путь к папке записи (`current_call_record_path`) больше не сбрасывается здесь,
+    # чтобы асинхронные запросы на загрузку файлов успели его использовать.
+    # Он будет перезаписан при следующем успешном `accept_call`.
     
     if is_hangup:
         asyncio.create_task(database.log_call_end(room.room_id))

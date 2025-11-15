@@ -52,7 +52,6 @@ async def summarize_dialogue(dialogue_filepath: str):
 
         summary_text = chat_completion.choices[0].message.content.strip()
         
-        # ИЗМЕНЕНИЕ: Сохраняем файл в той же директории, что и диалог
         output_filepath = os.path.splitext(dialogue_filepath)[0].replace('_dialog', '_resume') + ".txt"
 
         with open(output_filepath, "w", encoding="utf-8") as out_file:
@@ -60,7 +59,6 @@ async def summarize_dialogue(dialogue_filepath: str):
 
         logger.info(f"[Groq] Краткий пересказ успешно создан и сохранен в файл: {os.path.basename(output_filepath)}")
         
-        # ИЗМЕНЕНИЕ: В сообщении указываем папку и файл
         session_folder = os.path.basename(os.path.dirname(output_filepath))
         message_to_admin = f"📄 <b>Краткий пересказ звонка</b>\n\n<b>Сессия:</b> <code>{session_folder}/{os.path.basename(output_filepath)}</code>"
         await notifier.send_notification_with_content_handling(
@@ -124,7 +122,6 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
 
         logger.info(f"[Groq] Диалог успешно собран и сохранен в файл: {output_filename}")
         
-        # ИЗМЕНЕНИЕ: В сообщении указываем папку и файл
         message_to_admin = f"💬 <b>Диалог звонка</b>\n\n<b>Сессия:</b> <code>{base_folder_name}/{output_filename}</code>"
         await notifier.send_notification_with_content_handling(
             message=message_to_admin,
@@ -196,7 +193,7 @@ async def transcribe_audio_file(filepath: str):
 
         logger.info(f"[Groq] Транскрипция успешно сохранена в файл: {os.path.basename(txt_filepath)}")
 
-        # ИЗМЕНЕНИЕ: Ищем парный файл в той же директории
+        # Ищем парный файл в той же директории
         record_dir = os.path.dirname(txt_filepath)
         search_pattern = os.path.join(record_dir, "*.txt")
         
