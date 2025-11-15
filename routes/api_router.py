@@ -1,6 +1,7 @@
 import os
 import asyncio
 import shutil
+import glob # --- НОВОЕ ---
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 
@@ -88,46 +89,46 @@ async def get_recording_status():
     is_enabled = settings.get('enable_call_recording', False)
     return {"is_enabled": is_enabled}
 
+# --- ИЗМЕНЕНИЕ: Эндпоинт теперь принимает chunk_index ---
 @router.post("/api/record/upload", response_class=CustomJSONResponse)
 async def upload_recording(
     room_id: str = Form(...),
     user_id: str = Form(...),
+    chunk_index: int = Form(...),
     file: UploadFile = File(...)
 ):
     try:
-        # ИЗМЕНЕНИЕ: Определяем директорию для сохранения
         room = await manager.get_or_restore_room(room_id)
-        if room and room.current_call_record_path:
-            save_dir = room.current_call_record_path
-        else:
-            save_dir = RECORDS_DIR
-            logger.warning(f"Не найдена активная директория для звонка в комнате {room_id}. Файл будет сохранен в корневую папку записей.")
+        if not (room and room.current_call_record_path):
+            logger.error(f"Не найдена активная директория для записи звонка в комнате {room_id}. Часть #{chunk_index} не будет сохранена.")
+            raise HTTPException(status_code=404, detail="Active call session directory not found for this room.")
         
+        save_dir = room.current_call_record_path
         os.makedirs(save_dir, exist_ok=True)
         
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
         
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        # ИЗМЕНЕНИЕ: Упрощаем имя файла, т.к. room_id уже есть в имени папки
-        filename = f"{timestamp}_{safe_user_id[:8]}.webm"
+        # Имя файла теперь включает user_id и chunk_index для последующей сборки
+        filename = f"{safe_user_id[:8]}_chunk_{chunk_index}.webm"
         filepath = os.path.join(save_dir, filename)
 
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        logger.info(f"Аудиозапись сохранена: {filepath}")
+        logger.info(f"Аудио-чанк сохранен: {filepath}")
         
-        message_to_admin = f"🎤 <b>Получена аудиозапись звонка</b>\n\n<b>Файл:</b> <code>{os.path.basename(save_dir)}/{filename}</code>"
-        asyncio.create_task(
-            notifier.send_admin_notification(message_to_admin, 'notify_on_audio_record', file_path=filepath)
-        )
+        # Уведомление администратору отправляем только для первого чанка, чтобы не спамить
+        if chunk_index == 0:
+            message_to_admin = f"🎤 <b>Началась запись звонка (получен первый чанк)</b>\n\n<b>Сессия:</b> <code>{os.path.basename(save_dir)}</code>"
+            asyncio.create_task(
+                notifier.send_admin_notification(message_to_admin, 'notify_on_audio_record')
+            )
         
-        asyncio.create_task(transcribe_audio_file(filepath))
-        
-        return {"status": "ok", "filename": filename}
+        return {"status": "ok", "filename": filename, "chunk_index": chunk_index}
     except Exception as e:
-        logger.error(f"Ошибка при загрузке аудиозаписи: {e}")
-        raise HTTPException(status_code=500, detail="Failed to upload recording")
+        logger.error(f"Ошибка при загрузке аудио-чанка: {e}")
+        raise HTTPException(status_code=500, detail="Failed to upload recording chunk")
+
 
 @router.post("/api/record/screenshot", response_class=CustomJSONResponse)
 async def upload_screenshot(
@@ -136,7 +137,6 @@ async def upload_screenshot(
     file: UploadFile = File(...)
 ):
     try:
-        # ИЗМЕНЕНИЕ: Определяем директорию для сохранения
         room = await manager.get_or_restore_room(room_id)
         if room and room.current_call_record_path:
             save_dir = room.current_call_record_path
@@ -149,7 +149,6 @@ async def upload_screenshot(
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))
         
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        # ИЗМЕНЕНИЕ: Упрощаем имя файла
         filename = f"{timestamp}_{safe_user_id[:8]}_screenshot.png"
         filepath = os.path.join(save_dir, filename)
 

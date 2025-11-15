@@ -1,4 +1,4 @@
-// bot_29-main/static/js/call_orchestrator.js
+
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -19,6 +19,8 @@ let localRecorder = null;
 
 const SCREENSHOT_SCALE = 1.0; 
 const SCREENSHOT_QUALITY = 0.75; 
+// --- НОВОЕ: Константа для интервальной записи ---
+const RECORDING_TIMESLICE_MS = 30000; // 30 секунд
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -198,41 +200,46 @@ function declineCall() {
     state.setTargetUser({});
 }
 
-function uploadRecordings() {
+// --- ИЗМЕНЕНИЕ: Функция переименована и упрощена ---
+function stopAndFinalizeRecording() {
     if (!state.getState().isRecordingEnabled || !localRecorder) {
         return Promise.resolve();
     }
-
-    logToScreen('[RECORDER] Stopping and uploading local recording...');
-    
-    const upload = (blob) => {
-        if (!blob || blob.size === 0) {
-            logToScreen(`[RECORDER] No data to upload.`);
-            return Promise.resolve();
-        }
-        const s = state.getState();
-        const formData = new FormData();
-        formData.append('room_id', s.roomId);
-        formData.append('user_id', s.currentUser.id);
-        formData.append('file', blob, `recording.webm`);
-
-        return fetch('/api/record/upload', {
-            method: 'POST',
-            body: formData
-        }).then(response => {
-            if (response.ok) logToScreen(`[RECORDER] Local recording uploaded successfully.`);
-            else logToScreen(`[RECORDER] Failed to upload local recording.`);
-        }).catch(err => logToScreen(`[RECORDER] Upload error for local recording: ${err}`));
-    };
-
-    return localRecorder.stop().then(blob => {
+    logToScreen('[RECORDER] Stopping local recording...');
+    // stop() теперь сам отправит последний чанк через callback
+    return localRecorder.stop().then(() => {
         localRecorder = null;
-        if (blob) {
-            return upload(blob);
-        }
-        return Promise.resolve();
     });
 }
+
+// --- НОВАЯ ФУНКЦИЯ: Отправка чанка аудио на сервер ---
+function uploadAudioChunk(blob) {
+    if (!blob || blob.size === 0) {
+        logToScreen(`[RECORDER] Skipping empty audio chunk.`);
+        return;
+    }
+    const s = state.getState();
+    const formData = new FormData();
+    formData.append('room_id', s.roomId);
+    formData.append('user_id', s.currentUser.id);
+    formData.append('chunk_index', s.localRecordingChunkIndex);
+    formData.append('file', blob, `chunk_${s.localRecordingChunkIndex}.webm`);
+
+    logToScreen(`[RECORDER] Uploading chunk #${s.localRecordingChunkIndex}, size: ${Math.round(blob.size / 1024)} KB`);
+
+    fetch('/api/record/upload', {
+        method: 'POST',
+        body: formData
+    }).then(response => {
+        if (response.ok) {
+            logToScreen(`[RECORDER] Chunk #${s.localRecordingChunkIndex} uploaded successfully.`);
+            state.incrementLocalRecordingChunkIndex();
+        } else {
+            logToScreen(`[RECORDER] FAILED to upload chunk #${s.localRecordingChunkIndex}.`);
+        }
+    }).catch(err => logToScreen(`[RECORDER] Upload error for chunk #${s.localRecordingChunkIndex}: ${err}`));
+}
+
 
 function endCall(isInitiatorOfHangup, reason) {
     if (state.getState().isEndingCall) return;
@@ -249,14 +256,16 @@ function endCall(isInitiatorOfHangup, reason) {
     }
     monitor.stopConnectionMonitoring();
     webrtc.endPeerConnection();
-    media.stopAllStreams();
-    uiManager.stopAllSounds();
-    uiManager.cleanupAfterCall(state.getState().callTimerInterval);
-    state.setCallTimerInterval(null);
     
-    state.resetCallState();
-    
-    uploadRecordings().finally(() => {
+    // --- ИЗМЕНЕНИЕ: Логика остановки записи ---
+    stopAndFinalizeRecording().finally(() => {
+        // Остальная логика очистки выполняется после завершения работы с записью
+        media.stopAllStreams();
+        uiManager.stopAllSounds();
+        uiManager.cleanupAfterCall(state.getState().callTimerInterval);
+        state.setCallTimerInterval(null);
+        
+        state.resetCallState();
         hangupBtn.disabled = false;
     });
 }
@@ -537,14 +546,20 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
             
+            // --- ИЗМЕНЕНИЕ: Логика запуска записи ---
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
                     const audioTrackForRecording = localStream.getAudioTracks()[0].clone();
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
-                    const recorderOptions = { audioBitsPerSecond: 8000 };
-                    localRecorder = new CallRecorder(streamForRecording, logToScreen, recorderOptions);
+                    const recorderOptions = { 
+                        audioBitsPerSecond: 8000, // Снижаем битрейт для уменьшения размера
+                        timeslice: RECORDING_TIMESLICE_MS 
+                    };
+                    
+                    // Передаем callback для отправки чанков
+                    localRecorder = new CallRecorder(streamForRecording, logToScreen, uploadAudioChunk, recorderOptions);
                     localRecorder.start();
                 }
             }

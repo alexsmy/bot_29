@@ -1,16 +1,19 @@
-// bot_29-main/static/js/call_recorder.js
+
 
 export class CallRecorder {
-    constructor(stream, logCallback, options = {}) {
+    // --- ИЗМЕНЕНИЕ: Конструктор теперь принимает onChunkAvailable и timeslice ---
+    constructor(stream, logCallback, onChunkAvailable, options = {}) {
         this.stream = stream;
         this.log = logCallback;
+        this.onChunkAvailable = onChunkAvailable;
         this.mediaRecorder = null;
         this.recordedChunks = [];
         this.isRecording = false;
+        this.timeslice = options.timeslice || 0; // 0 означает запись одним файлом
 
         const recorderOptions = {
             mimeType: 'audio/webm;codecs=opus',
-            ...options 
+            audioBitsPerSecond: options.audioBitsPerSecond || 8000
         };
 
         if (!MediaRecorder.isTypeSupported(recorderOptions.mimeType)) {
@@ -24,7 +27,14 @@ export class CallRecorder {
             
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
-                    this.recordedChunks.push(event.data);
+                    // Если включена интервальная запись, сразу отправляем чанк
+                    if (this.timeslice > 0) {
+                        this.log(`[RECORDER] Chunk created (size: ${event.data.size}). Sending...`);
+                        this.onChunkAvailable(new Blob([event.data], { type: this.mediaRecorder.mimeType }));
+                    } else {
+                        // Иначе, как и раньше, просто накапливаем
+                        this.recordedChunks.push(event.data);
+                    }
                 }
             };
         } catch (e) {
@@ -36,9 +46,10 @@ export class CallRecorder {
     start() {
         if (!this.mediaRecorder || this.isRecording) return;
         this.recordedChunks = [];
-        this.mediaRecorder.start();
+        // --- ИЗМЕНЕНИЕ: Передаем timeslice в метод start ---
+        this.mediaRecorder.start(this.timeslice > 0 ? this.timeslice : undefined);
         this.isRecording = true;
-        this.log('[RECORDER] Recording started.');
+        this.log(`[RECORDER] Recording started. Timeslice: ${this.timeslice}ms.`);
     }
 
     stop() {
@@ -49,25 +60,32 @@ export class CallRecorder {
             }
 
             this.mediaRecorder.onstop = () => {
-                const blob = new Blob(this.recordedChunks, { type: this.mediaRecorder.mimeType });
+                let finalBlob = null;
+                // Если мы не использовали timeslice, то все чанки накоплены здесь
+                if (this.timeslice === 0 && this.recordedChunks.length > 0) {
+                    finalBlob = new Blob(this.recordedChunks, { type: this.mediaRecorder.mimeType });
+                    this.log(`[RECORDER] Recording stopped. Final blob size: ${finalBlob.size} bytes.`);
+                    // Отправляем финальный большой файл
+                    this.onChunkAvailable(finalBlob);
+                } else {
+                    // Если использовали timeslice, финальный чанк уже был отправлен в ondataavailable
+                    this.log(`[RECORDER] Recording stopped (interval mode).`);
+                }
+
                 this.recordedChunks = [];
                 this.isRecording = false;
-                this.log(`[RECORDER] Recording stopped. Blob size: ${blob.size} bytes.`);
 
-                // ИСПРАВЛЕНИЕ: Принудительно останавливаем все дорожки (включая клонированную),
-                // чтобы гарантированно освободить микрофон для следующего звонка.
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
                     this.log('[RECORDER] All tracks used for recording have been stopped.');
                 }
 
-                resolve(blob);
+                resolve(finalBlob); // Возвращаем blob только в режиме без timeslice
             };
             
             if (this.mediaRecorder.state === "recording") {
                 this.mediaRecorder.stop();
             } else {
-                // Если запись уже не идет, просто освобождаем ресурсы и выходим
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
                 }

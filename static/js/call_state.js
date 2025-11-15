@@ -1,4 +1,4 @@
-// bot_29-main/static/js/call_state.js
+// static/js/call_state.js
 
 const state = {
     currentUser: {},
@@ -19,6 +19,8 @@ const state = {
     isCallInitiator: false,
     isEndingCall: false,
     isRecordingEnabled: false,
+    // --- НОВОЕ ---
+    localRecordingChunkIndex: 0, 
 };
 
 export function getState() {
@@ -43,6 +45,10 @@ export function setIceServerDetails(details) { state.iceServerDetails = details;
 export function setIsCallInitiator(initiator) { state.isCallInitiator = initiator; }
 export function setIsEndingCall(ending) { state.isEndingCall = ending; }
 export function setIsRecordingEnabled(enabled) { state.isRecordingEnabled = enabled; }
+// --- НОВОЕ ---
+export function setLocalRecordingChunkIndex(index) { state.localRecordingChunkIndex = index; }
+export function incrementLocalRecordingChunkIndex() { state.localRecordingChunkIndex++; }
+
 
 export function resetCallState() {
     setIsMuted(false);
@@ -50,4 +56,6 @@ export function resetCallState() {
     setIsSpeakerMuted(false);
     setIsEndingCall(false);
     setTargetUser({});
+    // --- НОВОЕ ---
+    setLocalRecordingChunkIndex(0);
 }
