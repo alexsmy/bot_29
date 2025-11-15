@@ -527,4 +527,4 @@ async def forgive_spam_strikes(user_id: int):
             """,
             new_timestamp, user_id, spam_actions
         )
-        logger.info(f"Счетчик спама для пользователя {user_id} был сброшен.")```
+        logger.info(f"Счетчик спама для пользователя {user_id} был сброшен.")
