@@ -20,8 +20,14 @@ class RoomManager:
         self.creation_time = datetime.now(timezone.utc)
         self.pending_call_type: Optional[str] = None
         self.details_notification_sent: bool = False
-        # ДОБАВЛЕНО: Поле для хранения пути к директории записи текущего звонка
         self.current_call_record_path: Optional[str] = None
+        # --- НОВОЕ: Словарь для отслеживания запущенных сборок ---
+        self.assembly_triggered: Dict[str, bool] = {}
+
+    # --- НОВАЯ ФУНКЦИЯ ---
+    def set_assembly_triggered(self, user_id: str):
+        """Отмечает, что сборка для пользователя была инициирована."""
+        self.assembly_triggered[user_id] = True
 
     async def connect(self, websocket: WebSocket, user_data: dict):
         if len(self.users) >= self.max_users:
@@ -34,6 +40,8 @@ class RoomManager:
 
         self.active_connections[server_user_id] = websocket
         self.users[server_user_id] = {**user_data, "id": server_user_id, "status": "available"}
+        # --- НОВОЕ: Сбрасываем флаг сборки при подключении ---
+        self.assembly_triggered[server_user_id] = False
 
         await self.broadcast_user_list()
         return server_user_id
@@ -45,6 +53,10 @@ class RoomManager:
         if user_id in self.users:
             del self.users[user_id]
             await self.broadcast_user_list()
+        
+        # --- НОВОЕ: Удаляем флаг при полном дисконнекте ---
+        if user_id in self.assembly_triggered:
+            del self.assembly_triggered[user_id]
 
     async def broadcast_user_list(self):
         user_list = list(self.users.values())
@@ -70,6 +82,9 @@ class RoomManager:
     async def set_user_status(self, user_id: Any, status: str):
         if user_id in self.users:
             self.users[user_id]["status"] = status
+            # --- НОВОЕ: Сбрасываем флаг, если пользователь снова доступен ---
+            if status == "available":
+                self.assembly_triggered[user_id] = False
             await self.broadcast_user_list()
 
     async def _call_timeout_task(self, caller_id: Any, target_id: Any):

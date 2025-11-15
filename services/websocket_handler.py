@@ -37,9 +37,13 @@ async def handle_connection(websocket: WebSocket, room: RoomManager, user_id: st
     except WebSocketDisconnect:
         logger.info(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
     finally:
+        # --- ИЗМЕНЕНИЕ: Добавляем логику аварийной сборки ---
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"
         
         if is_in_call:
+            # Запускаем аварийную сборку для отключившегося пользователя
+            await call_service.handle_abrupt_disconnection(room, user_id)
+
             other_user_id = None
             for key in list(room.call_timeouts.keys()):
                 if user_id in key:
@@ -48,6 +52,7 @@ async def handle_connection(websocket: WebSocket, room: RoomManager, user_id: st
                     break
             
             if other_user_id and other_user_id in room.users:
+                # Завершаем звонок для второго пользователя штатно
                 await room.send_personal_message({"type": "call_ended"}, other_user_id)
                 await room.set_user_status(other_user_id, "available")
         
