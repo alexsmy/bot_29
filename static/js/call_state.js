@@ -19,8 +19,9 @@ const state = {
     isCallInitiator: false,
     isEndingCall: false,
     isRecordingEnabled: false,
-    // --- НОВОЕ ---
-    localRecordingChunkIndex: 0, 
+    localRecordingChunkIndex: 0,
+    // --- НОВОЕ: Флаг для предотвращения повторной инициализации ---
+    isCallConnected: false,
 };
 
 export function getState() {
@@ -45,9 +46,10 @@ export function setIceServerDetails(details) { state.iceServerDetails = details;
 export function setIsCallInitiator(initiator) { state.isCallInitiator = initiator; }
 export function setIsEndingCall(ending) { state.isEndingCall = ending; }
 export function setIsRecordingEnabled(enabled) { state.isRecordingEnabled = enabled; }
-// --- НОВОЕ ---
 export function setLocalRecordingChunkIndex(index) { state.localRecordingChunkIndex = index; }
 export function incrementLocalRecordingChunkIndex() { state.localRecordingChunkIndex++; }
+// --- НОВОЕ ---
+export function setIsCallConnected(connected) { state.isCallConnected = connected; }
 
 
 export function resetCallState() {
@@ -56,6 +58,7 @@ export function resetCallState() {
     setIsSpeakerMuted(false);
     setIsEndingCall(false);
     setTargetUser({});
-    // --- НОВОЕ ---
     setLocalRecordingChunkIndex(0);
+    // --- НОВОЕ: Сбрасываем флаг при завершении ---
+    setIsCallConnected(false);
 }

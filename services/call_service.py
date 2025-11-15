@@ -108,7 +108,7 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
         
         message_to_admin = (
             f"📞 <b>Звонок начался</b>\n\n"
-            f"<b>Room ID:</b> `{room.room_id}`\n"
+            f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
             f"<b>Тип:</b> {room.pending_call_type}\n"
             f"<b>Время:</b> {call_start_time.strftime('%Y-%m-%d %H:%M:%S UTC')}"
         )
@@ -127,7 +127,7 @@ async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hang
         asyncio.create_task(database.log_call_end(room.room_id))
         message_to_admin = (
             f"🔚 <b>Звонок завершен</b>\n\n"
-            f"<b>Room ID:</b> `{room.room_id}`\n"
+            f"<b>Room ID:</b> <code>{room.room_id}</code>\n"
             f"<b>Время:</b> {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')}"
         )
         asyncio.create_task(
@@ -136,7 +136,6 @@ async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hang
         
         if room.current_call_record_path:
             logger.info(f"Штатное завершение звонка. Запускаю сборку аудио для комнаты {room.room_id}")
-            # --- ИЗМЕНЕНИЕ: Устанавливаем флаги перед запуском сборки ---
             room.set_assembly_triggered(initiator_id)
             room.set_assembly_triggered(target_id)
             asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, initiator_id))
@@ -146,20 +145,23 @@ async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hang
     await room.set_user_status(initiator_id, "available")
     await room.set_user_status(target_id, "available")
 
-# --- НОВАЯ ФУНКЦИЯ ---
 async def handle_abrupt_disconnection(room: RoomManager, disconnected_user_id: str):
     """Обрабатывает аварийное завершение звонка из-за дисконнекта."""
     logger.warning(f"Пользователь {disconnected_user_id} аварийно отключился во время звонка.")
     
-    # Проверяем, есть ли папка для записи и не была ли сборка уже запущена
     if room.current_call_record_path and not room.assembly_triggered.get(disconnected_user_id, False):
         logger.info(f"Запускаю аварийную сборку аудио для {disconnected_user_id}.")
         room.set_assembly_triggered(disconnected_user_id)
-        # Запускаем сборку немедленно, без ожидания
         asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, disconnected_user_id, wait_for_final_chunk=False))
 
 async def process_webrtc_signal(room: RoomManager, sender_id: str, message: dict):
-    target_id = message["data"]["target_id"]
+    # --- ИСПРАВЛЕНИЕ: Добавляем проверку на наличие target_id ---
+    target_id = message.get("data", {}).get("target_id")
+    if not target_id:
+        logger.warning(f"Получено WebRTC сообщение типа '{message.get('type')}' без target_id от {sender_id}. Игнорируется.")
+        return
+    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+    
     message["data"]["from"] = sender_id
     await room.send_personal_message(message, target_id)
 
@@ -189,7 +191,7 @@ async def process_connection_established(room: RoomManager, connection_type: str
             
             return (
                 f"<b>{p_title}:</b>\n"
-                f"<b>IP:</b> `__{ip}__`\n"
+                f"<b>IP:</b> <code>{ip}</code>\n"
                 f"<b>Устройство:</b> {device}\n"
                 f"<b>Локация:</b> {location}"
             )
@@ -198,7 +200,7 @@ async def process_connection_established(room: RoomManager, connection_type: str
         participant_info = format_participant_info(participant, "Участник")
 
         message_to_admin = (
-            f"👥 <b>Участники звонка в комнате</b> `{room.room_id}`\n\n"
+            f"👥 <b>Участники звонка в комнате</b> <code>{room.room_id}</code>\n\n"
             f"{initiator_info}\n\n"
             f"{participant_info}\n"
             f"══════════════════\n"

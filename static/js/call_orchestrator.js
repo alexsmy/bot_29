@@ -1,4 +1,4 @@
-
+// bot_29-main/static/js/call_orchestrator.js
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -19,8 +19,7 @@ let localRecorder = null;
 
 const SCREENSHOT_SCALE = 1.0; 
 const SCREENSHOT_QUALITY = 0.75; 
-// --- НОВОЕ: Константа для интервальной записи ---
-const RECORDING_TIMESLICE_MS = 30000; // 30 секунд
+const RECORDING_TIMESLICE_MS = 60000; // 1 минута
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -200,19 +199,16 @@ function declineCall() {
     state.setTargetUser({});
 }
 
-// --- ИЗМЕНЕНИЕ: Функция переименована и упрощена ---
 function stopAndFinalizeRecording() {
     if (!state.getState().isRecordingEnabled || !localRecorder) {
         return Promise.resolve();
     }
     logToScreen('[RECORDER] Stopping local recording...');
-    // stop() теперь сам отправит последний чанк через callback
     return localRecorder.stop().then(() => {
         localRecorder = null;
     });
 }
 
-// --- НОВАЯ ФУНКЦИЯ: Отправка чанка аудио на сервер ---
 function uploadAudioChunk(blob) {
     if (!blob || blob.size === 0) {
         logToScreen(`[RECORDER] Skipping empty audio chunk.`);
@@ -257,9 +253,7 @@ function endCall(isInitiatorOfHangup, reason) {
     monitor.stopConnectionMonitoring();
     webrtc.endPeerConnection();
     
-    // --- ИЗМЕНЕНИЕ: Логика остановки записи ---
     stopAndFinalizeRecording().finally(() => {
-        // Остальная логика очистки выполняется после завершения работы с записью
         media.stopAllStreams();
         uiManager.stopAllSounds();
         uiManager.cleanupAfterCall(state.getState().callTimerInterval);
@@ -538,6 +532,14 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
     webrtc.init({
         log: logToScreen,
         onCallConnected: () => {
+            // --- ИСПРАВЛЕНИЕ: Добавляем проверку флага ---
+            if (state.getState().isCallConnected) {
+                logToScreen("[ORCHESTRATOR] onCallConnected triggered again, but call is already active. Ignoring.");
+                return;
+            }
+            state.setIsCallConnected(true);
+            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
+
             uiManager.showCallingOverlay(false);
             uiManager.showScreen('call');
             const mediaStatus = media.getMediaAccessStatus();
@@ -546,7 +548,6 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
             state.setCallTimerInterval(uiManager.startCallTimer(s.currentCallType));
             monitor.startConnectionMonitoring();
             
-            // --- ИЗМЕНЕНИЕ: Логика запуска записи ---
             if (s.isRecordingEnabled) {
                 const localStream = media.getLocalStream();
                 if (localStream && localStream.getAudioTracks().length > 0) {
@@ -554,11 +555,10 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
                     const streamForRecording = new MediaStream([audioTrackForRecording]);
                     
                     const recorderOptions = { 
-                        audioBitsPerSecond: 8000, // Снижаем битрейт для уменьшения размера
+                        audioBitsPerSecond: 8000,
                         timeslice: RECORDING_TIMESLICE_MS 
                     };
                     
-                    // Передаем callback для отправки чанков
                     localRecorder = new CallRecorder(streamForRecording, logToScreen, uploadAudioChunk, recorderOptions);
                     localRecorder.start();
                 }
