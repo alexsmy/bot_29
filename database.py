@@ -506,3 +506,25 @@ async def count_spam_strikes(user_id: int) -> int:
             user_id, spam_actions, time_window
         )
         return count or 0
+
+# --- НОВАЯ ФУНКЦИЯ ДЛЯ СБРОСА СЧЕТЧИКА СПАМА ---
+async def forgive_spam_strikes(user_id: int):
+    """
+    "Прощает" спам-действия пользователя, сдвигая их временные метки в прошлое.
+    Это эффективно сбрасывает счетчик спама для разблокированного пользователя.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Сдвигаем время на 1 минуту раньше, чем окно проверки, чтобы гарантированно их исключить
+        new_timestamp = datetime.now(timezone.utc) - timedelta(minutes=SPAM_TIME_WINDOW_MINUTES + 1)
+        spam_actions = ('Sent unhandled text message', 'Sent an attachment')
+        
+        await conn.execute(
+            """
+            UPDATE bot_actions
+            SET timestamp = $1
+            WHERE user_id = $2 AND action = ANY($3::text[])
+            """,
+            new_timestamp, user_id, spam_actions
+        )
+        logger.info(f"Счетчик спама для пользователя {user_id} был сброшен.")```

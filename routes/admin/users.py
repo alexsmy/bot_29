@@ -23,14 +23,17 @@ async def get_admin_user_actions(user_id: int):
     actions = await database.get_user_actions(user_id)
     return actions
 
-# --- НОВЫЕ ЭНДПОИНТЫ ---
+# --- ИЗМЕНЕННЫЕ ЭНДПОИНТЫ ---
 
 @router.post("/user/{user_id}/unblock", response_class=CustomJSONResponse)
 async def unblock_user(user_id: int):
-    """Снимает блокировку с пользователя."""
+    """Снимает блокировку с пользователя и сбрасывает его счетчик спама."""
     try:
+        # Сначала меняем статус
         await database.update_user_status(user_id, 'active')
-        return {"status": "ok", "message": f"User {user_id} unblocked."}
+        # Затем "прощаем" прошлые нарушения, чтобы его не заблокировало снова
+        await database.forgive_spam_strikes(user_id)
+        return {"status": "ok", "message": f"User {user_id} unblocked and strikes forgiven."}
     except Exception as e:
         logger.error(f"Ошибка при разблокировке пользователя {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to unblock user.")
