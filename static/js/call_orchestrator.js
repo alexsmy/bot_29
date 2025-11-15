@@ -12,13 +12,13 @@ import {
     closeSessionBtn, instructionsBtn, acceptBtn, declineBtn, hangupBtn, speakerBtn,
     muteBtn, videoBtn, screenShareBtn, localVideo, remoteVideo, localVideoContainer,
     toggleLocalViewBtn, toggleRemoteViewBtn, connectionStatus, deviceSettingsBtn,
-    cameraSelectCall, micSelectCall, speakerSelectCall, callScreen
+    cameraSelectCall, micSelectCall, speakerSelectCall
 } from './call_ui_elements.js';
 
 let localRecorder = null;
 
-const SCREENSHOT_SCALE = 0.8; 
-const SCREENSHOT_QUALITY = 0.75; 
+const SCREENSHOT_SCALE = 0.75; 
+const SCREENSHOT_QUALITY = 0.7; 
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
@@ -398,57 +398,71 @@ async function takeAndUploadScreenshot() {
         return;
     }
 
-    logToScreen('[SCREENSHOT] Starting multi-layer screenshot process...');
+    logToScreen('[SCREENSHOT] Starting single-layer screenshot with advanced onclone...');
 
     const oncloneHandler = (clonedDoc) => {
-        const handleVideoElement = (originalVideo, clonedVideo) => {
-            if (!clonedVideo || originalVideo.videoWidth === 0 || originalVideo.videoHeight === 0) return;
+        const replaceVideoWithCanvas = (originalVideo, clonedVideo) => {
+            if (!clonedVideo || originalVideo.videoWidth === 0 || originalVideo.videoHeight === 0) {
+                return;
+            }
+
             const canvas = clonedDoc.createElement('canvas');
-            canvas.width = originalVideo.videoWidth;
-            canvas.height = originalVideo.videoHeight;
             const ctx = canvas.getContext('2d');
+            const style = getComputedStyle(originalVideo);
+            const rect = originalVideo.getBoundingClientRect();
+
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const videoRatio = originalVideo.videoWidth / originalVideo.videoHeight;
+            const canvasRatio = canvas.width / canvas.height;
+            let drawWidth = canvas.width;
+            let drawHeight = canvas.height;
+            let x = 0;
+            let y = 0;
+
+            const objectFit = style.objectFit;
+            if (objectFit === 'contain') {
+                if (videoRatio > canvasRatio) {
+                    drawHeight = canvas.width / videoRatio;
+                    y = (canvas.height - drawHeight) / 2;
+                } else {
+                    drawWidth = canvas.height * videoRatio;
+                    x = (canvas.width - drawWidth) / 2;
+                }
+            } else if (objectFit === 'cover') {
+                if (videoRatio > canvasRatio) {
+                    drawWidth = canvas.height * videoRatio;
+                    x = (canvas.width - drawWidth) / 2;
+                } else {
+                    drawHeight = canvas.width / videoRatio;
+                    y = (canvas.height - drawHeight) / 2;
+                }
+            }
+            
             if (originalVideo.id === 'localVideo') {
                 ctx.translate(canvas.width, 0);
                 ctx.scale(-1, 1);
             }
-            ctx.drawImage(originalVideo, 0, 0, canvas.width, canvas.height);
-            canvas.style.cssText = getComputedStyle(originalVideo).cssText;
+            
+            ctx.drawImage(originalVideo, x, y, drawWidth, drawHeight);
+            
             clonedVideo.parentNode.replaceChild(canvas, clonedVideo);
         };
-        handleVideoElement(remoteVideo, clonedDoc.getElementById('remoteVideo'));
-        handleVideoElement(localVideo, clonedDoc.getElementById('localVideo'));
+
+        replaceVideoWithCanvas(remoteVideo, clonedDoc.getElementById('remoteVideo'));
+        replaceVideoWithCanvas(localVideo, clonedDoc.getElementById('localVideo'));
     };
 
     try {
-        const callScreenEl = document.getElementById('call-screen');
-        const uiOverlayEl = document.querySelector('.call-ui-overlay');
-
-        // 1. Снимок фона с видео
-        const backgroundCanvas = await html2canvas(callScreenEl, {
+        const canvas = await html2canvas(document.body, { 
             useCORS: true,
             onclone: oncloneHandler,
             scale: SCREENSHOT_SCALE,
-            ignoreElements: (element) => element.classList.contains('call-ui-overlay')
+            backgroundColor: '#1c1c1e' // Явно задаем фон
         });
-
-        // 2. Снимок UI с прозрачным фоном
-        const uiCanvas = await html2canvas(uiOverlayEl, {
-            useCORS: true,
-            backgroundColor: null, // Прозрачный фон
-            scale: SCREENSHOT_SCALE
-        });
-
-        // 3. Композиция
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = backgroundCanvas.width;
-        finalCanvas.height = backgroundCanvas.height;
-        const ctx = finalCanvas.getContext('2d');
         
-        ctx.drawImage(backgroundCanvas, 0, 0);
-        ctx.drawImage(uiCanvas, 0, 0);
-
-        // 4. Загрузка
-        finalCanvas.toBlob(blob => {
+        canvas.toBlob(blob => {
             if (!blob) {
                 logToScreen('[SCREENSHOT] Failed to create final blob from canvas.');
                 return;
@@ -474,7 +488,7 @@ async function takeAndUploadScreenshot() {
         }, 'image/jpeg', SCREENSHOT_QUALITY);
 
     } catch (error) {
-        logToScreen(`[SCREENSHOT] Error during multi-layer html2canvas execution: ${error}`);
+        logToScreen(`[SCREENSHOT] Error during html2canvas execution: ${error}`);
     }
 }
 
