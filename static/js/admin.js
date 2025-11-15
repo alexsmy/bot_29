@@ -1,3 +1,4 @@
+
 import { initApi } from './admin_api.js';
 import { initUi } from './admin_ui.js';
 import { initStats, loadStats } from './admin_stats.js';
@@ -6,10 +7,7 @@ import { initUsers } from './admin_users.js';
 import { initConnections } from './admin_connections.js';
 import { initNotifications } from './admin_notifications.js';
 import { initRecording } from './admin_recording.js';
-import { initCallRecords } from './admin_call_records.js';
-import { initReports } from './admin_reports.js';
-import { initExplorer } from './admin_explorer.js'; // <-- ИМПОРТ
-import { initLogs } from './admin_logs.js';
+import { initExplorer } from './admin_explorer.js';
 import { initDangerZone } from './admin_danger_zone.js';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -25,20 +23,15 @@ document.addEventListener('DOMContentLoaded', () => {
     initConnections();
     initNotifications();
     initRecording();
-    initCallRecords();
-    initReports();
-    initExplorer(); // <-- ИНИЦИАЛИЗАЦИЯ
-    initLogs();
+    initExplorer();
     initDangerZone();
 
     setInterval(() => {
-        loadStats();
-        loadActiveRooms();
-        loadActiveRooms();
-        loadLogs();
-        loadReports();
-        loadRecording();
-        loadCallRecords();
-        LoadConnections();
+        // Обновляем только те вкладки, которые не требуют активного взаимодействия
+        const activeTab = document.querySelector('.content-section.active')?.id;
+        if (activeTab === 'stats' || activeTab === 'rooms') {
+            loadStats();
+            loadActiveRooms();
+        }
     }, 10000);
 });

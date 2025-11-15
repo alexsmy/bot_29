@@ -1,3 +1,4 @@
+
 import { formatRemainingTime } from './admin_utils.js';
 
 function populateIcons() {
@@ -9,10 +10,7 @@ function populateIcons() {
     document.getElementById('icon-connections').innerHTML = ICONS.connections;
     document.getElementById('icon-notifications').innerHTML = ICONS.notifications;
     document.getElementById('icon-recording').innerHTML = ICONS.recording;
-    document.getElementById('icon-call-records').innerHTML = ICONS.callRecords;
-    document.getElementById('icon-reports').innerHTML = ICONS.reports;
-    document.getElementById('icon-explorer').innerHTML = ICONS.explorer; // <-- ДОБАВЛЕНО
-    document.getElementById('icon-logs').innerHTML = ICONS.logs;
+    document.getElementById('icon-explorer').innerHTML = ICONS.explorer;
     document.getElementById('icon-danger').innerHTML = ICONS.danger;
 }
 

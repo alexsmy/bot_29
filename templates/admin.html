@@ -52,17 +52,8 @@
                 <a href="#recording" class="nav-link">
                     <span class="icon" id="icon-recording"></span> Запись звонков
                 </a>
-                <a href="#call-records" class="nav-link">
-                    <span class="icon" id="icon-call-records"></span> Записи звонков
-                </a>
-                <a href="#reports" class="nav-link">
-                    <span class="icon" id="icon-reports"></span> Отчёты
-                </a>
                 <a href="#explorer" class="nav-link">
                     <span class="icon" id="icon-explorer"></span> Проводник
-                </a>
-                <a href="#logs" class="nav-link">
-                    <span class="icon" id="icon-logs"></span> Логи
                 </a>
                 <a href="#danger" class="nav-link">
                     <span class="icon" id="icon-danger"></span> Опасная зона
@@ -240,27 +231,6 @@
                 </div>
             </section>
 
-            <section id="call-records" class="content-section">
-                <div class="section-header">
-                    <h2>Записи звонков</h2>
-                </div>
-                <p class="section-description">Здесь хранятся аудиозаписи звонков в формате .webm.</p>
-                <div id="call-records-list" class="room-list-container">
-                    <div class="skeleton-list"></div>
-                </div>
-            </section>
-
-            <section id="reports" class="content-section">
-                <div class="section-header">
-                    <h2>Отчёты о соединениях</h2>
-                    <button id="delete-all-reports-btn" class="action-btn danger">Удалить все</button>
-                </div>
-                <p class="section-description">Здесь хранятся детальные HTML-отчёты о качестве WebRTC соединений.</p>
-                <div id="reports-list" class="room-list-container">
-                    <div class="skeleton-list"></div>
-                </div>
-            </section>
-            
             <section id="explorer" class="content-section">
                 <div class="section-header">
                     <h2>Проводник</h2>
@@ -270,19 +240,6 @@
                 <div id="file-explorer-container" class="file-explorer">
                     <div class="skeleton-list"></div>
                 </div>
-            </section>
-
-            <section id="logs" class="content-section">
-                <div class="section-header">
-                    <h2>Логи приложения</h2>
-                    <div>
-                        <button id="refresh-logs-btn" class="action-btn">Обновить</button>
-                        <button id="download-logs-btn" class="action-btn">Скачать</button>
-                        <button id="clear-logs-btn" class="action-btn danger">Очистить</button>
-                    </div>
-                </div>
-                <p class="section-description">Последние записи из файла логов `app.log`.</p>
-                <div id="logs-content" class="logs-panel">Загрузка...</div>
             </section>
 
             <section id="danger" class="content-section">
@@ -296,7 +253,6 @@
         </main>
     </div>
 
-    <!-- ИЗМЕНЕНИЕ: Модальное окно для просмотра файлов -->
     <div id="viewer-modal" class="viewer-modal">
         <div class="modal-overlay"></div>
         <div class="modal-content">
@@ -308,7 +264,6 @@
         </div>
     </div>
 
-    <!-- ИЗМЕНЕНИЕ: Модальное окно для выбора действий с файлом -->
     <div id="action-modal" class="action-modal">
         <div class="action-modal-buttons">
             <button id="action-view-btn" class="action-btn btn-view">Просмотр</button>

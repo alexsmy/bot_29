@@ -336,7 +336,7 @@ html.dark .stat-card.clickable {
     flex-direction: column;
     gap: 0.75rem;
 }
-.room-item, .user-item, .report-item, .record-item {
+.room-item, .user-item {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -349,7 +349,7 @@ html.dark .stat-card.clickable {
     flex-wrap: wrap;
     gap: 1rem;
 }
-.room-item:hover, .user-item:hover, .report-item:hover, .record-item:hover {
+.room-item:hover, .user-item:hover {
     box-shadow: var(--shadow-md);
     border-color: var(--accent-color);
 }
@@ -665,47 +665,6 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
 .status.closed { background-color: var(--text-secondary); color: var(--accent-text); }
 .status.expired { background-color: var(--pending-color); color: var(--accent-text); }
 
-.report-item a { color: var(--accent-color); text-decoration: none; font-weight: 500; }
-.report-item a:hover { text-decoration: underline; }
-.report-actions { display: flex; gap: 0.5rem; }
-
-/* Стили для записей звонков */
-.record-item-info {
-    flex-grow: 1;
-    font-family: monospace;
-    font-size: 0.9em;
-}
-.record-item-actions {
-    display: flex;
-    gap: 1rem;
-    align-items: center;
-}
-.action-group {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    padding: 0.5rem;
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-}
-.action-group .file-type {
-    font-weight: 600;
-    font-size: 0.8em;
-    color: var(--text-secondary);
-    padding-right: 0.5rem;
-    border-right: 1px solid var(--border-color);
-}
-.action-group .action-btn {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.9em;
-}
-.action-group .action-btn.disabled {
-    background-color: var(--base-bg);
-    color: var(--text-secondary);
-    cursor: not-allowed;
-    border-color: var(--border-color);
-}
-
 .file-explorer {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
@@ -767,28 +726,6 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     display: flex;
     gap: 1rem;
 }
-
-.logs-panel {
-    background-color: #212529;
-    color: #f8f9fa;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 1rem;
-    max-height: 500px;
-    overflow-y: auto;
-    white-space: pre-wrap;
-    overflow-wrap: break-word;
-    font-family: monospace;
-    font-size: 0.85em;
-}
-html.dark .logs-panel { border-color: #495057; }
-.log-line { display: block; padding: 0.1em 0; }
-.log-info { color: #adb5bd; }
-.log-warning, .log-http-4xx { color: #ffc107; }
-.log-error, .log-http-5xx { color: #f16372; }
-.log-critical { color: #dc3545; font-weight: bold; }
-.log-http-2xx { color: #28a745; }
-.log-http-3xx { color: #17a2b8; }
 
 .danger-zone {
     background-color: var(--danger-bg);
