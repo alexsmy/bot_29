@@ -1,3 +1,4 @@
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
 from telegram.ext import ContextTypes, filters
 
@@ -48,18 +49,32 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(faq_text, parse_mode=constants.ParseMode.HTML)
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обрабатывает все сообщения, которые не являются командами."""
-    await log_user_and_action(update, "Sent unhandled message")
+    """Обрабатывает все текстовые сообщения, которые не являются командами."""
+    await log_user_and_action(update, "Sent unhandled text message")
     user_name = update.effective_user.first_name
-    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное сообщение.")
+    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное текстовое сообщение.")
 
     reminder_text = (
-        "Я умею только генерировать ссылки для звонков. Пожалуйста, используйте для этого команду /start.\n\n"
+        "Это не предусмотрено. Я умею генерировать ссылки для звонков, пожалуйста, используйте для этого команду /start.\n\n"
         "Если у вас есть вопросы, воспользуйтесь меню:\n"
         "• /instructions - чтобы посмотреть инструкции.\n"
         "• /faq - чтобы найти ответы на частые вопросы."
     )
     await update.message.reply_text(reminder_text)
+
+async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """
+    Обрабатывает любые вложения (файлы, фото, аудио и т.д.), отправленные пользователем.
+    """
+    await log_user_and_action(update, "Sent an attachment")
+    user = update.effective_user
+    logger.warning(f"Пользователь {user.first_name} (ID: {user.id}) отправил вложение. Сообщение проигнорировано.")
+
+    reply_text = (
+        "Извините, отправка вложений не предусмотрена.\n\n"
+        "Вы можете создать приватную ссылку для звонков, пожалуйста, используйте команду /start."
+    )
+    await update.message.reply_text(reply_text)
 
 async def handle_create_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает нажатие на кнопку 'Создать приватную ссылку'."""

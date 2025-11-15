@@ -1,3 +1,4 @@
+
 import os
 import sys
 import asyncio
@@ -64,8 +65,12 @@ async def main() -> None:
     # Регистрация обработчика inline-запросов
     application.add_handler(InlineQueryHandler(inline_handlers.handle_inline_query))
 
-    # Регистрация обработчика для всех остальных текстовых сообщений и вложений
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND | filters.ATTACHMENT, public_handlers.echo))
+    # --- ИЗМЕНЕНИЕ: Разделяем обработчик текста и вложений ---
+    # 1. Обработчик для всех текстовых сообщений, которые не являются командами
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, public_handlers.echo))
+    # 2. Новый обработчик для всех типов вложений (фото, видео, файлы, аудио и т.д.)
+    application.add_handler(MessageHandler(filters.ATTACHMENT, public_handlers.handle_attachment))
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     bot_app_instance = application
 
