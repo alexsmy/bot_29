@@ -1,8 +1,12 @@
 import os
 from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 import ice_provider
 from logger_config import logger
@@ -12,7 +16,25 @@ from routes.admin_router import router as admin_router
 from routes.api_router import router as api_router
 from core import CustomJSONResponse, templates
 
+# --- ИЗМЕНЕНИЕ: Настройка Rate Limiter ---
+limiter = Limiter(key_func=get_remote_address, default_limits=["100 per minute"])
+
 app = FastAPI()
+
+# Применяем Rate Limiter как middleware
+app.state.limiter = limiter
+app.add_middleware(SlowAPIMiddleware)
+
+# Добавляем обработчик исключений для RateLimitExceeded
+@app.exception_handler(RateLimitExceeded)
+async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
+    logger.warning(f"Rate limit exceeded for {request.client.host}: {exc.detail}")
+    return JSONResponse(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        content={"detail": f"Rate limit exceeded: {exc.detail}"},
+    )
+# --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
 
 app.include_router(websocket_router)
 app.include_router(admin_router)
@@ -38,11 +60,13 @@ async def get_welcome(request: Request):
     return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
 
 @app.get("/api/ice-servers", response_class=CustomJSONResponse)
-async def get_ice_servers_endpoint():
+@limiter.limit("10/minute")  # --- ИЗМЕНЕНИЕ: Строгий лимит для этого эндпоинта
+async def get_ice_servers_endpoint(request: Request):
     servers = ice_provider.get_ice_servers()
     return servers
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
+@limiter.limit("15/minute") # --- ИЗМЕНЕНИЕ: Строгий лимит для этого эндпоинта
 async def get_call_page(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
@@ -51,7 +75,8 @@ async def get_call_page(request: Request, room_id: str):
     return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username})
 
 @app.post("/room/close/{room_id}", response_class=CustomJSONResponse)
-async def close_room_endpoint(room_id: str):
+@limiter.limit("20/minute") # --- ИЗМЕНЕНИЕ: Лимит для этого эндпоинта
+async def close_room_endpoint(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")

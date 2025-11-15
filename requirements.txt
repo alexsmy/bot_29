@@ -1,4 +1,4 @@
-# bot_29-main/requirements.txt 67
+# bot_29-main/requirements.txt 79
 
 fastapi
 uvicorn[standard]
@@ -14,3 +14,4 @@ httpx
 twilio
 python-multipart
 groq
+slowapi
