@@ -357,6 +357,37 @@ html.dark .stat-card.clickable {
     cursor: pointer;
 }
 
+/* --- НОВЫЕ СТИЛИ ДЛЯ ЗАБЛОКИРОВАННЫХ ПОЛЬЗОВАТЕЛЕЙ --- */
+.user-item.blocked {
+    border-left: 4px solid var(--error-color);
+    background-color: var(--danger-bg);
+}
+.user-item.blocked .user-name, .user-item.blocked .user-id {
+    color: var(--danger-text);
+}
+html.dark .user-item.blocked {
+    color: var(--danger-text);
+}
+.user-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+.user-actions .action-btn {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85em;
+}
+.user-actions .unblock-btn {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+.user-actions .unblock-btn:hover {
+    background-color: var(--success-color);
+    color: #fff;
+}
+/* --- КОНЕЦ НОВЫХ СТИЛЕЙ --- */
+
 .room-info {
     display: flex;
     flex-direction: column;
@@ -439,6 +470,7 @@ html.dark .stat-card.clickable {
     justify-content: space-between;
     align-items: center;
     width: 100%;
+    flex-grow: 1;
 }
 .user-name { font-weight: 600; color: var(--text-primary); }
 .user-id { color: var(--text-secondary); font-size: 0.9em; }

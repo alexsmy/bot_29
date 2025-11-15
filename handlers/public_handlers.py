@@ -4,11 +4,16 @@ from telegram.ext import ContextTypes, filters
 
 from logger_config import logger
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from bot_utils import log_user_and_action, read_template_content, format_hours
+from bot_utils import log_user_and_action, read_template_content, format_hours, check_and_handle_spam
 from services import room_service
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает команду /start."""
+    # --- ИЗМЕНЕНИЕ: Проверяем пользователя перед обработкой команды ---
+    if await check_and_handle_spam(update, context, "Sent /start command while potentially blocked"):
+        return
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    
     await log_user_and_action(update, "/start")
     user_name = update.effective_user.first_name
     logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запустил команду /start.")
@@ -30,6 +35,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает команду /instructions."""
+    if await check_and_handle_spam(update, context, "Sent /instructions command"):
+        return
+        
     await log_user_and_action(update, "/instructions")
     user_name = update.effective_user.first_name
     logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил инструкцию.")
@@ -40,6 +48,9 @@ async def instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает команду /faq."""
+    if await check_and_handle_spam(update, context, "Sent /faq command"):
+        return
+        
     await log_user_and_action(update, "/faq")
     user_name = update.effective_user.first_name
     logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил FAQ.")
@@ -50,12 +61,16 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает все текстовые сообщения, которые не являются командами."""
-    await log_user_and_action(update, "Sent unhandled text message")
+    # --- ИЗМЕНЕНИЕ: Проверяем на спам ПЕРЕД отправкой ответа ---
+    if await check_and_handle_spam(update, context, "Sent unhandled text message"):
+        return # Если пользователь заблокирован, просто выходим
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     user_name = update.effective_user.first_name
     logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное текстовое сообщение.")
 
     reminder_text = (
-        "Это не предусмотрено. Я умею генерировать ссылки для звонков, пожалуйста, используйте для этого команду /start.\n\n"
+        "Я умею генерировать ссылки для звонков, пожалуйста, используйте для этого команду /start.\n\n"
         "Если у вас есть вопросы, воспользуйтесь меню:\n"
         "• /instructions - чтобы посмотреть инструкции.\n"
         "• /faq - чтобы найти ответы на частые вопросы."
@@ -66,18 +81,28 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     """
     Обрабатывает любые вложения (файлы, фото, аудио и т.д.), отправленные пользователем.
     """
-    await log_user_and_action(update, "Sent an attachment")
+    # --- ИЗМЕНЕНИЕ: Проверяем на спам ПЕРЕД отправкой ответа ---
+    if await check_and_handle_spam(update, context, "Sent an attachment"):
+        return # Если пользователь заблокирован, просто выходим
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    
     user = update.effective_user
     logger.warning(f"Пользователь {user.first_name} (ID: {user.id}) отправил вложение. Сообщение проигнорировано.")
 
     reply_text = (
-        "Извините, отправка вложений не предусмотрена.\n\n"
-        "Вы можете создать приватную ссылку для звонков, пожалуйста, используйте команду /start."
+        "Извините, я не обрабатываю файлы, изображения и другие вложения.\n\n"
+        "Если Вы хотите создать ссылку для звонков, пожалуйста, используйте команду /start."
     )
     await update.message.reply_text(reply_text)
 
 async def handle_create_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Обрабатывает нажатие на кнопку 'Создать приватную ссылку'."""
+    # --- ИЗМЕНЕНИЕ: Проверяем пользователя перед обработкой ---
+    if await check_and_handle_spam(update, context, "Used create_private_link button"):
+        await query.answer("Действие временно недоступно.", show_alert=True)
+        return
+    # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     await log_user_and_action(update, "create_private_link")
     query = update.callback_query
     await query.answer("Создаю ссылку...")

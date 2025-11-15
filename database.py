@@ -1,10 +1,10 @@
-# bot_29-main/database.py
+
 import os
 import asyncpg
 from datetime import datetime, date, timezone, timedelta
 from typing import Dict, Optional, List, Any
 from logger_config import logger
-from config import ADMIN_TOKEN_LIFETIME_MINUTES
+from config import ADMIN_TOKEN_LIFETIME_MINUTES, SPAM_TIME_WINDOW_MINUTES
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 _pool: Optional[asyncpg.Pool] = None
@@ -28,15 +28,24 @@ async def close_pool():
 async def init_db():
     pool = await get_pool()
     async with pool.acquire() as conn:
+        # --- ИЗМЕНЕНИЕ: Добавляем поле status в таблицу users ---
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS users (
                 user_id BIGINT PRIMARY KEY,
                 first_name TEXT,
                 last_name TEXT,
                 username TEXT,
-                first_seen TIMESTAMPTZ NOT NULL
+                first_seen TIMESTAMPTZ NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active'
             )
         ''')
+        # Попытка добавить колонку, если таблица уже существует
+        try:
+            await conn.execute("ALTER TABLE users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'")
+        except asyncpg.exceptions.DuplicateColumnError:
+            pass # Колонка уже существует, ничего не делаем
+        # --- КОНЕЦ ИЗМЕНЕНИЯ ---
+        
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS bot_actions (
                 action_id SERIAL PRIMARY KEY,
@@ -289,7 +298,8 @@ async def get_stats(period):
 async def get_users_info():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT user_id, first_name, last_name, username, first_seen FROM users ORDER BY first_seen DESC")
+        # --- ИЗМЕНЕНИЕ: Добавляем поле status в выборку ---
+        rows = await conn.fetch("SELECT user_id, first_name, last_name, username, first_seen, status FROM users ORDER BY first_seen DESC")
         return [dict(row) for row in rows]
 
 async def get_user_actions(user_id):
@@ -434,14 +444,14 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         participant_details = None
 
         if len(connections) == 1:
-            if connections[0]['ip_address'] == initiator_ip:
-                initiator_details = dict(connections[0])
+            if connections['ip_address'] == initiator_ip:
+                initiator_details = dict(connections)
             else:
-                participant_details = dict(connections[0])
+                participant_details = dict(connections)
         
         elif len(connections) == 2:
-            conn1 = dict(connections[0])
-            conn2 = dict(connections[1])
+            conn1 = dict(connections)
+            conn2 = dict(connections)
             if conn1['ip_address'] == initiator_ip:
                 initiator_details = conn1
                 participant_details = conn2
@@ -457,3 +467,42 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
             "initiator": initiator_details,
             "participant": participant_details
         }
+
+# --- НОВЫЕ ФУНКЦИИ ДЛЯ УПРАВЛЕНИЯ ПОЛЬЗОВАТЕЛЯМИ И СПАМОМ ---
+
+async def get_user_status(user_id: int) -> Optional[str]:
+    """Получает статус пользователя ('active' или 'blocked')."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        status = await conn.fetchval("SELECT status FROM users WHERE user_id = $1", user_id)
+        return status
+
+async def update_user_status(user_id: int, status: str):
+    """Обновляет статус пользователя."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET status = $1 WHERE user_id = $2", status, user_id)
+    logger.info(f"Статус пользователя {user_id} изменен на '{status}'.")
+
+async def delete_user(user_id: int):
+    """Полностью удаляет пользователя и все связанные с ним данные."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("DELETE FROM users WHERE user_id = $1", user_id)
+    logger.warning(f"Пользователь {user_id} и все его данные были удалены администратором.")
+
+async def count_spam_strikes(user_id: int) -> int:
+    """Подсчитывает количество спам-действий пользователя за определенное время."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        time_window = datetime.now(timezone.utc) - timedelta(minutes=SPAM_TIME_WINDOW_MINUTES)
+        spam_actions = ('Sent unhandled text message', 'Sent an attachment')
+        
+        count = await conn.fetchval(
+            """
+            SELECT COUNT(*) FROM bot_actions
+            WHERE user_id = $1 AND action = ANY($2::text[]) AND timestamp >= $3
+            """,
+            user_id, spam_actions, time_window
+        )
+        return count or 0

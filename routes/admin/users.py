@@ -1,9 +1,9 @@
-# routes/admin/users.py
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 import database
 from core import CustomJSONResponse
+from logger_config import logger
 
 router = APIRouter()
 
@@ -22,3 +22,25 @@ async def get_admin_user_actions(user_id: int):
     """
     actions = await database.get_user_actions(user_id)
     return actions
+
+# --- НОВЫЕ ЭНДПОИНТЫ ---
+
+@router.post("/user/{user_id}/unblock", response_class=CustomJSONResponse)
+async def unblock_user(user_id: int):
+    """Снимает блокировку с пользователя."""
+    try:
+        await database.update_user_status(user_id, 'active')
+        return {"status": "ok", "message": f"User {user_id} unblocked."}
+    except Exception as e:
+        logger.error(f"Ошибка при разблокировке пользователя {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to unblock user.")
+
+@router.delete("/user/{user_id}", response_class=CustomJSONResponse)
+async def delete_user_by_admin(user_id: int):
+    """Удаляет пользователя и все связанные с ним данные."""
+    try:
+        await database.delete_user(user_id)
+        return {"status": "ok", "message": f"User {user_id} deleted."}
+    except Exception as e:
+        logger.error(f"Ошибка при удалении пользователя {user_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete user.")

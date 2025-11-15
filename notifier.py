@@ -1,9 +1,10 @@
-# bot_29-main/notifier.py
+
 import os
 import asyncio
 import database
 from telegram import InputFile
 from logger_config import logger
+from config import SPAM_TIME_WINDOW_MINUTES
 
 _bot_app = None
 _admin_id = os.environ.get("ADMIN_USER_ID")
@@ -103,6 +104,26 @@ async def send_notification_with_content_handling(message: str, file_path: str, 
 
     except Exception as e:
         logger.error(f"Общая ошибка при отправке уведомления с контентом: {e}")
+
+# --- НОВАЯ ФУНКЦИЯ ---
+async def send_user_blocked_notification(user_id: int, first_name: str, username: str, strike_count: int):
+    """Отправляет администратору уведомление о блокировке пользователя."""
+    if not _bot_app or not _admin_id:
+        return
+    
+    username_str = f"(@{username})" if username else ""
+    message = (
+        f"🚫 <b>Пользователь заблокирован за спам!</b>\n\n"
+        f"<b>Пользователь:</b> {first_name} {username_str}\n"
+        f"<b>ID:</b> <code>{user_id}</code>\n"
+        f"<b>Причина:</b> {strike_count} нежелательных действий за последние {SPAM_TIME_WINDOW_MINUTES} минут."
+    )
+    try:
+        await _bot_app.bot.send_message(chat_id=_admin_id, text=message, parse_mode='HTML')
+        logger.info(f"Администратору отправлено уведомление о блокировке пользователя {user_id}.")
+    except Exception as e:
+        logger.error(f"Не удалось отправить уведомление о блокировке пользователя {user_id}: {e}")
+# --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
 
 def schedule_notification(*args, **kwargs):
     asyncio.run_coroutine_threadsafe(send_admin_notification(*args, **kwargs), _bot_app.loop)
