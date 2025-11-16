@@ -1,10 +1,12 @@
+
 import os
 import uuid
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
 import database
-from logger_config import logger
+from configurable_logger import log
 from config import (
     ADMIN_ROOM_LIFETIME_1_HOUR,
     ADMIN_ROOM_LIFETIME_1_DAY,
@@ -21,11 +23,11 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     admin_id_str = os.environ.get("ADMIN_USER_ID")
 
     if not admin_id_str or int(user.id) != int(admin_id_str):
-        logger.warning(f"Несанкционированная попытка доступа к /admin от пользователя ID {user.id}.")
+        log("AUTH_ATTEMPT", f"Несанкционированная попытка доступа к /admin от пользователя ID {user.id}.", level=logging.WARNING)
         await update.message.reply_text("Эта команда вам недоступна.")
         return
 
-    logger.info(f"Администратор (ID: {user.id}) запросил доступ к панели.")
+    log("ADMIN_ACTION", f"Администратор (ID: {user.id}) запросил доступ к панели.")
     
     keyboard = [
         [InlineKeyboardButton("🔗 Ссылка на админ-панель", callback_data="admin_panel_link")],
@@ -91,7 +93,7 @@ async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAU
     await log_user_and_action(update, f"admin_create_room_{lifetime_hours}h")
     
     user = update.effective_user
-    logger.info(f"Администратор {user.first_name} (ID: {user.id}) создает ссылку на {lifetime_hours} часов.")
+    log("ADMIN_ACTION", f"Администратор {user.first_name} (ID: {user.id}) создает ссылку на {lifetime_hours} часов.")
     
     await query.message.delete()
     await room_service.create_and_send_room_link(context, query.message.chat_id, user.id, lifetime_hours)

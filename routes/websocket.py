@@ -1,12 +1,15 @@
+
+
 import asyncio
 import uuid
+import logging
 from fastapi import APIRouter, WebSocket
 
 import database
 import utils
 from websocket_manager import manager
 from services import websocket_handler
-from logger_config import logger
+from configurable_logger import log
 
 router = APIRouter()
 
@@ -48,4 +51,4 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     if actual_user_id:
         await websocket_handler.handle_connection(websocket, room, actual_user_id)
     else:
-        logger.warning(f"Connection attempt to full room {room_id} was rejected.")
+        log("WEBSOCKET_LIFECYCLE", f"Connection attempt to full room {room_id} was rejected.", level=logging.WARNING)
