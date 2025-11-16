@@ -4,17 +4,10 @@ import { highlightLogs } from './admin_utils.js';
 const API_TOKEN = document.body.dataset.token;
 
 const ICONS_EXPLORER = {
-    python: ICONS.python,
-    javascript: ICONS.javascript,
-    html: ICONS.html,
-    css: ICONS.css,
-    json: ICONS.json,
-    image: ICONS.image,
-    audio: ICONS.audio,
-    archive: ICONS.archive,
-    doc: ICONS.doc,
-    file: ICONS.file,
-    folder: ICONS.folder
+    python: ICONS.python, javascript: ICONS.javascript, html: ICONS.html,
+    css: ICONS.css, json: ICONS.json, image: ICONS.image,
+    audio: ICONS.audio, archive: ICONS.archive, doc: ICONS.doc,
+    file: ICONS.file, folder: ICONS.folder
 };
 
 let viewerModal, viewerModalTitle, viewerModalBody, viewerModalCloseBtn, modalContent;
@@ -22,7 +15,7 @@ let explorerTable;
 
 const FILE_TYPE_MAP = {
     '.py': { icon: 'python' }, '.js': { icon: 'javascript' }, '.html': { icon: 'html' },
-    '.css': { icon: 'css' }, '.json': { icon: 'json' }, '.log': { icon: 'doc' },
+    '.css': { icon: 'css' }, '.json': { icon: 'json' }, '.jsonc': { icon: 'json' }, '.log': { icon: 'doc' },
     '.txt': { icon: 'doc' }, '.md': { icon: 'doc' }, '.sh': { icon: 'code' },
     '.png': { icon: 'image' }, '.jpg': { icon: 'image' }, '.jpeg': { icon: 'image' },
     '.gif': { icon: 'image' }, '.svg': { icon: 'image' }, '.webp': { icon: 'image' },
@@ -31,7 +24,7 @@ const FILE_TYPE_MAP = {
     '.7z': { icon: 'archive' }
 };
 
-const VIEWABLE_EXTENSIONS = ['.py', '.js', '.css', '.html', '.json', '.txt', '.log', '.md', '.sh', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.webm', '.mp3', '.wav', '.ogg'];
+const VIEWABLE_EXTENSIONS = ['.py', '.js', '.css', '.html', '.json', '.jsonc', '.txt', '.log', '.md', '.sh', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.webm', '.mp3', '.wav', '.ogg'];
 
 function getFileIcon(filename, isFolder) {
     if (isFolder) {
@@ -74,7 +67,7 @@ async function viewFile(path, filename) {
         modalContent.classList.add('log-viewer');
     }
     viewerModal.classList.add('visible');
-    viewerModalBody.innerHTML = '<p style="padding: 1rem;">Загрузка...</p>';
+    viewerModalBody.innerHTML = '<div class="skeleton-list"></div>';
 
     const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
     const fileUrl = `/api/admin/explorer/file-download?path=${encodeURIComponent(path)}&token=${API_TOKEN}`;
@@ -90,16 +83,14 @@ async function viewFile(path, filename) {
         viewerModalBody.innerHTML = `<audio controls autoplay><source src="${fileUrl}"></audio>`;
     } else {
         const data = await fetchData(`explorer/file-content?path=${encodeURIComponent(path)}`);
-        if (data && data.content) {
+        if (data && data.content !== undefined) {
             const codeBlock = document.createElement('code');
             if (filename === 'app.log') {
                 codeBlock.innerHTML = highlightLogs(data.content);
             } else {
                 codeBlock.textContent = data.content;
-                // Применяем тему для highlight.js
                 const theme = localStorage.getItem('theme') || 'light';
                 document.documentElement.classList.add(theme === 'dark' ? 'hljs-theme-dark' : 'hljs-theme-light');
-                // Подсвечиваем синтаксис
                 hljs.highlightElement(codeBlock);
             }
             const preBlock = document.createElement('pre');
@@ -113,11 +104,14 @@ async function viewFile(path, filename) {
 }
 
 async function loadExplorerData() {
+    explorerTable.setData([]); // Очищаем таблицу перед загрузкой
+    explorerTable.setPlaceholder('<div class="skeleton-list"></div>');
     const files = await fetchData('explorer/files-tree');
     if (files) {
-        explorerTable.setData(files);
+        explorerTable.setData(files)
+            .catch(err => console.error("Tabulator error setting data:", err));
     } else {
-        explorerTable.setData([]);
+        explorerTable.setPlaceholder("Не удалось загрузить список файлов");
     }
 }
 
@@ -126,7 +120,7 @@ function initializeExplorerTable() {
         dataTree: true,
         dataTreeStartExpanded: false,
         layout: "fitColumns",
-        placeholder: "Файлы не найдены",
+        placeholder: "Загрузка данных...",
         columns: [
             {
                 title: "Имя", field: "name", minWidth: 300, headerFilter: "input",
@@ -138,7 +132,7 @@ function initializeExplorerTable() {
             { title: "Размер", field: "size", width: 120, hozAlign: "right", sorter: "number", formatter: (cell) => formatBytes(cell.getValue()) },
             { title: "Изменен", field: "modified", width: 180, hozAlign: "center", formatter: (cell) => formatDateShort(cell.getValue()) },
             {
-                title: "Действия", width: 250, hozAlign: "center", headerSort: false,
+                title: "Действия", minWidth: 250, hozAlign: "center", headerSort: false,
                 formatter: (cell) => {
                     const data = cell.getRow().getData();
                     if (data._children) return ''; // Нет действий для папок
@@ -203,19 +197,18 @@ export function initExplorer() {
         }
     });
 
-    // Переключение тем для Tabulator и highlight.js
     const themeToggle = document.getElementById('theme-toggle');
     themeToggle.addEventListener('click', () => {
         const isDark = document.documentElement.classList.contains('dark');
         const tableEl = document.getElementById('explorer-table');
         if (isDark) {
-            tableEl.classList.add('tabulator-dark');
+            tableEl.classList.add('tabulator-midnight');
         } else {
-            tableEl.classList.remove('tabulator-dark');
+            tableEl.classList.remove('tabulator-midnight');
         }
     });
-    // Применяем тему при загрузке
+
     if (localStorage.getItem('theme') === 'dark') {
-        document.getElementById('explorer-table').classList.add('tabulator-dark');
+        document.getElementById('explorer-table').classList.add('tabulator-midnight');
     }
 }
