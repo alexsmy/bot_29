@@ -103,28 +103,7 @@ async def init_db():
                 expires_at TIMESTAMPTZ NOT NULL
             )
         ''')
-        await conn.execute('''
-            CREATE TABLE IF NOT EXISTS admin_settings (
-                key TEXT PRIMARY KEY,
-                value BOOLEAN NOT NULL
-            )
-        ''')
-        await conn.execute('''
-            INSERT INTO admin_settings (key, value) VALUES
-            ('notify_on_room_creation', TRUE),
-            ('notify_on_call_start', TRUE),
-            ('notify_on_call_end', TRUE),
-            ('send_connection_report', TRUE),
-            ('notify_on_connection_details', TRUE),
-            ('enable_call_recording', FALSE),
-            ('notify_on_audio_record', FALSE),
-            ('notify_on_dialog_as_file', TRUE),
-            ('notify_on_dialog_as_message', FALSE),
-            ('notify_on_summary_as_file', TRUE),
-            ('notify_on_summary_as_message', FALSE),
-            ('notify_on_screenshot', TRUE)
-            ON CONFLICT(key) DO NOTHING
-        ''')
+        # --- ИЗМЕНЕНИЕ: Таблица admin_settings и ее инициализация удалены ---
     logger.info("База данных PostgreSQL успешно инициализирована.")
 
 async def log_user(user_id, first_name, last_name, username):
@@ -368,7 +347,8 @@ async def get_room_lifetime_hours(room_id: str) -> int:
 async def clear_all_data():
     pool = await get_pool()
     async with pool.acquire() as conn:
-        await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens, admin_settings RESTART IDENTITY CASCADE")
+        # --- ИЗМЕНЕНИЕ: Удалена таблица admin_settings из TRUNCATE ---
+        await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens RESTART IDENTITY CASCADE")
         logger.warning("Все таблицы базы данных были полностью очищены.")
 
 async def get_all_active_sessions():
@@ -386,27 +366,6 @@ async def get_all_active_sessions():
         """
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
-
-async def get_admin_settings() -> Dict[str, bool]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT key, value FROM admin_settings")
-        return {row['key']: row['value'] for row in rows}
-
-async def update_admin_settings(settings: Dict[str, bool]):
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        async with conn.transaction():
-            for key, value in settings.items():
-                # ИСПРАВЛЕНИЕ: Добавлено явное приведение типа к BOOLEAN для параметра $2
-                await conn.execute(
-                    """
-                    INSERT INTO admin_settings (key, value) VALUES ($1, $2::boolean)
-                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
-                    """,
-                    key, value
-                )
-        logger.info("Настройки администратора обновлены.")
 
 async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]]:
     """

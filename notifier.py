@@ -1,10 +1,9 @@
-
 import os
 import asyncio
-import database
 from telegram import InputFile
 from logger_config import logger
 from config import SPAM_TIME_WINDOW_MINUTES
+import settings_manager
 
 _bot_app = None
 _admin_id = os.environ.get("ADMIN_USER_ID")
@@ -21,8 +20,7 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
         return
 
     try:
-        settings = await database.get_admin_settings()
-        if not settings.get(setting_key, False):
+        if not settings_manager.get_setting(setting_key):
             return
 
         bot = _bot_app.bot
@@ -55,8 +53,7 @@ async def send_admin_photo_notification(caption: str, setting_key: str, file_pat
         return
 
     try:
-        settings = await database.get_admin_settings()
-        if not settings.get(setting_key, False):
+        if not settings_manager.get_setting(setting_key):
             return
 
         bot = _bot_app.bot
@@ -78,13 +75,12 @@ async def send_notification_with_content_handling(message: str, file_path: str, 
         return
 
     try:
-        settings = await database.get_admin_settings()
         bot = _bot_app.bot
 
-        if settings.get(setting_key_file, False):
+        if settings_manager.get_setting(setting_key_file):
             await send_admin_notification(message, setting_key_file, file_path)
 
-        if settings.get(setting_key_message, False):
+        if settings_manager.get_setting(setting_key_message):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()

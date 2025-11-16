@@ -1,12 +1,9 @@
-
 import { initApi } from './admin_api.js';
 import { initUi } from './admin_ui.js';
 import { initStats, loadStats } from './admin_stats.js';
 import { initRooms, loadActiveRooms } from './admin_rooms.js';
 import { initUsers } from './admin_users.js';
 import { initConnections } from './admin_connections.js';
-import { initNotifications } from './admin_notifications.js';
-import { initRecording } from './admin_recording.js';
 import { initExplorer } from './admin_explorer.js';
 import { initDangerZone } from './admin_danger_zone.js';
 
@@ -21,8 +18,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initRooms();
     initUsers();
     initConnections();
-    initNotifications();
-    initRecording();
     initExplorer();
     initDangerZone();
 

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 import database
 import notifier
+import settings_manager
 from core import CustomJSONResponse, templates
 from logger_config import logger
 from websocket_manager import manager
@@ -85,8 +86,7 @@ async def get_room_lifetime(room_id: str):
 
 @router.get("/api/recording/status", response_class=CustomJSONResponse)
 async def get_recording_status():
-    settings = await database.get_admin_settings()
-    is_enabled = settings.get('enable_call_recording', False)
+    is_enabled = settings_manager.get_setting('enable_call_recording')
     return {"is_enabled": is_enabled}
 
 # --- ИЗМЕНЕНИЕ: Эндпоинт теперь принимает chunk_index ---
