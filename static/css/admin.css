@@ -723,6 +723,10 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     background-color: var(--surface-bg);
     font-size: 0.9em;
 }
+.tabulator {
+    border: none;
+    background-color: transparent;
+}
 .tabulator .tabulator-header {
     background-color: var(--base-bg);
     border-bottom: 2px solid var(--border-color);
@@ -735,6 +739,7 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
 }
 .tabulator-row {
     background-color: var(--surface-bg);
+    border-bottom: 1px solid var(--border-color);
 }
 .tabulator-row.tabulator-row-odd {
     background-color: var(--base-bg);
@@ -743,13 +748,16 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     background-color: rgba(76, 110, 245, 0.1);
 }
 .tabulator-cell {
-    padding: 0.75rem;
+    padding: 0.5rem 0.75rem;
     border-right: 1px solid var(--border-color);
+    display: inline-flex;
+    align-items: center;
 }
 .tabulator-cell .icon {
     width: 18px;
     height: 18px;
     vertical-align: middle;
+    margin-right: 8px;
 }
 .tabulator-cell .icon-code { color: var(--icon-color-code); }
 .tabulator-cell .icon-image { color: var(--icon-color-image); }
@@ -760,6 +768,17 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     padding: 0.3rem 0.7rem;
     font-size: 0.9em;
     margin-right: 0.5rem;
+}
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-sorter {
+    right: 8px;
+}
+.tabulator-row .tabulator-cell .tabulator-data-tree-control {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    margin-right: 5px;
 }
 /* --- КОНЕЦ СТИЛЕЙ ДЛЯ TABULATOR --- */
 
@@ -986,25 +1005,6 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
 .action-modal-buttons .btn-download:hover:not(:disabled) {
     background-color: var(--btn-download-hover-bg);
 }
-
-
-/* СТИЛИ ДЛЯ ПОДСВЕТКИ СИНТАКСИСА */
-.hl-comment { color: #6a9955; }
-.hl-keyword { color: #569cd6; }
-.hl-string { color: #ce9178; }
-.hl-number { color: #b5cea8; }
-.hl-boolean { color: #569cd6; }
-.hl-tag { color: #569cd6; }
-.hl-attr-name { color: #9cdcfe; }
-.hl-attr-value { color: #ce9178; }
-html.dark .hl-comment { color: #608b4e; }
-html.dark .hl-keyword { color: #4fc1ff; }
-html.dark .hl-string { color: #d69d85; }
-html.dark .hl-number { color: #b5cea8; }
-html.dark .hl-boolean { color: #4fc1ff; }
-html.dark .hl-tag { color: #4fc1ff; }
-html.dark .hl-attr-name { color: #9cdcfe; }
-html.dark .hl-attr-value { color: #d69d85; }
 
 /* --- НОВЫЕ СТИЛИ ДЛЯ ПОДСВЕТКИ ЛОГОВ --- */
 .log-line { display: block; }

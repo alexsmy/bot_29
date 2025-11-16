@@ -25,25 +25,32 @@ def is_safe_path(path: str) -> bool:
     resolved_path = os.path.abspath(path)
     return resolved_path.startswith(PROJECT_ROOT)
 
-def get_project_files_flat(current_path: str, all_files: List) -> None:
+def build_file_tree(path: str) -> List[Dict[str, Any]]:
     """
-    Рекурсивно сканирует директории и собирает плоский список файлов.
+    Рекурсивно строит дерево файлов и директорий для Tabulator.
     """
+    tree = []
     try:
-        items = os.listdir(current_path)
+        # Сначала директории, потом файлы, все по алфавиту
+        items = sorted(os.listdir(path), key=lambda x: (os.path.isdir(os.path.join(path, x)), x.lower()))
         for item in items:
-            item_path = os.path.join(current_path, item)
+            item_path = os.path.join(path, item)
             if not is_safe_path(item_path):
                 continue
 
             if os.path.isdir(item_path):
                 if item not in EXCLUDED_DIRS:
-                    get_project_files_flat(item_path, all_files)
+                    children = build_file_tree(item_path)
+                    tree.append({
+                        "name": item,
+                        "path": os.path.relpath(item_path, PROJECT_ROOT),
+                        "_children": children  # Tabulator использует _children для древовидной структуры
+                    })
             else:
                 if item not in EXCLUDED_FILES:
                     try:
                         stats = os.stat(item_path)
-                        all_files.append({
+                        tree.append({
                             "name": item,
                             "path": os.path.relpath(item_path, PROJECT_ROOT),
                             "size": stats.st_size,
@@ -52,20 +59,21 @@ def get_project_files_flat(current_path: str, all_files: List) -> None:
                     except OSError:
                         continue
     except OSError as e:
-        log("ERROR", f"Ошибка чтения директории {current_path}: {e}", level=logging.ERROR)
+        log("ERROR", f"Ошибка чтения директории {path}: {e}", level=logging.ERROR)
+    return tree
 
-@router.get("/explorer/files-flat", response_class=CustomJSONResponse)
-async def get_files_flat():
+@router.get("/explorer/files-tree", response_class=CustomJSONResponse)
+async def get_files_tree():
     """
-    Возвращает плоский список всех файлов проекта для Tabulator.
+    Возвращает древовидную структуру файлов и папок проекта для Tabulator.
     """
     try:
-        all_files = []
-        get_project_files_flat(PROJECT_ROOT, all_files)
-        return all_files
+        tree = build_file_tree(PROJECT_ROOT)
+        return tree
     except Exception as e:
-        log("ERROR", f"Не удалось построить плоский список файлов: {e}", level=logging.ERROR)
-        raise HTTPException(status_code=500, detail="Could not build file list.")
+        log("ERROR", f"Не удалось построить дерево файлов: {e}", level=logging.ERROR)
+        raise HTTPException(status_code=500, detail="Could not build file tree.")
+
 
 @router.get("/explorer/file-content", response_class=CustomJSONResponse)
 async def get_file_content(path: str = Query(...)):

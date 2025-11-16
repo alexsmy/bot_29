@@ -13,53 +13,43 @@ const ICONS_EXPLORER = {
     audio: ICONS.audio,
     archive: ICONS.archive,
     doc: ICONS.doc,
-    file: ICONS.file
+    file: ICONS.file,
+    folder: ICONS.folder
 };
 
 let viewerModal, viewerModalTitle, viewerModalBody, viewerModalCloseBtn, modalContent;
 let explorerTable;
 
 const FILE_TYPE_MAP = {
-    '.py': { icon: 'python', type: 'code' },
-    '.js': { icon: 'javascript', type: 'code' },
-    '.html': { icon: 'html', type: 'code' },
-    '.css': { icon: 'css', type: 'code' },
-    '.json': { icon: 'json', type: 'code' },
-    '.log': { icon: 'doc', type: 'doc' },
-    '.txt': { icon: 'doc', type: 'doc' },
-    '.md': { icon: 'doc', type: 'doc' },
-    '.sh': { icon: 'code', type: 'code' },
-    '.png': { icon: 'image', type: 'image' },
-    '.jpg': { icon: 'image', type: 'image' },
-    '.jpeg': { icon: 'image', type: 'image' },
-    '.gif': { icon: 'image', type: 'image' },
-    '.svg': { icon: 'image', type: 'image' },
-    '.webp': { icon: 'image', type: 'image' },
-    '.webm': { icon: 'audio', type: 'audio' },
-    '.mp3': { icon: 'audio', type: 'audio' },
-    '.wav': { icon: 'audio', type: 'audio' },
-    '.ogg': { icon: 'audio', type: 'audio' },
-    '.zip': { icon: 'archive', type: 'archive' },
-    '.rar': { icon: 'archive', type: 'archive' },
-    '.7z': { icon: 'archive', type: 'archive' },
+    '.py': { icon: 'python' }, '.js': { icon: 'javascript' }, '.html': { icon: 'html' },
+    '.css': { icon: 'css' }, '.json': { icon: 'json' }, '.log': { icon: 'doc' },
+    '.txt': { icon: 'doc' }, '.md': { icon: 'doc' }, '.sh': { icon: 'code' },
+    '.png': { icon: 'image' }, '.jpg': { icon: 'image' }, '.jpeg': { icon: 'image' },
+    '.gif': { icon: 'image' }, '.svg': { icon: 'image' }, '.webp': { icon: 'image' },
+    '.webm': { icon: 'audio' }, '.mp3': { icon: 'audio' }, '.wav': { icon: 'audio' },
+    '.ogg': { icon: 'audio' }, '.zip': { icon: 'archive' }, '.rar': { icon: 'archive' },
+    '.7z': { icon: 'archive' }
 };
 
 const VIEWABLE_EXTENSIONS = ['.py', '.js', '.css', '.html', '.json', '.txt', '.log', '.md', '.sh', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.webm', '.mp3', '.wav', '.ogg'];
 
-function getFileIcon(filename) {
+function getFileIcon(filename, isFolder) {
+    if (isFolder) {
+        return `<span class="icon">${ICONS_EXPLORER.folder}</span>`;
+    }
     const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
-    const info = FILE_TYPE_MAP[extension] || { icon: 'file', type: 'file' };
+    const info = FILE_TYPE_MAP[extension] || { icon: 'file' };
     const svg = ICONS_EXPLORER[info.icon] || ICONS_EXPLORER.file;
-    return `<span class="icon icon-${info.type}">${svg}</span>`;
+    return `<span class="icon">${svg}</span>`;
 }
 
-function formatBytes(bytes, decimals = 2) {
-    if (!bytes || bytes === 0) return '0 Bytes';
+function formatBytes(bytes) {
+    if (bytes === undefined || bytes === null) return '';
+    if (bytes === 0) return '0 Bytes';
     const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
     const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 }
 
 function formatDateShort(isoString) {
@@ -74,6 +64,7 @@ function closeViewerModal() {
     viewerModal.classList.remove('visible');
     viewerModalBody.innerHTML = '';
     modalContent.classList.remove('log-viewer');
+    document.documentElement.classList.remove('hljs-theme-dark', 'hljs-theme-light');
 }
 
 async function viewFile(path, filename) {
@@ -100,42 +91,58 @@ async function viewFile(path, filename) {
     } else {
         const data = await fetchData(`explorer/file-content?path=${encodeURIComponent(path)}`);
         if (data && data.content) {
-            const highlightedContent = (filename === 'app.log') ? highlightLogs(data.content) : escapeHtml(data.content);
-            viewerModalBody.innerHTML = `<pre><code>${highlightedContent}</code></pre>`;
+            const codeBlock = document.createElement('code');
+            if (filename === 'app.log') {
+                codeBlock.innerHTML = highlightLogs(data.content);
+            } else {
+                codeBlock.textContent = data.content;
+                // Применяем тему для highlight.js
+                const theme = localStorage.getItem('theme') || 'light';
+                document.documentElement.classList.add(theme === 'dark' ? 'hljs-theme-dark' : 'hljs-theme-light');
+                // Подсвечиваем синтаксис
+                hljs.highlightElement(codeBlock);
+            }
+            const preBlock = document.createElement('pre');
+            preBlock.appendChild(codeBlock);
+            viewerModalBody.innerHTML = '';
+            viewerModalBody.appendChild(preBlock);
         } else {
             viewerModalBody.innerHTML = '<p style="padding: 1rem; color: var(--error-color);">Не удалось загрузить содержимое файла.</p>';
         }
     }
 }
 
-function escapeHtml(unsafe) {
-    return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-}
-
 async function loadExplorerData() {
-    const files = await fetchData('explorer/files-flat');
+    const files = await fetchData('explorer/files-tree');
     if (files) {
         explorerTable.setData(files);
     } else {
         explorerTable.setData([]);
-        explorerTable.alert("Не удалось загрузить список файлов");
     }
 }
 
 function initializeExplorerTable() {
     explorerTable = new Tabulator("#explorer-table", {
+        dataTree: true,
+        dataTreeStartExpanded: false,
         layout: "fitColumns",
-        placeholder: "Нет файлов для отображения",
+        placeholder: "Файлы не найдены",
         columns: [
-            { title: "", field: "name", hozAlign: "center", headerSort: false, width: 40, formatter: (cell) => getFileIcon(cell.getValue()) },
-            { title: "Имя", field: "name", headerFilter: "input", minWidth: 200 },
+            {
+                title: "Имя", field: "name", minWidth: 300, headerFilter: "input",
+                formatter: (cell) => {
+                    const isFolder = !!cell.getRow().getData()._children;
+                    return `${getFileIcon(cell.getValue(), isFolder)}<span>${cell.getValue()}</span>`;
+                }
+            },
             { title: "Размер", field: "size", width: 120, hozAlign: "right", sorter: "number", formatter: (cell) => formatBytes(cell.getValue()) },
             { title: "Изменен", field: "modified", width: 180, hozAlign: "center", formatter: (cell) => formatDateShort(cell.getValue()) },
-            { title: "Путь", field: "path", minWidth: 200, formatter: "textarea" },
             {
-                title: "Действия", width: 220, hozAlign: "center", headerSort: false,
+                title: "Действия", width: 250, hozAlign: "center", headerSort: false,
                 formatter: (cell) => {
                     const data = cell.getRow().getData();
+                    if (data._children) return ''; // Нет действий для папок
+
                     const extension = data.name.substring(data.name.lastIndexOf('.')).toLowerCase();
                     const canView = VIEWABLE_EXTENSIONS.includes(extension);
                     return `
@@ -165,7 +172,7 @@ function initializeExplorerTable() {
                         if (result && result.status === 'deleted') {
                             cell.getRow().delete();
                         } else {
-                            alert('Не удалось удалить файл.');
+                            alert('Не удалось удалить файл. Возможно, удаление этого типа файлов запрещено.');
                         }
                     });
             }
@@ -182,7 +189,6 @@ export function initExplorer() {
     
     const refreshBtn = document.getElementById('refresh-explorer-btn');
     const modalOverlay = document.querySelector('.modal-overlay');
-    const filterInput = document.getElementById('explorer-filter-input');
 
     initializeExplorerTable();
 
@@ -190,14 +196,26 @@ export function initExplorer() {
     modalOverlay.addEventListener('click', closeViewerModal);
     refreshBtn.addEventListener('click', loadExplorerData);
 
-    filterInput.addEventListener('keyup', () => {
-        explorerTable.setFilter("name", "like", filterInput.value);
-    });
-
     const navLink = document.querySelector('a[href="#explorer"]');
     navLink.addEventListener('click', (e) => {
         if (explorerTable.getDataCount() === 0) {
             loadExplorerData();
         }
     });
+
+    // Переключение тем для Tabulator и highlight.js
+    const themeToggle = document.getElementById('theme-toggle');
+    themeToggle.addEventListener('click', () => {
+        const isDark = document.documentElement.classList.contains('dark');
+        const tableEl = document.getElementById('explorer-table');
+        if (isDark) {
+            tableEl.classList.add('tabulator-dark');
+        } else {
+            tableEl.classList.remove('tabulator-dark');
+        }
+    });
+    // Применяем тему при загрузке
+    if (localStorage.getItem('theme') === 'dark') {
+        document.getElementById('explorer-table').classList.add('tabulator-dark');
+    }
 }
