@@ -1,9 +1,11 @@
-// static/js/call_logger.js
 
 /**
  * Централизованный модуль логирования.
  * Использует конфигурацию из call_logger_config.js.
  */
+
+// ИЗМЕНЕНИЕ: Импортируем конфигурацию как модуль.
+import { LOG_CONFIG } from './call_logger_config.js';
 
 let _roomId = null;
 let _userId = null;

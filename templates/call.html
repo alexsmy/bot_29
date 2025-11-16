@@ -305,9 +305,10 @@
     <audio id="ringInAudio" loop src="/static/sounds/ring-in.mp3"></audio>
 
     <script src="/static/js/icons.js"></script>
-    <!-- ИЗМЕНЕНИЕ: Подключаем новые скрипты логгера ПЕРЕД main.js -->
-    <script src="/static/js/call_logger_config.js"></script>
-    <script src="/static/js/call_logger.js"></script>
+    <!-- 
+        ИЗМЕНЕНИЕ: Убираем прямое подключение скриптов логгера.
+        Теперь main.js как модуль сам загрузит все свои зависимости.
+    -->
     <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>
