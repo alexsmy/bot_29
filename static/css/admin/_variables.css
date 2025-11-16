@@ -1,0 +1,113 @@
+/*
+  Модуль переменных (CSS Custom Properties).
+  Содержит все цветовые схемы и переменные для светлой и темной тем.
+*/
+
+:root {
+    --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    
+    --base-bg: #f8f9fa;
+    --surface-bg: #ffffff;
+    --sidebar-bg: #ffffff;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --border-color: #dee2e6;
+    
+    --accent-color: #4c6ef5;
+    --accent-color-hover: #4263eb;
+    --accent-text: #ffffff;
+
+    --success-color: #28a745;
+    --pending-color: #fd7e14;
+    --error-color: #dc3545;
+    --danger-bg: #f8d7da;
+    --danger-border: #f5c6cb;
+    --danger-text: #721c24;
+    --danger-action: #dc3545;
+    --danger-action-hover: #c82333;
+
+    --skeleton-bg: #e9ecef;
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+
+    --icon-color-person: #495057;
+    --icon-color-time: #6c757d;
+    --icon-color-ip: #007bff;
+    --icon-color-device: #6f42c1;
+    --icon-color-desktop: #1e6a43;
+    --icon-color-location: #fd7e14;
+    --initiator-color: #fd7e14;
+    --receiver-color: #6f42c1;
+
+    --icon-color-code: #4c6ef5;
+    --icon-color-image: #e67e22;
+    --icon-color-audio: #9b59b6;
+    --icon-color-archive: #c0392b;
+    --icon-color-doc: #2980b9;
+
+    --btn-view-bg: #e6f9f0;
+    --btn-view-text: #198754;
+    --btn-view-hover-bg: #d3f3e3;
+    --btn-download-bg: #fff8e1;
+    --btn-download-text: #ff8c00;
+    --btn-download-hover-bg: #ffefc2;
+    --action-modal-bg: rgba(255, 255, 255, 0.9);
+
+    --log-color-critical: #721c24;
+    --log-color-error: #dc3545;
+    --log-color-warning: #856404;
+    --log-color-info: #004085;
+    --log-color-http-2xx: #155724;
+    --log-color-http-3xx: #856404;
+    --log-color-http-4xx: #721c24;
+    --log-color-http-5xx: #721c24;
+}
+
+html.dark {
+    --base-bg: #121212;
+    --surface-bg: #1e1e1e;
+    --sidebar-bg: #1e1e1e;
+    --text-primary: #e9ecef;
+    --text-secondary: #adb5bd;
+    --border-color: #343a40;
+
+    --danger-bg: rgba(220, 53, 69, 0.1);
+    --danger-border: #4d1b20;
+    --danger-text: #f5c6cb;
+
+    --skeleton-bg: #343a40;
+
+    --icon-color-person: #ced4da;
+    --icon-color-time: #adb5bd;
+    --icon-color-ip: #58abff;
+    --icon-color-device: #be95ff;
+    --icon-color-desktop: #28a745;
+    --icon-color-location: #ff9a40;
+    --initiator-color: #ff9a40;
+    --receiver-color: #be95ff;
+
+    --icon-color-code: #748ffc;
+    --icon-color-image: #f39c12;
+    --icon-color-audio: #be95ff;
+    --icon-color-archive: #e74c3c;
+    --icon-color-doc: #3498db;
+
+    --btn-view-bg: rgba(40, 167, 69, 0.2);
+    --btn-view-text: #7ee2a8;
+    --btn-view-hover-bg: rgba(40, 167, 69, 0.3);
+    --btn-download-bg: rgba(253, 126, 20, 0.2);
+    --btn-download-text: #ffc078;
+    --btn-download-hover-bg: rgba(253, 126, 20, 0.3);
+    --action-modal-bg: rgba(42, 42, 42, 0.9);
+
+    --log-color-critical: #ff8a80;
+    --log-color-error: #ff5252;
+    --log-color-warning: #ffd740;
+    --log-color-info: #40c4ff;
+    --log-color-http-2xx: #69f0ae;
+    --log-color-http-3xx: #ffd740;
+    --log-color-http-4xx: #ff8a80;
+    --log-color-http-5xx: #ff5252;
+}

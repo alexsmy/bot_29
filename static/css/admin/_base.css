@@ -1,0 +1,67 @@
+/*
+  Модуль базовых стилей.
+  Включает сбросы, стили для body и основную типографику.
+*/
+
+*, *::before, *::after { 
+    box-sizing: border-box; 
+}
+
+body {
+    font-family: var(--font-sans);
+    background-color: var(--base-bg);
+    color: var(--text-primary);
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.6;
+    transition: background-color 0.2s, color 0.2s;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.content-section { 
+    display: none; 
+}
+.content-section.active { 
+    display: block; 
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+h1.desktop-title {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.section-description {
+    margin-top: -0.5rem;
+    margin-bottom: 1.5rem;
+    color: var(--text-secondary);
+    max-width: 80ch;
+}
+
+details summary {
+    font-weight: 600;
+    font-size: 1.1rem;
+    padding: 0.5rem 0;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+}
+
+details summary span {
+    color: var(--accent-color);
+}

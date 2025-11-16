@@ -1,0 +1,34 @@
+/*
+  Модуль подсветки.
+  Содержит стили для подсветки синтаксиса кода и логов.
+*/
+
+/* --- Стили для подсветки синтаксиса --- */
+.hl-comment { color: #6a9955; }
+.hl-keyword { color: #569cd6; }
+.hl-string { color: #ce9178; }
+.hl-number { color: #b5cea8; }
+.hl-boolean { color: #569cd6; }
+.hl-tag { color: #569cd6; }
+.hl-attr-name { color: #9cdcfe; }
+.hl-attr-value { color: #ce9178; }
+
+html.dark .hl-comment { color: #608b4e; }
+html.dark .hl-keyword { color: #4fc1ff; }
+html.dark .hl-string { color: #d69d85; }
+html.dark .hl-number { color: #b5cea8; }
+html.dark .hl-boolean { color: #4fc1ff; }
+html.dark .hl-tag { color: #4fc1ff; }
+html.dark .hl-attr-name { color: #9cdcfe; }
+html.dark .hl-attr-value { color: #d69d85; }
+
+/* --- Стили для подсветки логов --- */
+.log-line { display: block; }
+.log-critical { color: var(--log-color-critical); font-weight: 600; }
+.log-error { color: var(--log-color-error); }
+.log-warning { color: var(--log-color-warning); }
+.log-info { color: var(--log-color-info); }
+.log-http-2xx { color: var(--log-color-http-2xx); }
+.log-http-3xx { color: var(--log-color-http-3xx); }
+.log-http-4xx { color: var(--log-color-http-4xx); }
+.log-http-5xx { color: var(--log-color-http-5xx); }

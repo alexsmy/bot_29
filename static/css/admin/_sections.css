@@ -1,0 +1,361 @@
+/*
+  Модуль секций.
+  Содержит стили, специфичные для каждой отдельной вкладки админ-панели.
+*/
+
+/* --- Секция "Статистика" --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+}
+
+/* --- Секция "Активные комнаты" --- */
+.room-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.room-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    flex-grow: 1;
+}
+.room-id-line {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 1.1em;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+.room-info .meta { 
+    color: var(--text-secondary); 
+    font-size: 0.9em; 
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.meta-item .icon {
+    width: 16px;
+    height: 16px;
+}
+.participants-icons .icon {
+    width: 18px;
+    height: 18px;
+}
+.participants-icons.participants-online .icon {
+    color: var(--success-color);
+}
+
+/* --- Секция "Пользователи" --- */
+.users-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.user-item.blocked {
+    border-left: 4px solid var(--error-color);
+    background-color: var(--danger-bg);
+}
+.user-item.blocked .user-name, .user-item.blocked .user-id {
+    color: var(--danger-text);
+}
+html.dark .user-item.blocked {
+    color: var(--danger-text);
+}
+.user-actions {
+    margin-left: auto;
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+.user-actions .action-btn {
+    padding: 0.3rem 0.8rem;
+    font-size: 0.85em;
+}
+.user-actions .unblock-btn {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+.user-actions .unblock-btn:hover {
+    background-color: var(--success-color);
+    color: #fff;
+}
+.user-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    flex-grow: 1;
+}
+.user-name { font-weight: 600; color: var(--text-primary); }
+.user-id { color: var(--text-secondary); font-size: 0.9em; }
+.user-first-seen { color: var(--text-secondary); font-size: 0.9em; text-align: right; }
+.user-details {
+    display: none;
+    width: 100%;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+.user-details-content {
+    max-height: 140px;
+    overflow-y: auto;
+    background-color: var(--base-bg);
+    border-radius: 6px;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+}
+.user-details-content ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
+.user-details-content li { padding: 0.2rem 0; }
+
+/* --- Секция "Соединения" --- */
+.connections-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.connection-item {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease-in-out;
+}
+.connection-item:hover {
+    box-shadow: var(--shadow-md);
+}
+.connection-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.connection-summary:hover {
+    background-color: var(--base-bg);
+}
+.connection-item.open .connection-summary {
+    border-bottom: 1px solid var(--border-color);
+}
+.summary-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-grow: 1;
+    flex-wrap: wrap;
+    font-size: 1.1em;
+    font-weight: 500;
+}
+.call-count-badge {
+    background-color: #d4edda;
+    color: #155724;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+}
+html.dark .call-count-badge {
+    background-color: #1d4226;
+    color: #c3e6cb;
+}
+.creator-id {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    background-color: var(--base-bg);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+}
+.connection-details {
+    padding: 0 1.25rem;
+    background-color: var(--base-bg);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out;
+}
+.connection-item.open .connection-details {
+    padding-top: 1rem;
+    padding-bottom: 1.25rem;
+}
+.call-history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.call-card {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.call-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+.call-header-main {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.call-card-header h5 {
+    margin: 0;
+    font-size: 1.1em;
+    font-weight: 600;
+}
+.call-meta {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    align-items: center;
+}
+.call-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+.call-meta .icon {
+    width: 16px;
+    height: 16px;
+}
+.participants-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+}
+.participant-column h6 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.participant-column h6 .icon {
+    width: 18px;
+    height: 18px;
+    transition: color 0.2s;
+}
+.participant-column h6.initiator .icon {
+    color: var(--initiator-color);
+}
+.participant-column h6.receiver .icon {
+    color: var(--receiver-color);
+}
+.participant-details {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding-left: 1.6rem;
+    line-height: 1.4;
+}
+.participant-details span {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.participant-details .icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}
+.connection-type-badge {
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.connection-type-badge.p2p { background-color: #d4edda; color: #155724; }
+.connection-type-badge.relay { background-color: #fff3cd; color: #856404; }
+html.dark .connection-type-badge.p2p { background-color: #1d4226; color: #c3e6cb; }
+html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffeeba; }
+
+/* --- Секция "Проводник" --- */
+.file-explorer {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: monospace;
+    font-size: 0.9em;
+    max-height: 60vh;
+    overflow: auto;
+}
+.file-explorer ul {
+    list-style: none;
+    padding-left: 20px;
+    margin: 0;
+}
+.file-explorer li {
+    padding: 2px 0;
+}
+.tree-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+.tree-item.folder-item, .tree-item.file-item {
+    cursor: pointer;
+}
+.tree-item:hover {
+    background-color: var(--base-bg);
+}
+.tree-item .icon {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--text-secondary);
+}
+.tree-item .icon-code { color: var(--icon-color-code); }
+.tree-item .icon-image { color: var(--icon-color-image); }
+.tree-item .icon-audio { color: var(--icon-color-audio); }
+.tree-item .icon-archive { color: var(--icon-color-archive); }
+.tree-item .icon-doc { color: var(--icon-color-doc); }
+.tree-item .caret {
+    transition: transform 0.2s ease-in-out;
+}
+.folder.collapsed > .tree-item .caret {
+    transform: rotate(-90deg);
+}
+.folder.collapsed > ul {
+    display: none;
+}
+.file-meta {
+    margin-left: auto;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 1rem;
+}
+
+/* --- Секция "Опасная зона" --- */
+.danger-zone {
+    background-color: var(--danger-bg);
+    border: 1px solid var(--danger-border);
+    padding: 1.5rem;
+    border-radius: 8px;
+}
+.danger-zone h2 { color: var(--danger-text); }
+.danger-zone p { color: var(--text-secondary); }
