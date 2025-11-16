@@ -1,4 +1,4 @@
-// bot_29-main/static/js/call_orchestrator.js
+
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -103,11 +103,11 @@ function proceedToCall(asSpectator = false) {
         onCallAccepted: () => {
             uiManager.stopRingOutSound();
             const localStream = media.getLocalStream();
-            webrtc.startPeerConnection(state.getState().targetUser.id, true, state.getState().currentCallType, localStream, state.getState().rtcConfig, monitor.connectionLogger);
+            webrtc.startPeerConnection(state.getState().targetUser.id, true, state.getState().currentCallType, localStream, state.getState().rtcConfig);
         },
         onOffer: (data) => {
             const localStream = media.getLocalStream();
-            webrtc.handleOffer(data, localStream, state.getState().rtcConfig, monitor.connectionLogger);
+            webrtc.handleOffer(data, localStream, state.getState().rtcConfig);
         },
         onAnswer: webrtc.handleAnswer,
         onCandidate: webrtc.handleCandidate,
@@ -156,9 +156,6 @@ async function initiateCall(userToCall, callType) {
     const hasMedia = await initializeLocalMedia(callType);
     if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
     state.setTargetUser(userToCall);
-    monitor.connectionLogger.reset(state.getState().roomId, state.getState().currentUser.id, true);
-    const probeResults = await monitor.probeIceServers();
-    monitor.connectionLogger.setProbeResults(probeResults);
     sendMessage({ type: 'call_user', data: { target_id: state.getState().targetUser.id, call_type: callType } });
     uiManager.showScreen('call');
     const mediaStatus = media.getMediaAccessStatus();
@@ -185,9 +182,8 @@ async function acceptCall() {
     const hasMedia = await initializeLocalMedia(state.getState().currentCallType);
     if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
     logToScreen("[CALL] Starting WebRTC connection.");
-    monitor.connectionLogger.reset(state.getState().roomId, state.getState().currentUser.id, false);
     const localStream = media.getLocalStream();
-    await webrtc.startPeerConnection(state.getState().targetUser.id, false, state.getState().currentCallType, localStream, state.getState().rtcConfig, monitor.connectionLogger);
+    await webrtc.startPeerConnection(state.getState().targetUser.id, false, state.getState().currentCallType, localStream, state.getState().rtcConfig);
     sendMessage({ type: 'call_accepted', data: { target_id: state.getState().targetUser.id } });
 }
 
@@ -246,9 +242,6 @@ function endCall(isInitiatorOfHangup, reason) {
     setGracefulDisconnect(true);
     if (isInitiatorOfHangup && state.getState().targetUser.id) {
         sendMessage({ type: 'hangup', data: { target_id: state.getState().targetUser.id } });
-    }
-    if (isInitiatorOfHangup && !monitor.connectionLogger.isDataSent) {
-        monitor.connectionLogger.sendProbeLog();
     }
     monitor.stopConnectionMonitoring();
     webrtc.endPeerConnection();
@@ -524,7 +517,6 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
         updateConnectionQualityIcon: uiManager.updateConnectionQualityIcon,
         showConnectionToast: uiManager.showConnectionToast,
         getIceServerDetails: () => state.getState().iceServerDetails,
-        getRtcConfig: () => state.getState().rtcConfig,
         onConnectionEstablished: (type) => {
             sendMessage({ type: 'connection_established', data: { type: type } });
         }
@@ -532,13 +524,11 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
     webrtc.init({
         log: logToScreen,
         onCallConnected: () => {
-            // --- ИСПРАВЛЕНИЕ: Добавляем проверку флага ---
             if (state.getState().isCallConnected) {
                 logToScreen("[ORCHESTRATOR] onCallConnected triggered again, but call is already active. Ignoring.");
                 return;
             }
             state.setIsCallConnected(true);
-            // --- КОНЕЦ ИСПРАВЛЕНИЯ ---
 
             uiManager.showCallingOverlay(false);
             uiManager.showScreen('call');

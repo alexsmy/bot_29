@@ -1,7 +1,8 @@
+
 from fastapi import APIRouter, Depends
 
 from .admin import (
-    auth, connections, danger_zone, reports, rooms, stats, users, views, explorer
+    auth, connections, danger_zone, rooms, stats, users, views, explorer
 )
 
 router = APIRouter()

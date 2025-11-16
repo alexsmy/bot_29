@@ -1,3 +1,4 @@
+
 import { sendMessage } from './call_websocket.js';
 import { remoteVideo, remoteAudio, localVideo } from './call_ui_elements.js';
 
@@ -64,7 +65,7 @@ async function initiateIceRestart() {
     }
 }
 
-export async function createPeerConnection(rtcConfig, localStream, selectedAudioOutId, connectionLogger) {
+export async function createPeerConnection(rtcConfig, localStream, selectedAudioOutId) {
     callbacks.log("[WEBRTC] Creating RTCPeerConnection.");
     if (!rtcConfig) {
         callbacks.log("[CRITICAL] rtcConfig is not available.");
@@ -99,7 +100,6 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
         callbacks.log(`[WEBRTC] ICE State: ${state}`);
         
         if (state === 'connected') {
-            connectionLogger.analyzeAndSend();
             if (iceRestartTimeoutId) {
                 clearTimeout(iceRestartTimeoutId);
                 iceRestartTimeoutId = null;
@@ -149,9 +149,9 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     }
 }
 
-export async function startPeerConnection(targetId, isCaller, callType, localStream, rtcConfig, connectionLogger) {
+export async function startPeerConnection(targetId, isCaller, callType, localStream, rtcConfig) {
     callbacks.log(`[WEBRTC] Starting PeerConnection. Is caller: ${isCaller}`);
-    await createPeerConnection(rtcConfig, localStream, callbacks.getSelectedAudioOutId(), connectionLogger);
+    await createPeerConnection(rtcConfig, localStream, callbacks.getSelectedAudioOutId());
 
     if (isCaller) {
         callbacks.log('[DC] Creating DataChannel.');
@@ -182,10 +182,10 @@ async function processIceCandidateQueue() {
     }
 }
 
-export async function handleOffer(data, localStream, rtcConfig, connectionLogger) {
+export async function handleOffer(data, localStream, rtcConfig) {
     callbacks.log("[WEBRTC] Received Offer, creating Answer.");
     if (!peerConnection) {
-        await startPeerConnection(data.from, false, data.call_type, localStream, rtcConfig, connectionLogger);
+        await startPeerConnection(data.from, false, data.call_type, localStream, rtcConfig);
     }
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
     const answer = await peerConnection.createAnswer();
