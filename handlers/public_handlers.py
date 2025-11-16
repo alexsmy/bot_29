@@ -1,8 +1,9 @@
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
 from telegram.ext import ContextTypes, filters
 
 import database
-from logger_config import logger
+from configurable_logger import log
 from config import PRIVATE_ROOM_LIFETIME_HOURS, MAX_ACTIVE_ROOMS_PER_USER, MAX_ROOM_CREATIONS_PER_DAY
 from bot_utils import log_user_and_action, read_template_content, format_hours, check_and_handle_spam
 from services import room_service
@@ -16,7 +17,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     await log_user_and_action(update, "/start")
     user_name = update.effective_user.first_name
-    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запустил команду /start.")
+    log("BOT_SETUP", f"Пользователь {user_name} (ID: {update.effective_user.id}) запустил команду /start.")
 
     keyboard = [
         [InlineKeyboardButton("🔗 Создать приватную ссылку", callback_data="create_private_link")]
@@ -25,7 +26,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     welcome_text = (
         f"👋 Добро пожаловать, {user_name}!\n\n"
-        "Этот бот создает приватные, зашифрованные аудио- и видеозвонки прямо в браузере.\n\n"
+        "Этот бот создает ссылки на приватные, зашифрованные аудио- и видеозвонки прямо в браузере.\n\n"
         "Просто нажмите кнопку ниже, чтобы сгенерировать уникальную ссылку для звонка. "
         "Поделитесь этой ссылкой с вашим собеседником, и вы сможете начать разговор.\n\n"
         f"Ссылка действительна в течение {format_hours(PRIVATE_ROOM_LIFETIME_HOURS)}."
@@ -40,7 +41,7 @@ async def instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         
     await log_user_and_action(update, "/instructions")
     user_name = update.effective_user.first_name
-    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил инструкцию.")
+    log("BOT_SETUP", f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил инструкцию.")
 
     instructions_text = read_template_content("instructions_bot.html")
     
@@ -53,7 +54,7 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         
     await log_user_and_action(update, "/faq")
     user_name = update.effective_user.first_name
-    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил FAQ.")
+    log("BOT_SETUP", f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил FAQ.")
 
     faq_text = read_template_content("faq_bot.html", {"LIFETIME_HOURS": PRIVATE_ROOM_LIFETIME_HOURS})
 
@@ -67,7 +68,7 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     user_name = update.effective_user.first_name
-    logger.info(f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное текстовое сообщение.")
+    log("UNHANDLED_MESSAGE", f"Пользователь {user_name} (ID: {update.effective_user.id}) отправил непредусмотренное текстовое сообщение.")
 
     reminder_text = (
         "Я умею генерировать ссылки для звонков, пожалуйста, используйте для этого команду /start.\n\n"
@@ -87,7 +88,7 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # --- КОНЕЦ ИЗМЕНЕНИЯ ---
     
     user = update.effective_user
-    logger.warning(f"Пользователь {user.first_name} (ID: {user.id}) отправил вложение. Сообщение проигнорировано.")
+    log("UNHANDLED_MESSAGE", f"Пользователь {user.first_name} (ID: {user.id}) отправил вложение. Сообщение проигнорировано.", level=logging.WARNING)
 
     reply_text = (
         "Извините, я не обрабатываю файлы, изображения и другие вложения.\n\n"
@@ -112,7 +113,7 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
     # 1. Проверка на количество одновременно активных комнат
     active_rooms_count = await database.count_active_rooms_by_user(user.id)
     if active_rooms_count >= MAX_ACTIVE_ROOMS_PER_USER:
-        logger.warning(f"Пользователь {user.id} попытался создать комнату сверх лимита активных ({active_rooms_count}/{MAX_ACTIVE_ROOMS_PER_USER}).")
+        log("SPAM_DETECT", f"Пользователь {user.id} попытался создать комнату сверх лимита активных ({active_rooms_count}/{MAX_ACTIVE_ROOMS_PER_USER}).", level=logging.WARNING)
         await query.answer(f"Достигнут лимит активных комнат ({MAX_ACTIVE_ROOMS_PER_USER}).", show_alert=True)
         await query.message.reply_text(
             f"У вас уже есть {active_rooms_count} активных комнат. "
@@ -123,7 +124,7 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
     # 2. Проверка на суточный лимит созданных комнат
     daily_creations_count = await database.count_recent_room_creations_by_user(user.id)
     if daily_creations_count >= MAX_ROOM_CREATIONS_PER_DAY:
-        logger.warning(f"Пользователь {user.id} превысил суточный лимит создания комнат ({daily_creations_count}/{MAX_ROOM_CREATIONS_PER_DAY}).")
+        log("SPAM_DETECT", f"Пользователь {user.id} превысил суточный лимит создания комнат ({daily_creations_count}/{MAX_ROOM_CREATIONS_PER_DAY}).", level=logging.WARNING)
         
         # Регистрируем это как спам-действие. Если это действие приведет к блокировке, функция вернет True.
         is_now_blocked = await check_and_handle_spam(update, context, "Exceeded daily room creation limit")
@@ -135,6 +136,6 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
     # --- КОНЕЦ НОВОЙ ЛОГИКИ ---
 
     await query.answer("Создаю ссылку...")
-    logger.info(f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
+    log("ROOM_LIFECYCLE", f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
     
     await room_service.create_and_send_room_link(context, query.message.chat_id, user.id, PRIVATE_ROOM_LIFETIME_HOURS)

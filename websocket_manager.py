@@ -1,12 +1,13 @@
 import asyncio
 import uuid
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional
 from fastapi import WebSocket
 
 import database
 import notifier
-from logger_config import logger
+from configurable_logger import log
 from config import PRIVATE_ROOM_LIFETIME_HOURS
 
 class RoomManager:
@@ -121,10 +122,10 @@ class ConnectionManager:
         session_details = await database.get_call_session_details(room_id)
 
         if not session_details:
-            logger.warning(f"Попытка доступа к несуществующей или истекшей комнате: {room_id}")
+            log("ROOM_LIFECYCLE", f"Попытка доступа к несуществующей или истекшей комнате: {room_id}", level=logging.WARNING)
             return None
 
-        logger.info(f"Восстанавливаем комнату {room_id} из базы данных...")
+        log("ROOM_LIFECYCLE", f"Восстанавливаем комнату {room_id} из базы данных...")
         created_at = session_details['created_at']
         expires_at = session_details['expires_at']
         
@@ -189,6 +190,6 @@ class ConnectionManager:
             self.private_room_cleanup_tasks[room_id].cancel()
             del self.private_room_cleanup_tasks[room_id]
         
-        logger.info(f"Комната {room_id} была закрыта по причине: {reason}")
+        log("ROOM_LIFECYCLE", f"Комната {room_id} была закрыта по причине: {reason}")
 
 manager = ConnectionManager()

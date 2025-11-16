@@ -1,8 +1,8 @@
-
 import os
 import asyncio
 import shutil
 import glob 
+import logging
 from datetime import datetime, timezone, timedelta
 from typing import Dict, Any, Optional, List
 
@@ -13,7 +13,7 @@ import database
 import notifier
 import settings_manager
 from core import CustomJSONResponse, templates
-from logger_config import logger
+from configurable_logger import log
 from websocket_manager import manager
 from groq_transcriber import transcribe_audio_file
 
@@ -28,8 +28,8 @@ class ClientLog(BaseModel):
     message: str
 
 @router.post("/log", response_class=CustomJSONResponse)
-async def receive_log(log: ClientLog):
-    logger.info(f"[CLIENT LOG | Room: {log.room_id} | User: {log.user_id}]: {log.message}")
+async def receive_log(log_data: ClientLog):
+    log("CLIENT_LOG", f"[Room: {log_data.room_id} | User: {log_data.user_id}]: {log_data.message}")
     return {"status": "logged"}
 
 @router.get("/room/lifetime/{room_id}", response_class=CustomJSONResponse)
@@ -57,7 +57,7 @@ async def upload_recording(
     try:
         room = await manager.get_or_restore_room(room_id)
         if not (room and room.current_call_record_path):
-            logger.error(f"Не найдена активная директория для записи звонка в комнате {room_id}. Часть #{chunk_index} не будет сохранена.")
+            log("ERROR", f"Не найдена активная директория для записи звонка в комнате {room_id}. Часть #{chunk_index} не будет сохранена.", level=logging.ERROR)
             raise HTTPException(status_code=404, detail="Active call session directory not found for this room.")
         
         save_dir = room.current_call_record_path
@@ -71,7 +71,7 @@ async def upload_recording(
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        logger.info(f"Аудио-чанк сохранен: {filepath}")
+        log("ASSEMBLER", f"Аудио-чанк сохранен: {filepath}")
         
         if chunk_index == 0:
             message_to_admin = f"🎤 <b>Началась запись звонка (получен первый чанк)</b>\n\n<b>Сессия:</b> <code>{os.path.basename(save_dir)}</code>"
@@ -81,7 +81,7 @@ async def upload_recording(
         
         return {"status": "ok", "filename": filename, "chunk_index": chunk_index}
     except Exception as e:
-        logger.error(f"Ошибка при загрузке аудио-чанка: {e}")
+        log("ERROR", f"Ошибка при загрузке аудио-чанка: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Failed to upload recording chunk")
 
 
@@ -97,7 +97,7 @@ async def upload_screenshot(
             save_dir = room.current_call_record_path
         else:
             save_dir = RECORDS_DIR
-            logger.warning(f"Не найдена активная директория для звонка в комнате {room_id}. Скриншот будет сохранен в корневую папку записей.")
+            log("ASSEMBLER", f"Не найдена активная директория для звонка в комнате {room_id}. Скриншот будет сохранен в корневую папку записей.", level=logging.WARNING)
 
         os.makedirs(save_dir, exist_ok=True)
         
@@ -110,7 +110,7 @@ async def upload_screenshot(
         with open(filepath, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        logger.info(f"Скриншот сохранен: {filepath}")
+        log("ASSEMBLER", f"Скриншот сохранен: {filepath}")
         
         message_to_admin = (
             f"🖼️ <b>Получен скриншот экрана</b>\n\n"
@@ -128,5 +128,5 @@ async def upload_screenshot(
         
         return {"status": "ok", "filename": filename}
     except Exception as e:
-        logger.error(f"Ошибка при загрузке скриншота: {e}")
+        log("ERROR", f"Ошибка при загрузке скриншота: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Failed to upload screenshot")

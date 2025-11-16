@@ -1,6 +1,7 @@
 import json
 import re
-from logger_config import logger
+import logging
+from configurable_logger import log
 
 # ИЗМЕНЕНИЕ: Указываем новое имя файла с расширением .jsonc
 SETTINGS_FILE = "admin_settings.jsonc"
@@ -24,11 +25,11 @@ def load_settings():
             
             _settings = json.loads(content)
             
-        logger.info(f"Конфигурация администратора успешно загружена из {SETTINGS_FILE}.")
+        log("SETTINGS", f"Конфигурация администратора успешно загружена из {SETTINGS_FILE}.")
     except FileNotFoundError:
-        logger.critical(f"Файл настроек {SETTINGS_FILE} не найден! Уведомления могут работать некорректно.")
+        log("CRITICAL", f"Файл настроек {SETTINGS_FILE} не найден! Уведомления могут работать некорректно.", level=logging.CRITICAL)
     except json.JSONDecodeError as e:
-        logger.critical(f"Ошибка парсинга файла настроек {SETTINGS_FILE}. Проверьте синтаксис JSON. Ошибка: {e}")
+        log("CRITICAL", f"Ошибка парсинга файла настроек {SETTINGS_FILE}. Проверьте синтаксис JSON. Ошибка: {e}", level=logging.CRITICAL)
 
 def get_setting(key: str, default: bool = False) -> bool:
     """

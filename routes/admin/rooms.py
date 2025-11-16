@@ -1,5 +1,4 @@
-# routes/admin/rooms.py
-
+import logging
 from datetime import datetime, timezone
 from fastapi import APIRouter
 
@@ -7,7 +6,7 @@ import database
 from core import CustomJSONResponse
 from websocket_manager import manager
 from config import PRIVATE_ROOM_LIFETIME_HOURS
-from logger_config import logger
+from configurable_logger import log
 
 router = APIRouter()
 
@@ -54,10 +53,10 @@ async def close_room_by_admin(room_id: str):
     Принудительно закрывает комнату по ее ID.
     """
     if room_id in manager.rooms:
-        logger.info(f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
+        log("ADMIN_ACTION", f"Администратор принудительно закрывает комнату (из памяти): {room_id}")
         await manager.close_room(room_id, "Closed by admin")
     else:
-        logger.info(f"Администратор принудительно закрывает комнату (из БД): {room_id}")
+        log("ADMIN_ACTION", f"Администратор принудительно закрывает комнату (из БД): {room_id}")
         await database.log_room_closure(room_id, "Closed by admin")
         
     return {"status": "room closed", "room_id": room_id}

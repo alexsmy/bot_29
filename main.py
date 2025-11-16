@@ -1,4 +1,5 @@
 import os
+import logging
 from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler
@@ -9,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
 import ice_provider
-from logger_config import logger
+from configurable_logger import log
 from websocket_manager import manager
 from routes.websocket import router as websocket_router
 from routes.admin_router import router as admin_router
@@ -28,7 +29,7 @@ app.add_middleware(SlowAPIMiddleware)
 # Добавляем обработчик исключений для RateLimitExceeded
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-    logger.warning(f"Rate limit exceeded for {request.client.host}: {exc.detail}")
+    log("AUTH_ATTEMPT", f"Rate limit exceeded for {request.client.host}: {exc.detail}", level=logging.WARNING)
     return JSONResponse(
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"detail": f"Rate limit exceeded: {exc.detail}"},
@@ -45,7 +46,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
-        logger.warning(f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.")
+        log("AUTH_ATTEMPT", f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.", level=logging.WARNING)
         bot_username = os.environ.get("BOT_USERNAME", "")
         return templates.TemplateResponse(
             "invalid_link.html",
@@ -85,7 +86,7 @@ async def close_room_endpoint(request: Request, room_id: str):
 
 @app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
 async def catch_all_invalid_paths(request: Request, full_path: str):
-    logger.warning(f"Обработан невалидный путь (catch-all): /{full_path}")
+    log("AUTH_ATTEMPT", f"Обработан невалидный путь (catch-all): /{full_path}", level=logging.WARNING)
     bot_username = os.environ.get("BOT_USERNAME", "")
     return templates.TemplateResponse(
         "invalid_link.html",

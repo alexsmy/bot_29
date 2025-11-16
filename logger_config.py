@@ -1,5 +1,3 @@
-# logger_config.py 56_3
-
 import logging
 import sys
 
@@ -7,40 +5,43 @@ import sys
 LOG_FILE_PATH = "app.log"
 LOG_FORMAT = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
 
-def setup_logger():
-    """Настраивает и возвращает корневой логгер."""
-    # Получаем корневой логгер
-    logger = logging.getLogger()
-    logger.setLevel(logging.INFO)
+def setup_loggers():
+    """
+    Настраивает и возвращает два независимых логгера: для файла и для консоли.
+    """
+    # --- Файловый логгер ---
+    file_logger = logging.getLogger('file_logger')
+    file_logger.setLevel(logging.INFO)
+    file_logger.propagate = False # Предотвращаем дублирование в корневой логгер
 
-    # Предотвращаем дублирование обработчиков, если функция вызывается повторно
-    if logger.hasHandlers():
-        logger.handlers.clear()
-
-    # Обработчик для вывода в консоль (stdout)
-    stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setFormatter(LOG_FORMAT)
-    logger.addHandler(stream_handler)
-
-    # Обработчик для записи в файл
+    # Очищаем существующие обработчики, чтобы избежать дублирования при перезагрузке
+    if file_logger.hasHandlers():
+        file_logger.handlers.clear()
+        
     try:
         file_handler = logging.FileHandler(LOG_FILE_PATH, mode='a', encoding='utf-8')
         file_handler.setFormatter(LOG_FORMAT)
-        logger.addHandler(file_handler)
+        file_logger.addHandler(file_handler)
     except Exception as e:
-        # Если не удалось создать файловый обработчик, выводим ошибку в консоль
-        logging.basicConfig()
-        logging.error(f"Не удалось настроить файловый логгер: {e}")
+        # Если не удалось, выводим ошибку в stderr
+        print(f"CRITICAL: Не удалось настроить файловый логгер: {e}", file=sys.stderr)
 
-    # Понижаем уровень логирования для "шумных" библиотек
+    # --- Консольный логгер ---
+    console_logger = logging.getLogger('console_logger')
+    console_logger.setLevel(logging.INFO)
+    console_logger.propagate = False
+
+    if console_logger.hasHandlers():
+        console_logger.handlers.clear()
+
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setFormatter(LOG_FORMAT)
+    console_logger.addHandler(stream_handler)
+
+    # --- Настройка уровня для сторонних библиотек ---
+    # Устанавливаем уровень для корневого логгера, чтобы повлиять на библиотеки
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("twilio").setLevel(logging.WARNING)
-    
-    # ИЗМЕНЕНИЕ: Устанавливаем для логгера веб-доступа Uvicorn уровень WARNING.
-    # Это скроет все успешные GET/POST запросы (со статусом 2xx), но оставит ошибки (4xx, 5xx).
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
 
-    return logger
-
-# Создаем и настраиваем логгер при импорте модуля
-logger = setup_logger()
+    return file_logger, console_logger

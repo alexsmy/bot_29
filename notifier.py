@@ -1,7 +1,8 @@
 import os
 import asyncio
+import logging
 from telegram import InputFile
-from logger_config import logger
+from configurable_logger import log
 from config import SPAM_TIME_WINDOW_MINUTES
 import settings_manager
 
@@ -12,11 +13,11 @@ TELEGRAM_MESSAGE_LIMIT = 4000
 def set_bot_instance(app):
     global _bot_app
     _bot_app = app
-    logger.info("Экземпляр бота успешно установлен в модуле уведомлений.")
+    log("APP_LIFECYCLE", "Экземпляр бота успешно установлен в модуле уведомлений.")
 
 async def send_admin_notification(message: str, setting_key: str, file_path: str = None):
     if not _bot_app or not _admin_id:
-        logger.warning("Попытка отправить уведомление, но бот или ADMIN_USER_ID не настроены.")
+        log("NOTIFICATION", "Попытка отправить уведомление, но бот или ADMIN_USER_ID не настроены.", level=logging.WARNING)
         return
 
     try:
@@ -33,7 +34,7 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
                     parse_mode='HTML',
                     disable_notification=False 
                 )
-            logger.info(f"Администратору отправлен отчет '{setting_key}' с файлом {os.path.basename(file_path)}.")
+            log("NOTIFICATION", f"Администратору отправлен отчет '{setting_key}' с файлом {os.path.basename(file_path)}.")
         else:
             await bot.send_message(
                 chat_id=_admin_id, 
@@ -41,15 +42,15 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
                 parse_mode='HTML',
                 disable_web_page_preview=True
             )
-            logger.info(f"Администратору отправлено уведомление '{setting_key}'.")
+            log("NOTIFICATION", f"Администратору отправлено уведомление '{setting_key}'.")
 
     except Exception as e:
-        logger.error(f"Не удалось отправить уведомление администратору ('{setting_key}'): {e}")
+        log("ERROR", f"Не удалось отправить уведомление администратору ('{setting_key}'): {e}", level=logging.ERROR)
 
 async def send_admin_photo_notification(caption: str, setting_key: str, file_path: str):
     """Отправляет администратору уведомление с фотографией."""
     if not _bot_app or not _admin_id:
-        logger.warning("Попытка отправить фото, но бот или ADMIN_USER_ID не настроены.")
+        log("NOTIFICATION", "Попытка отправить фото, но бот или ADMIN_USER_ID не настроены.", level=logging.WARNING)
         return
 
     try:
@@ -64,14 +65,14 @@ async def send_admin_photo_notification(caption: str, setting_key: str, file_pat
                 caption=caption,
                 parse_mode='HTML'
             )
-        logger.info(f"Администратору отправлен скриншот '{setting_key}' с файлом {os.path.basename(file_path)}.")
+        log("NOTIFICATION", f"Администратору отправлен скриншот '{setting_key}' с файлом {os.path.basename(file_path)}.")
 
     except Exception as e:
-        logger.error(f"Не удалось отправить фото администратору ('{setting_key}'): {e}")
+        log("ERROR", f"Не удалось отправить фото администратору ('{setting_key}'): {e}", level=logging.ERROR)
 
 async def send_notification_with_content_handling(message: str, file_path: str, setting_key_file: str, setting_key_message: str):
     if not _bot_app or not _admin_id:
-        logger.warning("Попытка отправить уведомление, но бот или ADMIN_USER_ID не настроены.")
+        log("NOTIFICATION", "Попытка отправить уведомление, но бот или ADMIN_USER_ID не настроены.", level=logging.WARNING)
         return
 
     try:
@@ -94,12 +95,12 @@ async def send_notification_with_content_handling(message: str, file_path: str, 
                     text=full_message,
                     parse_mode='HTML'
                 )
-                logger.info(f"Администратору отправлено содержимое файла '{os.path.basename(file_path)}' как сообщение.")
+                log("NOTIFICATION", f"Администратору отправлено содержимое файла '{os.path.basename(file_path)}' как сообщение.")
             except Exception as e:
-                logger.error(f"Не удалось прочитать или отправить файл {file_path} как сообщение: {e}")
+                log("ERROR", f"Не удалось прочитать или отправить файл {file_path} как сообщение: {e}", level=logging.ERROR)
 
     except Exception as e:
-        logger.error(f"Общая ошибка при отправке уведомления с контентом: {e}")
+        log("ERROR", f"Общая ошибка при отправке уведомления с контентом: {e}", level=logging.ERROR)
 
 # --- НОВАЯ ФУНКЦИЯ ---
 async def send_user_blocked_notification(user_id: int, first_name: str, username: str, strike_count: int):
@@ -116,9 +117,9 @@ async def send_user_blocked_notification(user_id: int, first_name: str, username
     )
     try:
         await _bot_app.bot.send_message(chat_id=_admin_id, text=message, parse_mode='HTML')
-        logger.info(f"Администратору отправлено уведомление о блокировке пользователя {user_id}.")
+        log("NOTIFICATION", f"Администратору отправлено уведомление о блокировке пользователя {user_id}.")
     except Exception as e:
-        logger.error(f"Не удалось отправить уведомление о блокировке пользователя {user_id}: {e}")
+        log("ERROR", f"Не удалось отправить уведомление о блокировке пользователя {user_id}: {e}", level=logging.ERROR)
 # --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
 
 def schedule_notification(*args, **kwargs):

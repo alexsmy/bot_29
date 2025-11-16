@@ -1,12 +1,12 @@
-
 import os
 import asyncio
+import logging
 from telegram import Update
 from telegram.ext import ContextTypes
 
 import database
 import notifier
-from logger_config import logger
+from configurable_logger import log
 from config import SPAM_STRIKE_LIMIT, SPAM_TIME_WINDOW_MINUTES
 
 def format_hours(hours: int) -> str:
@@ -33,7 +33,7 @@ def read_template_content(filename: str, replacements: dict = None) -> str:
                     content = content.replace(f"{{{key}}}", str(value))
             return content
     except FileNotFoundError:
-        logger.critical(f"Файл шаблона не найден: {template_path}")
+        log("CRITICAL", f"Файл шаблона не найден: {template_path}", level=logging.CRITICAL)
         return "Ошибка: Не удалось загрузить содержимое."
 
 async def log_user_and_action(update: Update, action: str):
@@ -60,7 +60,7 @@ async def check_and_handle_spam(update: Update, context: ContextTypes.DEFAULT_TY
     # 1. Проверяем, не заблокирован ли пользователь уже
     status = await database.get_user_status(user.id)
     if status == 'blocked':
-        logger.warning(f"Получено сообщение от заблокированного пользователя {user.id}. Игнорируем.")
+        log("SPAM_DETECT", f"Получено сообщение от заблокированного пользователя {user.id}. Игнорируем.", level=logging.WARNING)
         return True
 
     # 2. Логируем "плохое" действие
@@ -72,8 +72,8 @@ async def check_and_handle_spam(update: Update, context: ContextTypes.DEFAULT_TY
     # 4. Если лимит превышен, блокируем пользователя
     if strike_count >= SPAM_STRIKE_LIMIT:
         await database.update_user_status(user.id, 'blocked')
-        logger.critical(f"Пользователь {user.first_name} (ID: {user.id}) заблокирован за спам. "
-                        f"({strike_count} нарушений за {SPAM_TIME_WINDOW_MINUTES} минут).")
+        log("USER_BLOCK", f"Пользователь {user.first_name} (ID: {user.id}) заблокирован за спам. "
+                        f"({strike_count} нарушений за {SPAM_TIME_WINDOW_MINUTES} минут).", level=logging.CRITICAL)
         
         # Отправляем уведомление администратору
         await notifier.send_user_blocked_notification(user.id, user.first_name, user.username, strike_count)

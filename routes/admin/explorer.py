@@ -1,12 +1,12 @@
-
 import os
+import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import FileResponse
 from typing import List, Dict, Any
 
 from core import CustomJSONResponse
-from logger_config import logger
+from configurable_logger import log
 
 router = APIRouter()
 
@@ -59,7 +59,7 @@ def build_file_tree(path: str) -> List[Dict[str, Any]]:
                     except OSError:
                         continue
     except OSError as e:
-        logger.error(f"Ошибка чтения директории {path}: {e}")
+        log("ERROR", f"Ошибка чтения директории {path}: {e}", level=logging.ERROR)
     return tree
 
 @router.get("/file-explorer", response_class=CustomJSONResponse)
@@ -71,7 +71,7 @@ async def get_file_explorer_tree():
         tree = build_file_tree(PROJECT_ROOT)
         return tree
     except Exception as e:
-        logger.error(f"Не удалось построить дерево файлов: {e}")
+        log("ERROR", f"Не удалось построить дерево файлов: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Could not build file tree.")
 
 @router.get("/explorer/file-content", response_class=CustomJSONResponse)
@@ -91,7 +91,7 @@ async def get_file_content(path: str = Query(...)):
         raise HTTPException(status_code=400, detail="Cannot view this file type as text.")
     if extension.lower() not in TEXT_EXTENSIONS:
         # Для неизвестных типов файлов тоже не пытаемся читать как текст
-        logger.warning(f"Попытка просмотра файла с неизвестным расширением '{extension}' как текста.")
+        log("ADMIN_ACTION", f"Попытка просмотра файла с неизвестным расширением '{extension}' как текста.", level=logging.WARNING)
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
@@ -101,7 +101,7 @@ async def get_file_content(path: str = Query(...)):
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="Cannot decode file content. It might be a binary file.")
     except Exception as e:
-        logger.error(f"Ошибка чтения файла {path}: {e}")
+        log("ERROR", f"Ошибка чтения файла {path}: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Could not read file.")
 
 @router.get("/explorer/file-download")

@@ -1,8 +1,9 @@
 import os
 import asyncpg
+import logging
 from datetime import datetime, date, timezone, timedelta
 from typing import Dict, Optional, List, Any
-from logger_config import logger
+from configurable_logger import log
 from config import ADMIN_TOKEN_LIFETIME_MINUTES, SPAM_TIME_WINDOW_MINUTES
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
@@ -14,7 +15,7 @@ async def get_pool() -> asyncpg.Pool:
         if not DATABASE_URL:
             raise ValueError("DATABASE_URL не установлена в переменных окружения")
         _pool = await asyncpg.create_pool(DATABASE_URL, min_size=2, max_size=10)
-        logger.info("Пул соединений с базой данных успешно создан.")
+        log("DB_LIFECYCLE", "Пул соединений с базой данных успешно создан.")
     return _pool
 
 async def close_pool():
@@ -22,7 +23,7 @@ async def close_pool():
     if _pool:
         await _pool.close()
         _pool = None
-        logger.info("Пул соединений с базой данных закрыт.")
+        log("DB_LIFECYCLE", "Пул соединений с базой данных закрыт.")
 
 async def init_db():
     pool = await get_pool()
@@ -104,7 +105,7 @@ async def init_db():
             )
         ''')
         # --- ИЗМЕНЕНИЕ: Таблица admin_settings и ее инициализация удалены ---
-    logger.info("База данных PostgreSQL успешно инициализирована.")
+    log("DB_LIFECYCLE", "База данных PostgreSQL успешно инициализирована.")
 
 async def log_user(user_id, first_name, last_name, username):
     pool = await get_pool()
@@ -154,7 +155,7 @@ async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
         if not session_row:
-            logger.error(f"Не удалось найти сессию для room_id {room_id} при старте звонка.")
+            log("ERROR", f"Не удалось найти сессию для room_id {room_id} при старте звонка.", level=logging.ERROR)
             return
         session_id = session_row['session_id']
 
@@ -173,7 +174,7 @@ async def log_call_end(room_id):
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
         if not session_row:
-            logger.error(f"Не удалось найти сессию для room_id {room_id} при завершении звонка.")
+            log("ERROR", f"Не удалось найти сессию для room_id {room_id} при завершении звонка.", level=logging.ERROR)
             return
         session_id = session_row['session_id']
 
@@ -205,7 +206,7 @@ async def update_call_connection_type(room_id: str, connection_type: str):
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
         if not session_row:
-            logger.error(f"Не удалось найти сессию для room_id {room_id} при обновлении типа соединения.")
+            log("ERROR", f"Не удалось найти сессию для room_id {room_id} при обновлении типа соединения.", level=logging.ERROR)
             return
         session_id = session_row['session_id']
 
@@ -223,7 +224,7 @@ async def update_call_connection_type(room_id: str, connection_type: str):
                 "UPDATE call_history SET connection_type = $1 WHERE call_id = $2",
                 connection_type, call_row['call_id']
             )
-            logger.info(f"Тип соединения для звонка в комнате {room_id} обновлен на '{connection_type}'.")
+            log("DB_LIFECYCLE", f"Тип соединения для звонка в комнате {room_id} обновлен на '{connection_type}'.")
 
 async def log_room_closure(room_id, reason):
     pool = await get_pool()
@@ -349,7 +350,7 @@ async def clear_all_data():
     async with pool.acquire() as conn:
         # --- ИЗМЕНЕНИЕ: Удалена таблица admin_settings из TRUNCATE ---
         await conn.execute("TRUNCATE TABLE call_history, connections, bot_actions, call_sessions, users, admin_tokens RESTART IDENTITY CASCADE")
-        logger.warning("Все таблицы базы данных были полностью очищены.")
+        log("ADMIN_ACTION", "Все таблицы базы данных были полностью очищены.", level=logging.WARNING)
 
 async def get_all_active_sessions():
     pool = await get_pool()
@@ -383,7 +384,7 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         """, room_id)
 
         if not initiator_ip:
-            logger.warning(f"Не найден активный звонок или IP инициатора для комнаты {room_id}, чтобы получить детали участников.")
+            log("DB_LIFECYCLE", f"Не найден активный звонок или IP инициатора для комнаты {room_id}, чтобы получить детали участников.", level=logging.WARNING)
             return None
 
         connections = await conn.fetch("""
@@ -395,7 +396,7 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         """, room_id)
 
         if not connections:
-            logger.error(f"Не найдены детали подключений для комнаты {room_id}.")
+            log("ERROR", f"Не найдены детали подключений для комнаты {room_id}.", level=logging.ERROR)
             return None
 
         initiator_details = None
@@ -419,7 +420,7 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
                 initiator_details = conn2
                 participant_details = conn1
             else:
-                logger.warning(f"Не удалось сопоставить IP инициатора {initiator_ip} для комнаты {room_id}. Роли назначены по порядку подключения.")
+                log("DB_LIFECYCLE", f"Не удалось сопоставить IP инициатора {initiator_ip} для комнаты {room_id}. Роли назначены по порядку подключения.", level=logging.WARNING)
                 # conn1 - более новое подключение, conn2 - более старое. Инициатор обычно старше.
                 initiator_details = conn2
                 participant_details = conn1
@@ -444,14 +445,14 @@ async def update_user_status(user_id: int, status: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("UPDATE users SET status = $1 WHERE user_id = $2", status, user_id)
-    logger.info(f"Статус пользователя {user_id} изменен на '{status}'.")
+    log("DB_LIFECYCLE", f"Статус пользователя {user_id} изменен на '{status}'.")
 
 async def delete_user(user_id: int):
     """Полностью удаляет пользователя и все связанные с ним данные."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM users WHERE user_id = $1", user_id)
-    logger.warning(f"Пользователь {user_id} и все его данные были удалены администратором.")
+    log("ADMIN_ACTION", f"Пользователь {user_id} и все его данные были удалены администратором.", level=logging.WARNING)
 
 async def count_spam_strikes(user_id: int) -> int:
     """Подсчитывает количество спам-действий пользователя за определенное время."""
@@ -520,4 +521,4 @@ async def forgive_spam_strikes(user_id: int):
             """,
             new_timestamp, user_id, spam_actions
         )
-        logger.info(f"Счетчик спама для пользователя {user_id} был сброшен.")
+        log("ADMIN_ACTION", f"Счетчик спама для пользователя {user_id} был сброшен.")

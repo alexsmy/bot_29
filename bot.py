@@ -1,15 +1,15 @@
-
 import os
 import sys
 import asyncio
 import uvicorn
+import logging
 from telegram import BotCommand
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
 
 import database
 import notifier
 from main import app as fastapi_app
-from logger_config import logger
+from configurable_logger import log
 
 # Импортируем обработчики из новых модулей
 from handlers import public_handlers, admin_handlers, inline_handlers
@@ -28,7 +28,7 @@ async def post_init(application: Application) -> None:
         BotCommand("faq", "❓ Ответы на частые вопросы"),
     ]
     await application.bot.set_my_commands(public_commands)
-    logger.info("Меню публичных команд успешно установлено.")
+    log("BOT_SETUP", "Меню публичных команд успешно установлено.")
 
 async def main() -> None:
     """
@@ -37,7 +37,7 @@ async def main() -> None:
     global bot_app_instance
     bot_token = os.environ.get("BOT_TOKEN")
     if not bot_token:
-        logger.critical("Токен бота (BOT_TOKEN) не найден.")
+        log("CRITICAL", "Токен бота (BOT_TOKEN) не найден.", level=logging.CRITICAL)
         sys.exit(1)
 
     # Инициализация базы данных
@@ -82,7 +82,7 @@ async def main() -> None:
     # Асинхронный запуск бота и сервера
     async with application:
         await application.start()
-        logger.info("Telegram бот запускается...")
+        log("APP_LIFECYCLE", "Telegram бот запускается...")
         
         server_task = asyncio.create_task(server.serve())
         bot_task = asyncio.create_task(application.updater.start_polling())
@@ -101,4 +101,4 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except (KeyboardInterrupt, SystemExit):
-        logger.info("Приложение останавливается.")
+        log("APP_LIFECYCLE", "Приложение останавливается.")

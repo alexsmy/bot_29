@@ -1,11 +1,11 @@
-
 import os
+import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from typing import List
 
 from core import CustomJSONResponse
-from logger_config import logger
+from configurable_logger import log
 
 RECORDS_DIR = "call_records"
 router = APIRouter()
@@ -45,13 +45,13 @@ async def list_recordings():
                     "files": files
                 })
             except OSError as e:
-                logger.error(f"Не удалось прочитать содержимое папки {session_path}: {e}")
+                log("ERROR", f"Не удалось прочитать содержимое папки {session_path}: {e}", level=logging.ERROR)
                 continue
         
         return sessions
 
     except Exception as e:
-        logger.error(f"Ошибка при листинге записей: {e}")
+        log("ERROR", f"Ошибка при листинге записей: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail=f"Failed to list recordings: {e}")
 
 @router.get("/recordings/{session_id}/{filename}")
@@ -89,8 +89,8 @@ async def delete_recording(session_id: str, filename: str):
         raise HTTPException(status_code=404, detail="Recording not found.")
     try:
         os.remove(filepath)
-        logger.info(f"Администратор удалил файл: {filepath}")
+        log("ADMIN_ACTION", f"Администратор удалил файл: {filepath}")
         return {"status": "deleted", "filename": safe_filename}
     except Exception as e:
-        logger.error(f"Ошибка при удалении файла {filepath}: {e}")
+        log("ERROR", f"Ошибка при удалении файла {filepath}: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail=f"Failed to delete recording: {e}")

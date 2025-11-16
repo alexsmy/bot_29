@@ -1,10 +1,9 @@
-# routes/admin/danger_zone.py
-
+import logging
 from fastapi import APIRouter, HTTPException
 
 import database
 from core import CustomJSONResponse
-from logger_config import logger
+from configurable_logger import log
 
 router = APIRouter()
 
@@ -17,5 +16,5 @@ async def clear_database():
         await database.clear_all_data()
         return {"status": "database cleared successfully"}
     except Exception as e:
-        logger.error(f"Ошибка при очистке базы данных: {e}")
+        log("ERROR", f"Ошибка при очистке базы данных: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail=f"Database clearing failed: {e}")

@@ -1,5 +1,6 @@
+import logging
 from fastapi import WebSocket, WebSocketDisconnect
-from logger_config import logger
+from configurable_logger import log
 from websocket_manager import RoomManager
 from services import call_service
 
@@ -9,6 +10,7 @@ async def handle_connection(websocket: WebSocket, room: RoomManager, user_id: st
             message = await websocket.receive_json()
             message_type = message.get("type")
             data = message.get("data", {})
+            log("WEBSOCKET_EVENT", f"Получено сообщение от {user_id} в комнате {room.room_id}: type={message_type}")
 
             if message_type == "call_user":
                 await call_service.start_call(
@@ -35,7 +37,7 @@ async def handle_connection(websocket: WebSocket, room: RoomManager, user_id: st
                 )
 
     except WebSocketDisconnect:
-        logger.info(f"WebSocket disconnected for user {user_id} in room {room.room_id}")
+        log("WEBSOCKET_LIFECYCLE", f"WebSocket disconnected for user {user_id} in room {room.room_id}")
     finally:
         # --- ИЗМЕНЕНИЕ: Добавляем логику аварийной сборки ---
         is_in_call = user_id in room.users and room.users[user_id].get("status") == "busy"

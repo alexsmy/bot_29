@@ -1,12 +1,13 @@
 import asyncio
 import os
 import glob
+import logging
 from datetime import datetime, timezone
 
 import database
 import notifier
 from websocket_manager import RoomManager
-from logger_config import logger
+from configurable_logger import log
 from groq_transcriber import transcribe_audio_file
 
 RECORDS_DIR = "call_records"
@@ -18,7 +19,7 @@ async def assemble_audio_chunks(session_folder_path: str, user_id: str, wait_for
     """
     try:
         if wait_for_final_chunk:
-            logger.info(f"[ASSEMBLER] Ожидание 10 секунд для получения финальных чанков для пользователя {user_id}...")
+            log("ASSEMBLER", f"Ожидание 10 секунд для получения финальных чанков для пользователя {user_id}...")
             await asyncio.sleep(10)
 
         safe_user_id = "".join(c for c in user_id if c.isalnum() or c in ('-', '_'))[:8]
@@ -26,7 +27,7 @@ async def assemble_audio_chunks(session_folder_path: str, user_id: str, wait_for
         chunk_files = glob.glob(search_pattern)
 
         if not chunk_files:
-            logger.warning(f"[ASSEMBLER] Не найдены аудио-чанки для пользователя {user_id} в папке {os.path.basename(session_folder_path)}")
+            log("ASSEMBLER", f"Не найдены аудио-чанки для пользователя {user_id} в папке {os.path.basename(session_folder_path)}", level=logging.WARNING)
             return
 
         chunk_files.sort(key=lambda f: int(f.split('_chunk_')[-1].split('.')[0]))
@@ -34,20 +35,20 @@ async def assemble_audio_chunks(session_folder_path: str, user_id: str, wait_for
         final_filename = f"{os.path.basename(session_folder_path)}_{safe_user_id}.webm"
         final_filepath = os.path.join(session_folder_path, final_filename)
 
-        logger.info(f"[ASSEMBLER] Начало сборки {len(chunk_files)} чанков в файл {final_filename} для пользователя {user_id}")
+        log("ASSEMBLER", f"Начало сборки {len(chunk_files)} чанков в файл {final_filename} для пользователя {user_id}")
 
         with open(final_filepath, 'wb') as final_file:
             for chunk_path in chunk_files:
                 with open(chunk_path, 'rb') as chunk_file:
                     final_file.write(chunk_file.read())
         
-        logger.info(f"[ASSEMBLER] Файл {final_filename} успешно собран. Удаление временных чанков...")
+        log("ASSEMBLER", f"Файл {final_filename} успешно собран. Удаление временных чанков...")
 
         for chunk_path in chunk_files:
             try:
                 os.remove(chunk_path)
             except OSError as e:
-                logger.error(f"[ASSEMBLER] Не удалось удалить временный файл {chunk_path}: {e}")
+                log("ERROR", f"Не удалось удалить временный файл {chunk_path}: {e}", level=logging.ERROR)
         
         message_to_admin = f"🎤 <b>Собран полный аудиофайл звонка</b>\n\n<b>Файл:</b> <code>{os.path.basename(session_folder_path)}/{final_filename}</code>"
         await notifier.send_admin_notification(message_to_admin, 'notify_on_audio_record', file_path=final_filepath)
@@ -55,7 +56,7 @@ async def assemble_audio_chunks(session_folder_path: str, user_id: str, wait_for
         await transcribe_audio_file(final_filepath)
 
     except Exception as e:
-        logger.critical(f"[ASSEMBLER] Критическая ошибка при сборке аудио для пользователя {user_id}: {e}")
+        log("CRITICAL", f"Критическая ошибка при сборке аудио для пользователя {user_id}: {e}", level=logging.CRITICAL)
 
 
 async def start_call(room: RoomManager, caller_id: str, target_id: str, call_type: str):
@@ -86,9 +87,9 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
             record_path = os.path.join(RECORDS_DIR, folder_name)
             os.makedirs(record_path, exist_ok=True)
             room.current_call_record_path = record_path
-            logger.info(f"Создана директория для записи звонка: {record_path}")
+            log("ASSEMBLER", f"Создана директория для записи звонка: {record_path}")
         except OSError as e:
-            logger.error(f"Не удалось создать директорию для записи звонка: {e}")
+            log("ERROR", f"Не удалось создать директорию для записи звонка: {e}", level=logging.ERROR)
             room.current_call_record_path = None
 
         initiator = room.users.get(caller_id)
@@ -135,7 +136,7 @@ async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hang
         )
         
         if room.current_call_record_path:
-            logger.info(f"Штатное завершение звонка. Запускаю сборку аудио для комнаты {room.room_id}")
+            log("ASSEMBLER", f"Штатное завершение звонка. Запускаю сборку аудио для комнаты {room.room_id}")
             room.set_assembly_triggered(initiator_id)
             room.set_assembly_triggered(target_id)
             asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, initiator_id))
@@ -147,10 +148,10 @@ async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hang
 
 async def handle_abrupt_disconnection(room: RoomManager, disconnected_user_id: str):
     """Обрабатывает аварийное завершение звонка из-за дисконнекта."""
-    logger.warning(f"Пользователь {disconnected_user_id} аварийно отключился во время звонка.")
+    log("ASSEMBLER", f"Пользователь {disconnected_user_id} аварийно отключился во время звонка.", level=logging.WARNING)
     
     if room.current_call_record_path and not room.assembly_triggered.get(disconnected_user_id, False):
-        logger.info(f"Запускаю аварийную сборку аудио для {disconnected_user_id}.")
+        log("ASSEMBLER", f"Запускаю аварийную сборку аудио для {disconnected_user_id}.")
         room.set_assembly_triggered(disconnected_user_id)
         asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, disconnected_user_id, wait_for_final_chunk=False))
 
@@ -158,7 +159,7 @@ async def process_webrtc_signal(room: RoomManager, sender_id: str, message: dict
     # --- ИСПРАВЛЕНИЕ: Добавляем проверку на наличие target_id ---
     target_id = message.get("data", {}).get("target_id")
     if not target_id:
-        logger.warning(f"Получено WebRTC сообщение типа '{message.get('type')}' без target_id от {sender_id}. Игнорируется.")
+        log("WEBSOCKET_EVENT", f"Получено WebRTC сообщение типа '{message.get('type')}' без target_id от {sender_id}. Игнорируется.", level=logging.WARNING)
         return
     # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
