@@ -8,6 +8,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- ПОДКЛЮЧАЕМ СТИЛИ TABULATOR -->
+    <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_modern.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/admin.css">
 </head>
 <body data-token="{{ token }}" data-token-expires-at="{{ expires_at }}">
@@ -121,16 +123,19 @@
                 </div>
             </section>
 
+            <!-- ИЗМЕНЕННАЯ СЕКЦИЯ ПРОВОДНИКА -->
             <section id="explorer" class="content-section">
                 <div class="section-header">
                     <h2>Проводник</h2>
-                    <button id="refresh-explorer-btn" class="action-btn">Обновить</button>
+                    <div class="filters">
+                        <input type="text" id="explorer-filter-input" placeholder="Фильтр по имени файла...">
+                        <button id="refresh-explorer-btn" class="action-btn">Обновить</button>
+                    </div>
                 </div>
-                <p class="section-description">Структура файлов и папок проекта. Позволяет увидеть, где хранятся логи, записи и отчеты.</p>
-                <div id="file-explorer-container" class="file-explorer">
-                    <div class="skeleton-list"></div>
-                </div>
+                <p class="section-description">Интерактивная таблица файлов проекта с сортировкой и поиском. Позволяет управлять записями звонков и другими файлами.</p>
+                <div id="explorer-table"></div>
             </section>
+            <!-- КОНЕЦ ИЗМЕНЕННОЙ СЕКЦИИ -->
 
             <section id="danger" class="content-section">
                 <div class="danger-zone">
@@ -154,13 +159,10 @@
         </div>
     </div>
 
-    <div id="action-modal" class="action-modal">
-        <div class="action-modal-buttons">
-            <button id="action-view-btn" class="action-btn btn-view">Просмотр</button>
-            <button id="action-download-btn" class="action-btn btn-download">Скачать</button>
-        </div>
-    </div>
+    <!-- УДАЛЯЕМ СТАРОЕ МОДАЛЬНОЕ ОКНО ДЕЙСТВИЙ, ТАК КАК КНОПКИ ТЕПЕРЬ В ТАБЛИЦЕ -->
 
+    <!-- ПОДКЛЮЧАЕМ СКРИПТ TABULATOR -->
+    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
     <script src="/static/js/admin_icons.js"></script>
     <script type="module" src="/static/js/admin.js"></script>
 </body>
