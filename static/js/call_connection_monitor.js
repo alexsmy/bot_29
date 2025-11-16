@@ -1,4 +1,3 @@
-
 let log = () => {};
 let getPeerConnection = () => null;
 let updateConnectionIcon = () => {};
@@ -113,12 +112,12 @@ async function monitorConnectionStats() {
             if (score === 3) quality = 'good';
             else if (score >= 1) quality = 'medium';
             else quality = 'bad';
-            log(`[STATS] Quality: rtt=${roundTripTime.toFixed(0)}ms, jitter=${jitter.toFixed(2)}ms, loss=${(packetsLostDelta*100).toFixed(2)}% -> ${quality}`);
+            log('CONNECTION_STATS', `Quality: rtt=${roundTripTime.toFixed(0)}ms, jitter=${jitter.toFixed(2)}ms, loss=${(packetsLostDelta*100).toFixed(2)}% -> ${quality}`);
         }
         updateConnectionQualityIcon(quality);
         lastRtcStats = { remoteInboundRtp };
     } catch (error) {
-        log(`Error getting connection stats: ${error}`);
+        log('CRITICAL_ERROR', `Error getting connection stats: ${error}`);
     }
 }
 

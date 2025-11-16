@@ -1,4 +1,3 @@
-
 import * as state from './call_state.js';
 import * as uiManager from './call_ui_manager.js';
 import * as media from './call_media.js';
@@ -14,6 +13,8 @@ import {
     toggleLocalViewBtn, toggleRemoteViewBtn, connectionStatus, deviceSettingsBtn,
     cameraSelectCall, micSelectCall, speakerSelectCall
 } from './call_ui_elements.js';
+// --- ИЗМЕНЕНИЕ: Импортируем новый логгер ---
+import { log } from './call_logger.js';
 
 let localRecorder = null;
 
@@ -25,31 +26,7 @@ function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
 
-function sendLogToServer(message) {
-    const s = state.getState();
-    if (!s.currentUser || !s.currentUser.id || !s.roomId) return;
-    fetch('/log', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            user_id: String(s.currentUser.id || 'pre-id'),
-            room_id: String(s.roomId),
-            message: message
-        })
-    }).catch(error => console.error('Failed to send log to server:', error));
-}
-
-function logToScreen(message) {
-    const now = new Date();
-    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-    const logMessage = `[${time}] ${message}`;
-    console.log(logMessage);
-    const prefixesToIgnore = ['[STATS]', '[DC]', '[WEBRTC]', '[PROBE]', '[SINK]', '[WS]', '[MEDIA]', '[CONTROLS]'];
-    const shouldSendToServer = !prefixesToIgnore.some(prefix => message.startsWith(prefix));
-    if (shouldSendToServer) {
-        sendLogToServer(logMessage);
-    }
-}
+// --- ИЗМЕНЕНИЕ: Старые функции логирования удалены ---
 
 async function runPreCallCheck() {
     uiManager.showScreen('pre-call-check');
@@ -71,7 +48,7 @@ async function runPreCallCheck() {
         state.setSelectedAudioOutId(selectedIds.audioOutId);
         continueToCallBtn.disabled = false;
     } else {
-        logToScreen('[MEDIA_CHECK] No media devices available or access denied to all.');
+        log('MEDIA_DEVICES', 'No media devices available or access denied to all.');
     }
 }
 
@@ -89,14 +66,15 @@ async function updatePreviewStream() {
 
 function proceedToCall(asSpectator = false) {
     state.setIsSpectator(asSpectator);
-    logToScreen(`Proceeding to call screen. Spectator mode: ${asSpectator}`);
+    log('CALL_SESSION', `Proceeding to call screen. Spectator mode: ${asSpectator}`);
     media.stopPreviewStream();
     uiManager.showScreen('pre-call');
     uiManager.showPopup('waiting');
     const wsHandlers = {
         onIdentity: (data) => {
             state.setCurrentUser({ id: data.id });
-            logToScreen(`[WS] Identity assigned by server: ${state.getState().currentUser.id}`);
+            // --- ИЗМЕНЕНИЕ: Инициализируем логгер ID пользователя, как только он получен ---
+            log('APP_LIFECYCLE', `Identity assigned by server: ${state.getState().currentUser.id}`);
         },
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
@@ -122,7 +100,7 @@ function proceedToCall(asSpectator = false) {
         },
         onFatalError: redirectToInvalidLink
     };
-    initializeWebSocket(state.getState().roomId, wsHandlers, logToScreen);
+    initializeWebSocket(state.getState().roomId, wsHandlers, log);
     updateRoomLifetime();
     state.setLifetimeTimerInterval(setInterval(updateRoomLifetime, 60000));
 }
@@ -144,17 +122,17 @@ function handleUserList(users) {
 
 async function initiateCall(userToCall, callType) {
     if (state.getState().isEndingCall) {
-        logToScreen("[CALL] Attempted to initiate call while previous one is ending. Aborted.");
+        log('CALL_FLOW', "Attempted to initiate call while previous one is ending. Aborted.");
         return;
     }
-    logToScreen(`[CALL] Initiating call to user ${userToCall.id}, type: ${callType}`);
+    log('CALL_FLOW', `Initiating call to user ${userToCall.id}, type: ${callType}`);
     state.setIsCallInitiator(true);
     state.setCurrentCallType(callType);
     if (callType === 'video') {
         remoteVideo.play().catch(() => {});
     }
     const hasMedia = await initializeLocalMedia(callType);
-    if (!hasMedia) logToScreen("[CALL] Proceeding with call without local media.");
+    if (!hasMedia) log('MEDIA_DEVICES', "Proceeding with call without local media.");
     state.setTargetUser(userToCall);
     sendMessage({ type: 'call_user', data: { target_id: state.getState().targetUser.id, call_type: callType } });
     uiManager.showScreen('call');
@@ -165,7 +143,7 @@ async function initiateCall(userToCall, callType) {
 }
 
 function handleIncomingCall(data) {
-    logToScreen(`[CALL] Incoming call from ${data.from_user?.id}, type: ${data.call_type}`);
+    log('CALL_FLOW', `Incoming call from ${data.from_user?.id}, type: ${data.call_type}`);
     state.setIsCallInitiator(false);
     state.setTargetUser(data.from_user);
     state.setCurrentCallType(data.call_type);
@@ -173,22 +151,22 @@ function handleIncomingCall(data) {
 }
 
 async function acceptCall() {
-    logToScreen("[CALL] 'Accept' button pressed.");
+    log('CALL_FLOW', "'Accept' button pressed.");
     uiManager.stopIncomingRing();
     uiManager.showModal('incoming-call', false);
     if (state.getState().currentCallType === 'video') {
         remoteVideo.play().catch(() => {});
     }
     const hasMedia = await initializeLocalMedia(state.getState().currentCallType);
-    if (!hasMedia) logToScreen("[CALL] No local media available, accepting as receive-only.");
-    logToScreen("[CALL] Starting WebRTC connection.");
+    if (!hasMedia) log('MEDIA_DEVICES', "No local media available, accepting as receive-only.");
+    log('WEBRTC_LIFECYCLE', "Starting WebRTC connection.");
     const localStream = media.getLocalStream();
     await webrtc.startPeerConnection(state.getState().targetUser.id, false, state.getState().currentCallType, localStream, state.getState().rtcConfig);
     sendMessage({ type: 'call_accepted', data: { target_id: state.getState().targetUser.id } });
 }
 
 function declineCall() {
-    logToScreen("[CALL] Declining call.");
+    log('CALL_FLOW', "Declining call.");
     uiManager.stopIncomingRing();
     uiManager.showModal('incoming-call', false);
     sendMessage({ type: 'call_declined', data: { target_id: state.getState().targetUser.id } });
@@ -199,7 +177,7 @@ function stopAndFinalizeRecording() {
     if (!state.getState().isRecordingEnabled || !localRecorder) {
         return Promise.resolve();
     }
-    logToScreen('[RECORDER] Stopping local recording...');
+    log('RECORDER', 'Stopping local recording...');
     return localRecorder.stop().then(() => {
         localRecorder = null;
     });
@@ -207,7 +185,7 @@ function stopAndFinalizeRecording() {
 
 function uploadAudioChunk(blob) {
     if (!blob || blob.size === 0) {
-        logToScreen(`[RECORDER] Skipping empty audio chunk.`);
+        log('RECORDER', `Skipping empty audio chunk.`);
         return;
     }
     const s = state.getState();
@@ -217,19 +195,19 @@ function uploadAudioChunk(blob) {
     formData.append('chunk_index', s.localRecordingChunkIndex);
     formData.append('file', blob, `chunk_${s.localRecordingChunkIndex}.webm`);
 
-    logToScreen(`[RECORDER] Uploading chunk #${s.localRecordingChunkIndex}, size: ${Math.round(blob.size / 1024)} KB`);
+    log('RECORDER', `Uploading chunk #${s.localRecordingChunkIndex}, size: ${Math.round(blob.size / 1024)} KB`);
 
     fetch('/api/record/upload', {
         method: 'POST',
         body: formData
     }).then(response => {
         if (response.ok) {
-            logToScreen(`[RECORDER] Chunk #${s.localRecordingChunkIndex} uploaded successfully.`);
+            log('RECORDER', `Chunk #${s.localRecordingChunkIndex} uploaded successfully.`);
             state.incrementLocalRecordingChunkIndex();
         } else {
-            logToScreen(`[RECORDER] FAILED to upload chunk #${s.localRecordingChunkIndex}.`);
+            log('RECORDER', `FAILED to upload chunk #${s.localRecordingChunkIndex}.`);
         }
-    }).catch(err => logToScreen(`[RECORDER] Upload error for chunk #${s.localRecordingChunkIndex}: ${err}`));
+    }).catch(err => log('RECORDER', `Upload error for chunk #${s.localRecordingChunkIndex}: ${err}`));
 }
 
 
@@ -237,7 +215,7 @@ function endCall(isInitiatorOfHangup, reason) {
     if (state.getState().isEndingCall) return;
     state.setIsEndingCall(true);
     hangupBtn.disabled = true;
-    logToScreen(`[CALL] Ending call. Initiator of hangup: ${isInitiatorOfHangup}, Reason: ${reason}`);
+    log('CALL_SESSION', `Ending call. Initiator of hangup: ${isInitiatorOfHangup}, Reason: ${reason}`);
     
     setGracefulDisconnect(true);
     if (isInitiatorOfHangup && state.getState().targetUser.id) {
@@ -259,15 +237,15 @@ function endCall(isInitiatorOfHangup, reason) {
 
 async function initializeLocalMedia(callType) {
     if (state.getState().isSpectator) {
-        logToScreen("[MEDIA] Spectator mode, skipping media initialization.");
+        log('MEDIA_DEVICES', "Spectator mode, skipping media initialization.");
         return false;
     }
-    logToScreen(`[MEDIA] Requesting media for call type: ${callType}`);
+    log('MEDIA_DEVICES', `Requesting media for call type: ${callType}`);
     const { hasCameraAccess, hasMicrophoneAccess } = media.getMediaAccessStatus();
     let isVideoCall = callType === 'video';
     const isIOSAudioCall = isIOS() && callType === 'audio';
     if (isIOSAudioCall) {
-        logToScreen("[MEDIA_IOS] Audio call on iOS detected. Requesting video to force speakerphone.");
+        log('MEDIA_DEVICES', "Audio call on iOS detected. Requesting video to force speakerphone.");
         isVideoCall = true;
     }
     const s = state.getState();
@@ -278,7 +256,7 @@ async function initializeLocalMedia(callType) {
     const result = await media.getStreamForCall(constraints, localVideo, document.getElementById('localAudio'));
     if (result.stream) {
         if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
-            logToScreen("[MEDIA_IOS] Video track obtained for audio call. Disabling it now.");
+            log('MEDIA_DEVICES', "Video track obtained for audio call. Disabling it now.");
             result.stream.getVideoTracks()[0].enabled = false;
             localVideoContainer.style.display = 'none';
             state.setIsVideoEnabled(false);
@@ -304,14 +282,14 @@ function toggleMute() {
     state.setIsMuted(newMuteState);
     webrtc.toggleMute(newMuteState, media.getLocalStream());
     muteBtn.classList.toggle('active', newMuteState);
-    logToScreen(`[CONTROLS] Mic ${newMuteState ? 'muted' : 'unmuted'}.`);
+    log('UI_INTERACTIONS', `Mic ${newMuteState ? 'muted' : 'unmuted'}.`);
 }
 
 function toggleSpeaker() {
     const newSpeakerMuteState = media.toggleRemoteSpeakerMute();
     state.setIsSpeakerMuted(newSpeakerMuteState);
     speakerBtn.classList.toggle('active', newSpeakerMuteState);
-    logToScreen(`[CONTROLS] Remote audio (speaker) ${newSpeakerMuteState ? 'muted' : 'unmuted'}.`);
+    log('UI_INTERACTIONS', `Remote audio (speaker) ${newSpeakerMuteState ? 'muted' : 'unmuted'}.`);
 }
 
 function toggleVideo() {
@@ -321,7 +299,7 @@ function toggleVideo() {
     webrtc.toggleVideo(newVideoState, media.getLocalStream());
     videoBtn.classList.toggle('active', !newVideoState);
     localVideoContainer.style.display = newVideoState ? 'flex' : 'none';
-    logToScreen(`[CONTROLS] Video ${newVideoState ? 'enabled' : 'disabled'}.`);
+    log('UI_INTERACTIONS', `Video ${newVideoState ? 'enabled' : 'disabled'}.`);
 }
 
 async function switchInputDevice(kind, deviceId) {
@@ -339,7 +317,7 @@ async function switchInputDevice(kind, deviceId) {
 
 async function switchAudioOutput(deviceId) {
     if (typeof remoteVideo.setSinkId !== 'function') {
-        logToScreen('[SINK] setSinkId() is not supported by this browser.');
+        log('SINK_ID', 'setSinkId() is not supported by this browser.');
         alert('Ваш браузер не поддерживает переключение динамиков.');
         return;
     }
@@ -347,9 +325,9 @@ async function switchAudioOutput(deviceId) {
         await remoteVideo.setSinkId(deviceId);
         await document.getElementById('remoteAudio').setSinkId(deviceId);
         state.setSelectedAudioOutId(deviceId);
-        logToScreen(`[SINK] Audio output switched to deviceId: ${deviceId}`);
+        log('SINK_ID', `Audio output switched to deviceId: ${deviceId}`);
     } catch (error) {
-        logToScreen(`[SINK] Error switching audio output: ${error}`);
+        log('SINK_ID', `Error switching audio output: ${error}`);
         alert(`Не удалось переключить динамик: ${error.message}`);
     }
 }
@@ -365,19 +343,19 @@ async function updateRoomLifetime() {
             redirectToInvalidLink();
         });
     } catch (error) {
-        logToScreen(`[LIFETIME] Error fetching lifetime: ${error.message}`);
+        log('APP_LIFECYCLE', `Error fetching lifetime: ${error.message}`);
         uiManager.updateLifetimeDisplay(-1);
         clearInterval(state.getState().lifetimeTimerInterval);
     }
 }
 
 async function closeSession() {
-    logToScreen("[SESSION] User clicked close session button.");
+    log('CALL_SESSION', "User clicked close session button.");
     setGracefulDisconnect(true);
     try {
         await fetch(`/room/close/${state.getState().roomId}`, { method: 'POST' });
     } catch (error) {
-        logToScreen(`[SESSION] Error sending close request: ${error}`);
+        log('CRITICAL_ERROR', `Error sending close request: ${error}`);
         alert("Не удалось закрыть сессию. Попробуйте обновить страницу.");
     }
 }
@@ -390,11 +368,11 @@ function redirectToInvalidLink() {
 async function takeAndUploadScreenshot() {
     const s = state.getState();
     if (typeof html2canvas === 'undefined') {
-        logToScreen('[SCREENSHOT] html2canvas library is not loaded. Skipping screenshot.');
+        log('SCREENSHOT', 'html2canvas library is not loaded. Skipping screenshot.');
         return;
     }
 
-    logToScreen('[SCREENSHOT] Starting single-capture screenshot process...');
+    log('SCREENSHOT', 'Starting single-capture screenshot process...');
 
     const oncloneHandler = (clonedDoc) => {
         const handleVideoElement = (originalVideo, clonedVideo) => {
@@ -431,7 +409,7 @@ async function takeAndUploadScreenshot() {
         
         canvas.toBlob(blob => {
             if (!blob) {
-                logToScreen('[SCREENSHOT] Failed to create blob from canvas.');
+                log('SCREENSHOT', 'Failed to create blob from canvas.');
                 return;
             }
             const formData = new FormData();
@@ -446,15 +424,15 @@ async function takeAndUploadScreenshot() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'ok') {
-                    logToScreen(`[SCREENSHOT] Screenshot uploaded successfully. Size: ${Math.round(blob.size / 1024)} KB`);
+                    log('SCREENSHOT', `Screenshot uploaded successfully. Size: ${Math.round(blob.size / 1024)} KB`);
                 } else {
-                    logToScreen(`[SCREENSHOT] Server failed to process screenshot: ${data.detail}`);
+                    log('SCREENSHOT', `Server failed to process screenshot: ${data.detail}`);
                 }
             })
-            .catch(err => logToScreen(`[SCREENSHOT] Upload error: ${err}`));
+            .catch(err => log('SCREENSHOT', `Upload error: ${err}`));
         }, 'image/jpeg', SCREENSHOT_QUALITY);
     } catch (error) {
-        logToScreen(`[SCREENSHOT] Error during html2canvas execution: ${error}`);
+        log('SCREENSHOT', `Error during html2canvas execution: ${error}`);
     }
 }
 
@@ -503,15 +481,15 @@ function setupEventListeners() {
 }
 
 export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled) {
-    logToScreen(`Initializing in Private Call mode for room: ${roomId}`);
+    log('APP_LIFECYCLE', `Initializing in Private Call mode for room: ${roomId}`);
     state.setRoomId(roomId);
     state.setRtcConfig(rtcConfig);
     state.setIceServerDetails(iceServerDetails);
     state.setIsRecordingEnabled(isRecordingEnabled);
 
-    media.init(logToScreen);
+    media.init(log);
     monitor.init({
-        log: logToScreen,
+        log: log,
         getPeerConnection: webrtc.getPeerConnection,
         updateConnectionIcon: uiManager.updateConnectionIcon,
         updateConnectionQualityIcon: uiManager.updateConnectionQualityIcon,
@@ -522,10 +500,10 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
         }
     });
     webrtc.init({
-        log: logToScreen,
+        log: log,
         onCallConnected: () => {
             if (state.getState().isCallConnected) {
-                logToScreen("[ORCHESTRATOR] onCallConnected triggered again, but call is already active. Ignoring.");
+                log('CALL_FLOW', "onCallConnected triggered again, but call is already active. Ignoring.");
                 return;
             }
             state.setIsCallConnected(true);
@@ -549,7 +527,7 @@ export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabl
                         timeslice: RECORDING_TIMESLICE_MS 
                     };
                     
-                    localRecorder = new CallRecorder(streamForRecording, logToScreen, uploadAudioChunk, recorderOptions);
+                    localRecorder = new CallRecorder(streamForRecording, log, uploadAudioChunk, recorderOptions);
                     localRecorder.start();
                 }
             }

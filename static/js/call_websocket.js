@@ -4,36 +4,36 @@ const MAX_RECONNECT_ATTEMPTS = 10;
 let reconnectTimeoutId = null;
 let isGracefulDisconnect = false;
 
-// Функция для логирования, которую предоставит основной модуль
-let logToServer;
+// --- ИЗМЕНЕНИЕ: Функция для логирования теперь передается извне ---
+let log;
 
 function handleWebSocketReconnect(roomId, handlers) {
     if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-        logToServer(`[WS] Max reconnect attempts reached. Giving up.`);
+        log('WEBSOCKET_LIFECYCLE', `Max reconnect attempts reached. Giving up.`);
         alert("Не удалось восстановить соединение с сервером. Пожалуйста, обновите страницу.");
         return;
     }
     
     reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-    logToServer(`[WS] Will attempt to reconnect in ${delay / 1000} seconds (Attempt ${reconnectAttempts}).`);
+    log('WEBSOCKET_LIFECYCLE', `Will attempt to reconnect in ${delay / 1000} seconds (Attempt ${reconnectAttempts}).`);
     
     reconnectTimeoutId = setTimeout(() => {
-        initializeWebSocket(roomId, handlers, logToServer);
+        initializeWebSocket(roomId, handlers, log);
     }, delay);
 }
 
 export function initializeWebSocket(roomId, handlers, logger) {
     isGracefulDisconnect = false;
-    logToServer = logger; // Сохраняем функцию логирования
+    log = logger; // Сохраняем функцию логирования
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/private/${roomId}`;
-    logToServer(`[WS] Attempting a new connection.`);
+    log('WEBSOCKET_LIFECYCLE', `Attempting a new connection.`);
 
     ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
-        logToServer("[WS] WebSocket connection established.");
+        log("WEBSOCKET_LIFECYCLE", "WebSocket connection established.");
         reconnectAttempts = 0;
         if (reconnectTimeoutId) {
             clearTimeout(reconnectTimeoutId);
@@ -43,7 +43,7 @@ export function initializeWebSocket(roomId, handlers, logger) {
 
     ws.onmessage = (event) => {
         const message = JSON.parse(event.data);
-        logToServer(`[WS] Received message: ${message.type}`);
+        log('WEBSOCKET_MESSAGES', `Received message:`, message);
         
         // Диспетчер сообщений: вызываем нужный обработчик из переданных
         switch (message.type) {
@@ -64,9 +64,9 @@ export function initializeWebSocket(roomId, handlers, logger) {
     };
 
     ws.onclose = (event) => {
-        logToServer(`[WS] WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
+        log('WEBSOCKET_LIFECYCLE', `WebSocket connection closed. Code: ${event.code}, Reason: ${event.reason}`);
         if (isGracefulDisconnect) {
-            logToServer("[WS] Disconnect was graceful. No reconnection needed.");
+            log("WEBSOCKET_LIFECYCLE", "Disconnect was graceful. No reconnection needed.");
             return;
         }
         
@@ -79,17 +79,17 @@ export function initializeWebSocket(roomId, handlers, logger) {
     };
 
     ws.onerror = (error) => {
-        logToServer(`[WS] WebSocket error: ${JSON.stringify(error)}`);
+        log('CRITICAL_ERROR', `WebSocket error:`, error);
         ws.close();
     };
 }
 
 export function sendMessage(message) {
     if (ws && ws.readyState === WebSocket.OPEN) {
-        logToServer(`[WS] Sending message: ${message.type}`);
+        log('WEBSOCKET_MESSAGES', `Sending message:`, message);
         ws.send(JSON.stringify(message));
     } else {
-        logToServer("[WS] ERROR: Attempted to send message on a closed connection. Message will be lost.");
+        log("CRITICAL_ERROR", "Attempted to send message on a closed connection. Message will be lost.");
     }
 }
 

@@ -1,4 +1,3 @@
-
 import { sendMessage } from './call_websocket.js';
 import { remoteVideo, remoteAudio, localVideo } from './call_ui_elements.js';
 
@@ -34,41 +33,41 @@ export function getRemoteStream() {
 }
 
 function setupDataChannelEvents(channel) {
-    channel.onopen = () => callbacks.log('[DC] DataChannel is open.');
-    channel.onclose = () => callbacks.log('[DC] DataChannel is closed.');
-    channel.onerror = (error) => callbacks.log(`[DC] DataChannel error: ${error}`);
+    channel.onopen = () => callbacks.log('WEBSOCKET_MESSAGES', 'DataChannel is open.');
+    channel.onclose = () => callbacks.log('WEBSOCKET_MESSAGES', 'DataChannel is closed.');
+    channel.onerror = (error) => callbacks.log('CRITICAL_ERROR', `DataChannel error: ${error}`);
     channel.onmessage = (event) => {
         try {
             const message = JSON.parse(event.data);
-            callbacks.log(`[DC] Received message: ${message.type}`);
+            callbacks.log('WEBSOCKET_MESSAGES', `Received DC message: ${message.type}`);
             if (message.type === 'hangup') {
                 callbacks.onCallEndedByPeer('ended_by_peer_dc');
             } else if (message.type === 'mute_status') {
                 callbacks.onRemoteMuteStatus(message.muted);
             }
         } catch (e) {
-            callbacks.log(`[DC] Received non-JSON message: ${event.data}`);
+            callbacks.log('WEBSOCKET_MESSAGES', `Received non-JSON DC message: ${event.data}`);
         }
     };
 }
 
 async function initiateIceRestart() {
     if (!peerConnection) return;
-    callbacks.log('[WEBRTC] Creating new offer with iceRestart: true');
+    callbacks.log('WEBRTC_LIFECYCLE', 'Creating new offer with iceRestart: true');
     try {
         const offer = await peerConnection.createOffer({ iceRestart: true });
         await peerConnection.setLocalDescription(offer);
         sendMessage({ type: 'offer', data: { target_id: callbacks.getTargetUser().id, offer: offer } });
     } catch (error) {
-        callbacks.log(`[WEBRTC] ICE Restart failed: ${error}`);
+        callbacks.log('CRITICAL_ERROR', `ICE Restart failed: ${error}`);
         callbacks.onCallEndedByPeer('ice_restart_failed');
     }
 }
 
 export async function createPeerConnection(rtcConfig, localStream, selectedAudioOutId) {
-    callbacks.log("[WEBRTC] Creating RTCPeerConnection.");
+    callbacks.log("WEBRTC_LIFECYCLE", "Creating RTCPeerConnection.");
     if (!rtcConfig) {
-        callbacks.log("[CRITICAL] rtcConfig is not available.");
+        callbacks.log("CRITICAL_ERROR", "rtcConfig is not available.");
         alert("Ошибка конфигурации сети. Пожалуйста, обновите страницу.");
         return;
     }
@@ -84,50 +83,50 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     remoteAudio.srcObject = remoteStream;
 
     if (selectedAudioOutId && typeof remoteVideo.setSinkId === 'function') {
-        callbacks.log(`[SINK] Applying initial sinkId: ${selectedAudioOutId}`);
-        remoteVideo.setSinkId(selectedAudioOutId).catch(e => callbacks.log(`[SINK] Error setting sinkId for video: ${e}`));
-        remoteAudio.setSinkId(selectedAudioOutId).catch(e => callbacks.log(`[SINK] Error setting sinkId for audio: ${e}`));
+        callbacks.log('SINK_ID', `Applying initial sinkId: ${selectedAudioOutId}`);
+        remoteVideo.setSinkId(selectedAudioOutId).catch(e => callbacks.log('SINK_ID', `Error setting sinkId for video: ${e}`));
+        remoteAudio.setSinkId(selectedAudioOutId).catch(e => callbacks.log('SINK_ID', `Error setting sinkId for audio: ${e}`));
     }
 
     peerConnection.ondatachannel = (event) => {
-        callbacks.log('[DC] Received remote DataChannel.');
+        callbacks.log('WEBSOCKET_MESSAGES', 'Received remote DataChannel.');
         dataChannel = event.channel;
         setupDataChannelEvents(dataChannel);
     };
 
     peerConnection.oniceconnectionstatechange = () => {
         const state = peerConnection.iceConnectionState;
-        callbacks.log(`[WEBRTC] ICE State: ${state}`);
+        callbacks.log('WEBRTC_ICE_STATE', `ICE State: ${state}`);
         
         if (state === 'connected') {
             if (iceRestartTimeoutId) {
                 clearTimeout(iceRestartTimeoutId);
                 iceRestartTimeoutId = null;
-                callbacks.log('[WEBRTC] Connection recovered before ICE Restart was initiated.');
+                callbacks.log('WEBRTC_LIFECYCLE', 'Connection recovered before ICE Restart was initiated.');
             }
         } else if (state === 'disconnected') {
-            callbacks.log('[WEBRTC] Connection is disconnected. Scheduling ICE Restart check.');
+            callbacks.log('WEBRTC_LIFECYCLE', 'Connection is disconnected. Scheduling ICE Restart check.');
             if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
             iceRestartTimeoutId = setTimeout(() => {
                 if (peerConnection && peerConnection.iceConnectionState === 'disconnected') {
-                    callbacks.log('[WEBRTC] Connection did not recover. Initiating ICE Restart.');
+                    callbacks.log('WEBRTC_LIFECYCLE', 'Connection did not recover. Initiating ICE Restart.');
                     initiateIceRestart();
                 }
             }, 5000);
         } else if (state === 'failed') {
-            callbacks.log(`[WEBRTC] P2P connection failed. Ending call.`);
+            callbacks.log('CRITICAL_ERROR', `P2P connection failed. Ending call.`);
             callbacks.onCallEndedByPeer('p2p_failed'); 
         }
     };
 
-    peerConnection.onsignalingstatechange = () => callbacks.log(`[WEBRTC] Signaling State: ${peerConnection.signalingState}`);
+    peerConnection.onsignalingstatechange = () => callbacks.log('WEBRTC_LIFECYCLE', `Signaling State: ${peerConnection.signalingState}`);
     
     peerConnection.onicecandidate = event => {
         if (event.candidate) {
            const isRelayCandidate = event.candidate.candidate.includes(" typ relay ");
             
             if (PREVENT_P2P_DOWNGRADE && callbacks.getCurrentConnectionType() === 'p2p' && isRelayCandidate) {
-                callbacks.log(`[WEBRTC_POLICY] Blocking TURN candidate to prevent downgrade from P2P.`);
+                callbacks.log('WEBRTC_SIGNALS', `Blocking TURN candidate to prevent downgrade from P2P.`);
                 return; 
             }
 
@@ -136,25 +135,25 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
     };
 
     peerConnection.ontrack = event => {
-        callbacks.log(`[WEBRTC] Received remote track: ${event.track.kind}`);
+        callbacks.log('WEBRTC_LIFECYCLE', `Received remote track: ${event.track.kind}`);
         remoteStream.addTrack(event.track);
         callbacks.onRemoteTrack(remoteStream);
     };
 
     if (localStream) {
         localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-        callbacks.log("[WEBRTC] Local tracks added to PeerConnection.");
+        callbacks.log("WEBRTC_LIFECYCLE", "Local tracks added to PeerConnection.");
     } else {
-        callbacks.log("[WEBRTC] No local stream available to add tracks.");
+        callbacks.log("WEBRTC_LIFECYCLE", "No local stream available to add tracks.");
     }
 }
 
 export async function startPeerConnection(targetId, isCaller, callType, localStream, rtcConfig) {
-    callbacks.log(`[WEBRTC] Starting PeerConnection. Is caller: ${isCaller}`);
+    callbacks.log('WEBRTC_LIFECYCLE', `Starting PeerConnection. Is caller: ${isCaller}`);
     await createPeerConnection(rtcConfig, localStream, callbacks.getSelectedAudioOutId());
 
     if (isCaller) {
-        callbacks.log('[DC] Creating DataChannel.');
+        callbacks.log('WEBSOCKET_MESSAGES', 'Creating DataChannel.');
         dataChannel = peerConnection.createDataChannel('control');
         setupDataChannelEvents(dataChannel);
 
@@ -162,7 +161,7 @@ export async function startPeerConnection(targetId, isCaller, callType, localStr
             offerToReceiveAudio: true, 
             offerToReceiveVideo: callType === 'video' 
         };
-        callbacks.log(`[WEBRTC] Creating Offer with options: ${JSON.stringify(offerOptions)}`);
+        callbacks.log('WEBRTC_SIGNALS', `Creating Offer with options:`, offerOptions);
         const offer = await peerConnection.createOffer(offerOptions);
 
         await peerConnection.setLocalDescription(offer);
@@ -175,15 +174,15 @@ async function processIceCandidateQueue() {
         const candidate = iceCandidateQueue.shift();
         try {
             await peerConnection.addIceCandidate(candidate);
-            callbacks.log("[WEBRTC] Added a queued ICE candidate.");
+            callbacks.log("WEBRTC_SIGNALS", "Added a queued ICE candidate.");
         } catch (e) {
-            callbacks.log(`[WEBRTC] ERROR adding queued ICE candidate: ${e}`);
+            callbacks.log('CRITICAL_ERROR', `ERROR adding queued ICE candidate: ${e}`);
         }
     }
 }
 
 export async function handleOffer(data, localStream, rtcConfig) {
-    callbacks.log("[WEBRTC] Received Offer, creating Answer.");
+    callbacks.log("WEBRTC_SIGNALS", "Received Offer, creating Answer.");
     if (!peerConnection) {
         await startPeerConnection(data.from, false, data.call_type, localStream, rtcConfig);
     }
@@ -197,7 +196,7 @@ export async function handleOffer(data, localStream, rtcConfig) {
 }
 
 export async function handleAnswer(data) {
-    callbacks.log("[WEBRTC] Received Answer.");
+    callbacks.log("WEBRTC_SIGNALS", "Received Answer.");
     if (peerConnection && !peerConnection.currentRemoteDescription) {
         await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
         callbacks.onCallConnected();
@@ -212,7 +211,7 @@ export async function handleCandidate(data) {
             await peerConnection.addIceCandidate(candidate);
         } else {
             iceCandidateQueue.push(candidate);
-            callbacks.log("[WEBRTC] Queued an ICE candidate.");
+            callbacks.log("WEBRTC_SIGNALS", "Queued an ICE candidate.");
         }
     }
 }
@@ -250,7 +249,7 @@ export function endPeerConnection() {
     remoteVideo.srcObject = null;
     
     iceCandidateQueue = [];
-    callbacks.log('[WEBRTC] Peer connection resources cleaned up.');
+    callbacks.log('WEBRTC_LIFECYCLE', 'Peer connection resources cleaned up.');
 }
 
 export function toggleMute(isMuted, localStream) {
@@ -276,9 +275,9 @@ export async function toggleScreenShare(localStream, onStateChange) {
             screenTrack.onended = () => { if (isScreenSharing) toggleScreenShare(localStream, onStateChange); };
             isScreenSharing = true;
             onStateChange(true);
-            callbacks.log("[CONTROLS] Screen sharing started.");
+            callbacks.log("UI_INTERACTIONS", "Screen sharing started.");
         } catch (error) {
-            callbacks.log(`[CONTROLS] Could not start screen sharing: ${error.message}`);
+            callbacks.log('CRITICAL_ERROR', `Could not start screen sharing: ${error.message}`);
         }
     } else {
         if (screenStream) screenStream.getTracks().forEach(track => track.stop());
@@ -292,13 +291,13 @@ export async function toggleScreenShare(localStream, onStateChange) {
         }
         isScreenSharing = false;
         onStateChange(false);
-        callbacks.log("[CONTROLS] Screen sharing stopped.");
+        callbacks.log("UI_INTERACTIONS", "Screen sharing stopped.");
     }
 }
 
 export async function switchInputDevice(kind, deviceId, localStream) {
     if (!localStream || !peerConnection) return null;
-    callbacks.log(`[CONTROLS] Switching ${kind} input to deviceId: ${deviceId}`);
+    callbacks.log('DEVICE_SWITCH', `Switching ${kind} input to deviceId: ${deviceId}`);
 
     try {
         const currentTrack = kind === 'video' ? localStream.getVideoTracks()[0] : localStream.getAudioTracks()[0];
@@ -324,7 +323,7 @@ export async function switchInputDevice(kind, deviceId, localStream) {
         }
         return newTrack;
     } catch (error) {
-        callbacks.log(`[CONTROLS] Error switching ${kind} device: ${error}`);
+        callbacks.log('CRITICAL_ERROR', `Error switching ${kind} device: ${error}`);
         return null;
     }
 }

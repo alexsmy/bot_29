@@ -1,4 +1,3 @@
-
 // static/js/call_media.js
 
 let localStream;
@@ -67,7 +66,7 @@ export async function initializePreview(videoElement, micLevelBars) {
         hasCameraAccess = true;
         hasMicrophoneAccess = true;
     } catch (error) {
-        log(`[MEDIA_CHECK] Combined media request failed: ${error.name}. Trying separately.`);
+        log('MEDIA_DEVICES', `Combined media request failed: ${error.name}. Trying separately.`);
         const results = await Promise.allSettled([
             navigator.mediaDevices.getUserMedia({ video: true }),
             navigator.mediaDevices.getUserMedia({ audio: true })
@@ -94,7 +93,7 @@ export async function initializePreview(videoElement, micLevelBars) {
         videoElement.srcObject = stream;
         if (hasMicrophoneAccess) visualizeMic(previewStream, micLevelBars);
     } else {
-        log('[MEDIA_CHECK] No media devices available or access denied to all.');
+        log('MEDIA_DEVICES', 'No media devices available or access denied to all.');
     }
     
     return { hasCameraAccess, hasMicrophoneAccess };
@@ -142,7 +141,7 @@ export async function updatePreviewStream(constraints, videoElement, micLevelBar
         videoElement.srcObject = previewStream;
         if (hasMicrophoneAccess) visualizeMic(previewStream, micLevelBars);
     } catch (error) {
-        log(`[MEDIA_UPDATE] Error updating preview stream: ${error}`);
+        log('MEDIA_DEVICES', `Error updating preview stream: ${error}`);
     }
 }
 
@@ -150,13 +149,13 @@ export async function getStreamForCall(constraints, localVideoEl, localAudioEl) 
     if (localStream) localStream.getTracks().forEach(track => track.stop());
 
     if (!constraints.audio && !constraints.video) {
-        log("[MEDIA] No media access granted for selected devices. Proceeding without local stream.");
+        log("MEDIA_DEVICES", "No media access granted for selected devices. Proceeding without local stream.");
         return { stream: null, isVideo: false };
     }
 
     try {
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
-        log("[MEDIA] Media stream acquired successfully.");
+        log("MEDIA_DEVICES", "Media stream acquired successfully.");
         localAudioEl.srcObject = localStream;
         visualizeLocalMicForCall(localStream);
 
@@ -168,7 +167,7 @@ export async function getStreamForCall(constraints, localVideoEl, localAudioEl) 
         
         return { stream: localStream, isVideo: isVideo };
     } catch (error) {
-        log(`[MEDIA] ERROR getting media: ${error.name} - ${error.message}`);
+        log('CRITICAL_ERROR', `ERROR getting media: ${error.name} - ${error.message}`);
         return { stream: null, isVideo: false };
     }
 }
@@ -227,7 +226,7 @@ export function visualizeRemoteMic(stream) {
     const remoteAudioLevelBars = document.querySelectorAll('.remote-audio-level-bar');
 
     if (!stream || stream.getAudioTracks().length === 0) {
-        log("[REMOTE_MIC] No audio track found in remote stream to visualize.");
+        log("MEDIA_DEVICES", "No audio track found in remote stream to visualize.");
         remoteAudioLevel.style.display = 'none';
         return;
     }

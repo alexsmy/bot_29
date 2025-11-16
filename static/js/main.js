@@ -1,4 +1,6 @@
 import * as orchestrator from './call_orchestrator.js';
+// --- ИЗМЕНЕНИЕ: Импортируем наш новый логгер ---
+import * as logger from './call_logger.js';
 
 function loadIcons() {
     const iconPlaceholders = document.querySelectorAll('[data-icon-name]');
@@ -19,14 +21,17 @@ function loadIcons() {
 async function main() {
     loadIcons();
     const path = window.location.pathname;
-    console.log(`App loaded. Path: ${path}`);
-
+    
     if (!path.startsWith('/call/')) {
         document.body.innerHTML = "<h1>Неверный URL</h1>";
         return;
     }
     
     const roomId = path.split('/')[2];
+    // --- ИЗМЕНЕНИЕ: Инициализируем логгер сразу с ID комнаты ---
+    logger.init(roomId);
+    logger.log('APP_LIFECYCLE', `App loaded. Path: ${path}`);
+
     let rtcConfig = null;
     let iceServerDetails = {};
     let isRecordingEnabled = false;
@@ -55,16 +60,16 @@ async function main() {
             }
             iceServerDetails[s.urls] = { region: s.region || 'global', provider: provider };
         });
-        console.log("ICE servers configuration loaded.");
+        logger.log('APP_LIFECYCLE', "ICE servers configuration loaded.");
 
         if (recordingResponse.ok) {
             const recordingStatus = await recordingResponse.json();
             isRecordingEnabled = recordingStatus.is_enabled;
-            console.log(`Call recording is ${isRecordingEnabled ? 'ENABLED' : 'DISABLED'}.`);
+            logger.log('APP_LIFECYCLE', `Call recording is ${isRecordingEnabled ? 'ENABLED' : 'DISABLED'}.`);
         }
 
     } catch (error) {
-        console.error(`[CRITICAL] Failed to fetch initial config: ${error.message}.`);
+        logger.log('CRITICAL_ERROR', `Failed to fetch initial config: ${error.message}.`);
         alert("Не удалось загрузить конфигурацию сети. Качество звонка может быть низким.");
         rtcConfig = {
             iceServers: [

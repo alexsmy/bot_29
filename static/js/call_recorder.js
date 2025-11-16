@@ -1,5 +1,3 @@
-
-
 export class CallRecorder {
     // --- ИЗМЕНЕНИЕ: Конструктор теперь принимает onChunkAvailable и timeslice ---
     constructor(stream, logCallback, onChunkAvailable, options = {}) {
@@ -17,19 +15,19 @@ export class CallRecorder {
         };
 
         if (!MediaRecorder.isTypeSupported(recorderOptions.mimeType)) {
-            this.log(`[RECORDER] MIME type ${recorderOptions.mimeType} is not supported. Falling back to default.`);
+            this.log('RECORDER', `MIME type ${recorderOptions.mimeType} is not supported. Falling back to default.`);
             delete recorderOptions.mimeType;
         }
         
         try {
             this.mediaRecorder = new MediaRecorder(this.stream, recorderOptions);
-            this.log(`[RECORDER] MediaRecorder initialized with options: ${JSON.stringify(recorderOptions)}`);
+            this.log('RECORDER', `MediaRecorder initialized with options:`, recorderOptions);
             
             this.mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
                     // Если включена интервальная запись, сразу отправляем чанк
                     if (this.timeslice > 0) {
-                        this.log(`[RECORDER] Chunk created (size: ${event.data.size}). Sending...`);
+                        this.log('RECORDER', `Chunk created (size: ${event.data.size}). Sending...`);
                         this.onChunkAvailable(new Blob([event.data], { type: this.mediaRecorder.mimeType }));
                     } else {
                         // Иначе, как и раньше, просто накапливаем
@@ -38,7 +36,7 @@ export class CallRecorder {
                 }
             };
         } catch (e) {
-            this.log(`[RECORDER] Error creating MediaRecorder: ${e}`);
+            this.log('CRITICAL_ERROR', `Error creating MediaRecorder: ${e}`);
             this.mediaRecorder = null;
         }
     }
@@ -49,7 +47,7 @@ export class CallRecorder {
         // --- ИЗМЕНЕНИЕ: Передаем timeslice в метод start ---
         this.mediaRecorder.start(this.timeslice > 0 ? this.timeslice : undefined);
         this.isRecording = true;
-        this.log(`[RECORDER] Recording started. Timeslice: ${this.timeslice}ms.`);
+        this.log('RECORDER', `Recording started. Timeslice: ${this.timeslice}ms.`);
     }
 
     stop() {
@@ -64,12 +62,12 @@ export class CallRecorder {
                 // Если мы не использовали timeslice, то все чанки накоплены здесь
                 if (this.timeslice === 0 && this.recordedChunks.length > 0) {
                     finalBlob = new Blob(this.recordedChunks, { type: this.mediaRecorder.mimeType });
-                    this.log(`[RECORDER] Recording stopped. Final blob size: ${finalBlob.size} bytes.`);
+                    this.log('RECORDER', `Recording stopped. Final blob size: ${finalBlob.size} bytes.`);
                     // Отправляем финальный большой файл
                     this.onChunkAvailable(finalBlob);
                 } else {
                     // Если использовали timeslice, финальный чанк уже был отправлен в ondataavailable
-                    this.log(`[RECORDER] Recording stopped (interval mode).`);
+                    this.log('RECORDER', `Recording stopped (interval mode).`);
                 }
 
                 this.recordedChunks = [];
@@ -77,7 +75,7 @@ export class CallRecorder {
 
                 if (this.stream) {
                     this.stream.getTracks().forEach(track => track.stop());
-                    this.log('[RECORDER] All tracks used for recording have been stopped.');
+                    this.log('RECORDER', 'All tracks used for recording have been stopped.');
                 }
 
                 resolve(finalBlob); // Возвращаем blob только в режиме без timeslice
