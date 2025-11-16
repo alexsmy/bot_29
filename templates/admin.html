@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -7,25 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- ПОДКЛЮЧАЕМ СТИЛИ TABULATOR (ОСНОВНОЙ И ТЕМНЫЙ) -->
-    <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator.min.css" rel="stylesheet">
-    <link href="https://unpkg.com/tabulator-tables@5.5.2/dist/css/tabulator_midnight.min.css" rel="stylesheet">
-
-    <!-- ПОДКЛЮЧАЕМ СТИЛИ HIGHLIGHT.JS (СВЕТЛАЯ И ТЕМНАЯ ТЕМЫ) -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css" id="hljs-light-theme">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" media="none" id="hljs-dark-theme">
-
     <link rel="stylesheet" href="/static/css/admin.css">
-
-    <!-- ДОБАВЛЯЕМ СТИЛИ ДЛЯ ПЕРЕКЛЮЧЕНИЯ ТЕМ HIGHLIGHT.JS -->
-    <style>
-        .hljs-theme-light pre code.hljs { display: block; }
-        .hljs-theme-dark pre code.hljs { display: none; }
-        html.dark .hljs-theme-light pre code.hljs { display: none; }
-        html.dark .hljs-theme-dark pre code.hljs { display: block; }
-        html.dark #hljs-dark-theme { media: all; }
-    </style>
 </head>
 <body data-token="{{ token }}" data-token-expires-at="{{ expires_at }}">
     <div class="dashboard-container">
@@ -143,8 +126,10 @@
                     <h2>Проводник</h2>
                     <button id="refresh-explorer-btn" class="action-btn">Обновить</button>
                 </div>
-                <p class="section-description">Интерактивная таблица файлов проекта с сортировкой и поиском. Позволяет управлять записями звонков и другими файлами.</p>
-                <div id="explorer-table"></div>
+                <p class="section-description">Структура файлов и папок проекта. Позволяет увидеть, где хранятся логи, записи и отчеты.</p>
+                <div id="file-explorer-container" class="file-explorer">
+                    <div class="skeleton-list"></div>
+                </div>
             </section>
 
             <section id="danger" class="content-section">
@@ -169,10 +154,13 @@
         </div>
     </div>
 
-    <!-- ПОДКЛЮЧАЕМ СКРИПТЫ TABULATOR И HIGHLIGHT.JS -->
-    <script type="text/javascript" src="https://unpkg.com/tabulator-tables@5.5.2/dist/js/tabulator.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    
+    <div id="action-modal" class="action-modal">
+        <div class="action-modal-buttons">
+            <button id="action-view-btn" class="action-btn btn-view">Просмотр</button>
+            <button id="action-download-btn" class="action-btn btn-download">Скачать</button>
+        </div>
+    </div>
+
     <script src="/static/js/admin_icons.js"></script>
     <script type="module" src="/static/js/admin.js"></script>
 </body>

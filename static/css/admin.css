@@ -717,77 +717,67 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
 .status.closed { background-color: var(--text-secondary); color: var(--accent-text); }
 .status.expired { background-color: var(--pending-color); color: var(--accent-text); }
 
-/* --- СТИЛИ ДЛЯ TABULATOR --- */
-#explorer-table {
+.file-explorer {
+    background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    background-color: var(--surface-bg);
+    padding: 1rem;
+    font-family: monospace;
     font-size: 0.9em;
+    max-height: 60vh;
+    overflow: auto;
 }
-.tabulator {
-    border: none;
-    background-color: transparent;
+.file-explorer ul {
+    list-style: none;
+    padding-left: 20px;
+    margin: 0;
 }
-.tabulator .tabulator-header {
-    background-color: var(--base-bg);
-    border-bottom: 2px solid var(--border-color);
+.file-explorer li {
+    padding: 2px 0;
 }
-.tabulator .tabulator-header .tabulator-col {
-    background-color: var(--base-bg);
-}
-.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
-    padding: 0.75rem;
-}
-.tabulator-row {
-    background-color: var(--surface-bg);
-    border-bottom: 1px solid var(--border-color);
-}
-.tabulator-row.tabulator-row-odd {
-    background-color: var(--base-bg);
-}
-.tabulator-row:hover {
-    background-color: rgba(76, 110, 245, 0.1);
-}
-.tabulator-cell {
-    padding: 0.5rem 0.75rem;
-    border-right: 1px solid var(--border-color);
-    display: inline-flex;
+.tree-item {
+    display: flex;
     align-items: center;
     gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
 }
-.tabulator-cell .icon {
+.tree-item.folder-item, .tree-item.file-item {
+    cursor: pointer;
+}
+.tree-item:hover {
+    background-color: var(--base-bg);
+}
+.tree-item .icon {
     width: 18px;
     height: 18px;
     flex-shrink: 0;
-}
-.tabulator-cell .icon-code { color: var(--icon-color-code); }
-.tabulator-cell .icon-image { color: var(--icon-color-image); }
-.tabulator-cell .icon-audio { color: var(--icon-color-audio); }
-.tabulator-cell .icon-archive { color: var(--icon-color-archive); }
-.tabulator-cell .icon-doc { color: var(--icon-color-doc); }
-.tabulator-cell .action-btn {
-    padding: 0.3rem 0.7rem;
-    font-size: 0.9em;
-    margin-right: 0.5rem;
-}
-.tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-col-sorter {
-    right: 8px;
-}
-.tabulator-row .tabulator-cell .tabulator-data-tree-control {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-}
-.tabulator .tabulator-placeholder span {
-    display: none; /* Скрываем стандартную иконку Tabulator */
-}
-.tabulator .tabulator-placeholder .tabulator-placeholder-contents {
-    font-size: 1em;
     color: var(--text-secondary);
 }
-/* --- КОНЕЦ СТИЛЕЙ ДЛЯ TABULATOR --- */
+/* НОВЫЕ СТИЛИ ДЛЯ ЦВЕТНЫХ ИКОНОК */
+.tree-item .icon-code { color: var(--icon-color-code); }
+.tree-item .icon-image { color: var(--icon-color-image); }
+.tree-item .icon-audio { color: var(--icon-color-audio); }
+.tree-item .icon-archive { color: var(--icon-color-archive); }
+.tree-item .icon-doc { color: var(--icon-color-doc); }
+
+.tree-item .caret {
+    transition: transform 0.2s ease-in-out;
+}
+.folder.collapsed > .tree-item .caret {
+    transform: rotate(-90deg);
+}
+.folder.collapsed > ul {
+    display: none;
+}
+.file-meta {
+    margin-left: auto;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 1rem;
+}
 
 .danger-zone {
     background-color: var(--danger-bg);
@@ -935,21 +925,22 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     margin: 0;
     height: 100%;
     width: 100%;
-    background-color: transparent !important;
 }
-.viewer-modal-body code.hljs {
+.viewer-modal-body code {
+    display: block;
     padding: 1.5rem;
+    font-family: 'Courier New', Courier, monospace;
     font-size: 0.9em;
     line-height: 1.6;
     height: 100%;
     white-space: pre-wrap;
     word-break: break-all;
-    background: transparent;
 }
 .viewer-modal-body audio {
     width: 90%;
     margin: 2rem auto;
 }
+/* ИЗМЕНЕНИЯ ДЛЯ ПРОСМОТРА ИЗОБРАЖЕНИЙ */
 .viewer-modal-body img {
     max-width: 100%;
     max-height: 100%;
@@ -964,6 +955,73 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     cursor: zoom-out;
 }
 
+/* ИЗМЕНЕНИЯ ДЛЯ МОДАЛЬНОГО ОКНА ДЕЙСТВИЙ */
+.action-modal {
+    display: none;
+    position: fixed;
+    z-index: 2010;
+    background-color: var(--action-modal-bg);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-lg);
+    padding: 0.5rem;
+    width: auto;
+}
+.action-modal.visible {
+    display: block;
+}
+.action-modal-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.action-modal-buttons .action-btn {
+    width: 100%;
+    text-align: left;
+    padding: 0.5rem 1rem;
+    border: none;
+    font-size: 0.9em;
+}
+.action-modal-buttons .action-btn:disabled {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+    background-color: transparent;
+}
+.action-modal-buttons .btn-view {
+    background-color: var(--btn-view-bg);
+    color: var(--btn-view-text);
+}
+.action-modal-buttons .btn-view:hover:not(:disabled) {
+    background-color: var(--btn-view-hover-bg);
+}
+.action-modal-buttons .btn-download {
+    background-color: var(--btn-download-bg);
+    color: var(--btn-download-text);
+}
+.action-modal-buttons .btn-download:hover:not(:disabled) {
+    background-color: var(--btn-download-hover-bg);
+}
+
+
+/* СТИЛИ ДЛЯ ПОДСВЕТКИ СИНТАКСИСА */
+.hl-comment { color: #6a9955; }
+.hl-keyword { color: #569cd6; }
+.hl-string { color: #ce9178; }
+.hl-number { color: #b5cea8; }
+.hl-boolean { color: #569cd6; }
+.hl-tag { color: #569cd6; }
+.hl-attr-name { color: #9cdcfe; }
+.hl-attr-value { color: #ce9178; }
+html.dark .hl-comment { color: #608b4e; }
+html.dark .hl-keyword { color: #4fc1ff; }
+html.dark .hl-string { color: #d69d85; }
+html.dark .hl-number { color: #b5cea8; }
+html.dark .hl-boolean { color: #4fc1ff; }
+html.dark .hl-tag { color: #4fc1ff; }
+html.dark .hl-attr-name { color: #9cdcfe; }
+html.dark .hl-attr-value { color: #d69d85; }
+
 /* --- НОВЫЕ СТИЛИ ДЛЯ ПОДСВЕТКИ ЛОГОВ --- */
 .log-line { display: block; }
 .log-critical { color: var(--log-color-critical); font-weight: 600; }
@@ -977,6 +1035,7 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
 
 
 @media (min-width: 768px) {
+    /* --- НОВЫЙ СТИЛЬ ДЛЯ УВЕЛИЧЕННОГО ОКНА ПРОСМОТРА ЛОГОВ --- */
     .modal-content.log-viewer {
         width: 95%;
         max-width: 95%;
