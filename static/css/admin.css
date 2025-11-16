@@ -1,3 +1,4 @@
+
 :root {
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     
@@ -51,6 +52,16 @@
     --btn-download-text: #ff8c00;
     --btn-download-hover-bg: #ffefc2;
     --action-modal-bg: rgba(255, 255, 255, 0.9);
+
+    /* --- НОВЫЕ ЦВЕТА ДЛЯ ЛОГОВ (СВЕТЛАЯ ТЕМА) --- */
+    --log-color-critical: #721c24;
+    --log-color-error: #dc3545;
+    --log-color-warning: #856404;
+    --log-color-info: #004085;
+    --log-color-http-2xx: #155724;
+    --log-color-http-3xx: #856404;
+    --log-color-http-4xx: #721c24;
+    --log-color-http-5xx: #721c24;
 }
 
 html.dark {
@@ -91,6 +102,16 @@ html.dark {
     --btn-download-text: #ffc078;
     --btn-download-hover-bg: rgba(253, 126, 20, 0.3);
     --action-modal-bg: rgba(42, 42, 42, 0.9);
+
+    /* --- НОВЫЕ ЦВЕТА ДЛЯ ЛОГОВ (ТЕМНАЯ ТЕМА) --- */
+    --log-color-critical: #ff8a80;
+    --log-color-error: #ff5252;
+    --log-color-warning: #ffd740;
+    --log-color-info: #40c4ff;
+    --log-color-http-2xx: #69f0ae;
+    --log-color-http-3xx: #ffd740;
+    --log-color-http-4xx: #ff8a80;
+    --log-color-http-5xx: #ff5252;
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -1001,6 +1022,27 @@ html.dark .hl-tag { color: #4fc1ff; }
 html.dark .hl-attr-name { color: #9cdcfe; }
 html.dark .hl-attr-value { color: #d69d85; }
 
+/* --- НОВЫЕ СТИЛИ ДЛЯ ПОДСВЕТКИ ЛОГОВ --- */
+.log-line { display: block; }
+.log-critical { color: var(--log-color-critical); font-weight: 600; }
+.log-error { color: var(--log-color-error); }
+.log-warning { color: var(--log-color-warning); }
+.log-info { color: var(--log-color-info); }
+.log-http-2xx { color: var(--log-color-http-2xx); }
+.log-http-3xx { color: var(--log-color-http-3xx); }
+.log-http-4xx { color: var(--log-color-http-4xx); }
+.log-http-5xx { color: var(--log-color-http-5xx); }
+
+
+@media (min-width: 768px) {
+    /* --- НОВЫЙ СТИЛЬ ДЛЯ УВЕЛИЧЕННОГО ОКНА ПРОСМОТРА ЛОГОВ --- */
+    .modal-content.log-viewer {
+        width: 95%;
+        max-width: 95%;
+        height: 95%;
+        max-height: 95vh;
+    }
+}
 
 @media (max-width: 992px) {
     .main-content {

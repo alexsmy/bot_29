@@ -1,5 +1,6 @@
-
 import { fetchData } from './admin_api.js';
+// ИМПОРТИРУЕМ НОВУЮ ФУНКЦИЮ
+import { highlightLogs } from './admin_utils.js';
 
 const API_TOKEN = document.body.dataset.token;
 
@@ -20,7 +21,7 @@ const ICONS_EXPLORER = {
 };
 
 let explorerContainer, viewerModal, viewerModalTitle, viewerModalBody, viewerModalCloseBtn,
-    actionModal, actionViewBtn, actionDownloadBtn;
+    actionModal, actionViewBtn, actionDownloadBtn, modalContent; // ДОБАВЛЯЕМ modalContent
 
 // Определяем типы файлов для иконок и доступных действий
 const FILE_TYPE_MAP = {
@@ -117,6 +118,8 @@ function closeAllModals() {
     viewerModal.classList.remove('visible');
     actionModal.classList.remove('visible');
     viewerModalBody.innerHTML = ''; // Останавливаем воспроизведение аудио/видео
+    // ИЗМЕНЕНИЕ: Убираем класс для большого окна при закрытии
+    modalContent.classList.remove('log-viewer');
 }
 
 function showActionModal(x, y, path, filename) {
@@ -173,6 +176,13 @@ function showActionModal(x, y, path, filename) {
 async function viewFile(path, filename) {
     closeAllModals();
     viewerModalTitle.textContent = filename;
+    
+    // --- ИЗМЕНЕНИЕ: Проверяем, является ли файл логом, и применяем стили ---
+    if (filename === 'app.log') {
+        modalContent.classList.add('log-viewer');
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     viewerModal.classList.add('visible');
     viewerModalBody.innerHTML = '<p style="padding: 1rem;">Загрузка...</p>';
 
@@ -183,7 +193,6 @@ async function viewFile(path, filename) {
         const img = new Image();
         img.src = fileUrl;
         img.alt = filename;
-        // ИЗМЕНЕНИЕ: Добавляем логику масштабирования по клику
         img.addEventListener('click', () => {
             img.classList.toggle('zoomed-in');
         });
@@ -194,8 +203,15 @@ async function viewFile(path, filename) {
     } else {
         const data = await fetchData(`explorer/file-content?path=${encodeURIComponent(path)}`);
         if (data && data.content) {
-            const highlightedCode = highlightSyntax(data.content, data.lang);
-            viewerModalBody.innerHTML = `<pre><code>${highlightedCode}</code></pre>`;
+            // --- ИЗМЕНЕНИЕ: Используем новую функцию для логов ---
+            let highlightedContent;
+            if (filename === 'app.log') {
+                highlightedContent = highlightLogs(data.content);
+            } else {
+                highlightedContent = highlightSyntax(data.content, data.lang);
+            }
+            viewerModalBody.innerHTML = `<pre><code>${highlightedContent}</code></pre>`;
+            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         } else {
             viewerModalBody.innerHTML = '<p style="padding: 1rem; color: var(--error-color);">Не удалось загрузить содержимое файла. Возможно, он не является текстовым.</p>';
         }
@@ -255,6 +271,7 @@ export function initExplorer() {
     viewerModalTitle = document.getElementById('viewer-modal-title');
     viewerModalBody = document.getElementById('viewer-modal-body');
     viewerModalCloseBtn = document.getElementById('viewer-modal-close-btn');
+    modalContent = document.querySelector('.modal-content'); // ПОЛУЧАЕМ ЭЛЕМЕНТ
     
     actionModal = document.getElementById('action-modal');
     actionViewBtn = document.getElementById('action-view-btn');
