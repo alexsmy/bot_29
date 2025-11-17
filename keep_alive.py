@@ -6,8 +6,8 @@ import logging
 from configurable_logger import log
 
 # Минимальное и максимальное время ожидания в минутах
-MIN_WAIT_MINUTES = 12
-MAX_WAIT_MINUTES = 14
+MIN_WAIT_MINUTES = 13
+MAX_WAIT_MINUTES = 15
 
 # "Железный" запасной URL
 FALLBACK_URL = "https://bot-29-nx0w.onrender.com"
@@ -29,8 +29,8 @@ async def start_keep_alive_task():
     Основная задача, которая периодически отправляет запросы на главную страницу
     приложения, чтобы предотвратить его "засыпание" на хостинге.
     """
-    log("KEEP_ALIVE", "Задача самоподдержки инициализирована, запуск проверки через 60 секунд...")
-    await asyncio.sleep(60)
+    log("KEEP_ALIVE", "Задача самоподдержки инициализирована, запуск проверки через 600 секунд...")
+    await asyncio.sleep(600)
 
     # ИЗМЕНЕНИЕ: Считываем переменную окружения напрямую внутри задачи
     app_url_from_env = os.environ.get("WEB_APP_URL")

@@ -1,4 +1,3 @@
-// static/js/call_ui_elements.js
 export const preCallCheckScreen = document.getElementById('pre-call-check-screen');
 export const previewVideo = document.getElementById('previewVideo');
 export const micLevelBars = document.querySelectorAll('.mic-level-bar');
@@ -20,7 +19,6 @@ export const popupWaiting = document.getElementById('popup-waiting');
 export const popupActions = document.getElementById('popup-actions');
 export const popupInitiating = document.getElementById('popup-initiating');
 export const lifetimeTimer = document.getElementById('lifetime-timer');
-export const closeSessionBtn = document.getElementById('close-session-btn');
 export const instructionsBtn = document.getElementById('instructions-btn');
 export const instructionsModal = document.getElementById('instructions-modal');
 export const closeInstructionsBtns = document.querySelectorAll('.close-instructions-btn');

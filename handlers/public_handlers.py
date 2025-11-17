@@ -38,20 +38,22 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
             "Поделитесь этой ссылкой с вашим собеседником, и вы сможете начать разговор.\n\n"
             f"Ссылка действительна в течение {format_hours(PRIVATE_ROOM_LIFETIME_HOURS)}."
         )
-        keyboard.append([InlineKeyboardButton("Создать новую комнату", callback_data="create_private_link")])
+        keyboard.append([InlineKeyboardButton("➕ Создать новую", callback_data="create_private_link")])
     else:
         message_text = f"У вас уже есть {n_rooms} активных {get_room_count_text(n_rooms)}."
         
         app_url = os.environ.get("RENDER_EXTERNAL_URL") or WEB_APP_URL
+        if not app_url.endswith('/'):
+            app_url += '/'
         
         for room in active_rooms:
             remaining_time_str = format_remaining_time(room['expires_at'])
             room_url = f"{app_url}call/{room['room_id']}"
-            button_text = f"Открыть комнату. время {remaining_time_str}"
+            button_text = f"🚪Открыть. ⏳{remaining_time_str}"
             keyboard.append([InlineKeyboardButton(button_text, url=room_url)])
             
         if n_rooms < MAX_ACTIVE_ROOMS_PER_USER:
-            keyboard.append([InlineKeyboardButton("Создать новую комнату", callback_data="create_private_link")])
+            keyboard.append([InlineKeyboardButton("➕ Создать новую", callback_data="create_private_link")])
 
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(message_text, reply_markup=reply_markup)

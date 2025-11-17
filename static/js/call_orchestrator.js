@@ -8,25 +8,22 @@ import { initializeWebSocket, sendMessage, setGracefulDisconnect } from './call_
 import {
     previewVideo, micLevelBars, continueToCallBtn, cameraSelect, micSelect, speakerSelect,
     cameraSelectContainer, micSelectContainer, speakerSelectContainer, popupActions,
-    closeSessionBtn, instructionsBtn, acceptBtn, declineBtn, hangupBtn, speakerBtn,
+    instructionsBtn, acceptBtn, declineBtn, hangupBtn, speakerBtn,
     muteBtn, videoBtn, screenShareBtn, localVideo, remoteVideo, localVideoContainer,
     toggleLocalViewBtn, toggleRemoteViewBtn, connectionStatus, deviceSettingsBtn,
     cameraSelectCall, micSelectCall, speakerSelectCall
 } from './call_ui_elements.js';
-// --- ИЗМЕНЕНИЕ: Импортируем новый логгер ---
 import { log } from './call_logger.js';
 
 let localRecorder = null;
 
 const SCREENSHOT_SCALE = 1.0; 
 const SCREENSHOT_QUALITY = 0.75; 
-const RECORDING_TIMESLICE_MS = 60000; // 1 минута
+const RECORDING_TIMESLICE_MS = 60000;
 
 function isIOS() {
     return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 }
-
-// --- ИЗМЕНЕНИЕ: Старые функции логирования удалены ---
 
 async function runPreCallCheck() {
     uiManager.showScreen('pre-call-check');
@@ -73,7 +70,6 @@ function proceedToCall(asSpectator = false) {
     const wsHandlers = {
         onIdentity: (data) => {
             state.setCurrentUser({ id: data.id });
-            // --- ИЗМЕНЕНИЕ: Инициализируем логгер ID пользователя, как только он получен ---
             log('APP_LIFECYCLE', `Identity assigned by server: ${state.getState().currentUser.id}`);
         },
         onUserList: handleUserList,
@@ -349,17 +345,6 @@ async function updateRoomLifetime() {
     }
 }
 
-async function closeSession() {
-    log('CALL_SESSION', "User clicked close session button.");
-    setGracefulDisconnect(true);
-    try {
-        await fetch(`/room/close/${state.getState().roomId}`, { method: 'POST' });
-    } catch (error) {
-        log('CRITICAL_ERROR', `Error sending close request: ${error}`);
-        alert("Не удалось закрыть сессию. Попробуйте обновить страницу.");
-    }
-}
-
 function redirectToInvalidLink() {
     setGracefulDisconnect(true);
     window.location.reload();
@@ -451,7 +436,6 @@ function setupEventListeners() {
     hangupBtn.addEventListener('click', () => {
         endCall(true, 'cancelled_by_user');
     });
-    closeSessionBtn.addEventListener('click', closeSession);
     instructionsBtn.addEventListener('click', () => uiManager.showModal('instructions', true));
     document.querySelectorAll('.close-instructions-btn').forEach(btn => btn.addEventListener('click', () => uiManager.showModal('instructions', false)));
     deviceSettingsBtn.addEventListener('click', () => uiManager.openDeviceSettingsModal(media.getLocalStream(), state.getState()));
