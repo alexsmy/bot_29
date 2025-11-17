@@ -1,4 +1,4 @@
-<!-- bot_29-main/templates/call.html -->
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -8,18 +8,14 @@
     <link rel="stylesheet" href="/static/css/base.css">
     <link rel="stylesheet" href="/static/css/call.css">
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="/static/js/lib/html2canvas.min.js"></script>
 </head>
 <body>
-    <!-- Содержимое body остается без изменений -->
     <div id="app-container">
-        <!-- ЭКРАН 1: ПРОВЕРКА ОБОРУДОВАНИЯ -->
         <div id="pre-call-check-screen" class="screen">
             <div class="check-container">
                 <p class="check-subtitle">Пожалуйста, предоставьте доступ к камере и микрофону.</p>
                 
-                <!-- НОВЫЙ БЛОК ДЛЯ УВЕДОМЛЕНИЯ НА IOS -->
                 <p id="ios-audio-permission-note" class="ios-note">
                     На устройствах iOS для использования громкой связи в аудиозвонке может потребоваться разрешение на доступ к камере. Камера не будет использоваться.
                 </p>
@@ -66,7 +62,6 @@
             </div>
         </div>
 
-        <!-- ЭКРАН 2: ОЖИДАНИЕ И ВЫБОР ДЕЙСТВИЯ -->
         <div id="pre-call-screen" class="screen">
             <header class="pre-call-header">
                 <h1>Приватная комната для звонка</h1>
@@ -104,13 +99,6 @@
                 <div class="info-block-lifetime">
                     <p>Время действия этой ссылки:</p>
                     <div id="lifetime-timer">--:--</div>
-                    <p>Любой из собеседников может завершить сеанс, закрыв соединение.</p>
-                    <div class="footer-actions">
-                        <button id="close-session-btn">Закрыть</button>
-                        {% if bot_username %}
-                        <a href="https://t.me/{{ bot_username }}" target="_blank">Создать новую ссылку</a>
-                        {% endif %}
-                    </div>
                 </div>
                 <div class="info-block-security">
                     <button id="instructions-btn" class="instructions-btn">Инструкции</button>
@@ -118,11 +106,9 @@
             </footer>
         </div>
 
-        <!-- ЭКРАН 3: ЗВОНОК -->
         <div id="call-screen" class="screen">
             <video id="remoteVideo" autoplay playsinline></video>
 
-            <!-- НОВЫЙ БЛОК ДЛЯ ОТОБРАЖЕНИЯ СТАТУСА ВЫЗОВА -->
             <div id="calling-overlay" class="calling-overlay">
                 <div class="calling-overlay-content">
                     <h2 id="calling-overlay-title">Вызов...</h2>
@@ -130,7 +116,6 @@
                     <div class="spinner"></div>
                 </div>
             </div>
-            <!-- КОНЕЦ НОВОГО БЛОКА -->
 
             <div id="local-video-container">
                 <video id="localVideo" autoplay muted playsinline></video>
@@ -305,10 +290,6 @@
     <audio id="ringInAudio" loop src="/static/sounds/ring-in.mp3"></audio>
 
     <script src="/static/js/icons.js"></script>
-    <!-- 
-        ИЗМЕНЕНИЕ: Убираем прямое подключение скриптов логгера.
-        Теперь main.js как модуль сам загрузит все свои зависимости.
-    -->
     <script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

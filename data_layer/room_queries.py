@@ -1,13 +1,10 @@
-
 import asyncpg
 from datetime import datetime, timezone, timedelta
+from typing import List, Dict, Any
 
 from data_layer.pool_manager import get_pool
 
 async def log_room_closure(room_id: str, reason: str):
-    """
-    Записывает в БД информацию о закрытии комнаты.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
@@ -16,9 +13,6 @@ async def log_room_closure(room_id: str, reason: str):
         )
 
 async def get_room_lifetime_hours(room_id: str) -> int:
-    """
-    Рассчитывает и возвращает время жизни комнаты в часах.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = "SELECT created_at, expires_at FROM call_sessions WHERE room_id = $1"
@@ -34,9 +28,6 @@ async def get_room_lifetime_hours(room_id: str) -> int:
         return round(lifetime_seconds / 3600)
 
 async def get_all_active_sessions():
-    """
-    Возвращает список всех активных (не истекших и не закрытых) сессий.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
@@ -52,10 +43,20 @@ async def get_all_active_sessions():
         rows = await conn.fetch(query)
         return [dict(row) for row in rows]
 
+async def get_active_rooms_by_user(user_id: int) -> List[Dict[str, Any]]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT room_id, expires_at FROM call_sessions
+            WHERE generated_by_user_id = $1 AND expires_at > NOW() AND closed_at IS NULL
+            ORDER BY created_at ASC
+            """,
+            user_id
+        )
+        return [dict(row) for row in rows]
+
 async def count_active_rooms_by_user(user_id: int) -> int:
-    """
-    Подсчитывает количество активных (не истекших) комнат для пользователя.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         count = await conn.fetchval(
@@ -68,9 +69,6 @@ async def count_active_rooms_by_user(user_id: int) -> int:
         return count or 0
 
 async def count_recent_room_creations_by_user(user_id: int) -> int:
-    """
-    Подсчитывает количество комнат, созданных пользователем за последние 24 часа.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         time_window = datetime.now(timezone.utc) - timedelta(hours=24)
