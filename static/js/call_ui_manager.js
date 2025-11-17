@@ -155,6 +155,7 @@ export function startCallTimer(callType) {
     } else {
         audioCallVisualizer.style.display = 'flex';
     }
+    connectionQuality.classList.add('active');
     return timerInterval;
 }
 
@@ -165,10 +166,7 @@ export function stopCallTimer(intervalId) {
 }
 
 export function updateConnectionIcon(type) {
-    ['conn-local', 'conn-p2p', 'conn-relay', 'conn-unknown'].forEach(id => {
-        const icon = document.getElementById(id);
-        if (icon) icon.classList.remove('active');
-    });
+    connectionStatus.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
     const typeMap = {
         local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
         p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
@@ -183,7 +181,6 @@ export function updateConnectionIcon(type) {
 }
 
 export function updateConnectionQualityIcon(quality) {
-    connectionQuality.classList.add('active');
     connectionQuality.classList.remove('quality-good', 'quality-medium', 'quality-bad');
     [qualityGoodSvg, qualityMediumSvg, qualityBadSvg].forEach(svg => {
         svg.classList.remove('active-quality-svg');
