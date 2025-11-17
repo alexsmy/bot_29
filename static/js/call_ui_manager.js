@@ -155,7 +155,6 @@ export function startCallTimer(callType) {
     } else {
         audioCallVisualizer.style.display = 'flex';
     }
-    connectionQuality.classList.add('active');
     return timerInterval;
 }
 
@@ -184,6 +183,7 @@ export function updateConnectionIcon(type) {
 }
 
 export function updateConnectionQualityIcon(quality) {
+    connectionQuality.classList.add('active');
     connectionQuality.classList.remove('quality-good', 'quality-medium', 'quality-bad');
     [qualityGoodSvg, qualityMediumSvg, qualityBadSvg].forEach(svg => {
         svg.classList.remove('active-quality-svg');
