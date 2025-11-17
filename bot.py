@@ -4,7 +4,7 @@ import asyncio
 import uvicorn
 import logging
 from telegram import BotCommand
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, InlineQueryHandler, ConversationHandler
 
 import database
 import notifier
@@ -16,11 +16,14 @@ from keep_alive import start_keep_alive_task
 
 bot_app_instance = None
 
+WAITING_FEEDBACK = 0
+
 async def post_init(application: Application) -> None:
     public_commands = [
         BotCommand("start", "🚀 Создать новую ссылку для звонка"),
         BotCommand("instructions", "📖 Как пользоваться ботом"),
         BotCommand("faq", "❓ Ответы на частые вопросы"),
+        BotCommand("feedback", "✍️ Отправить отзыв или вопрос"),
     ]
     await application.bot.set_my_commands(public_commands)
     log("BOT_SETUP", "Меню публичных команд успешно установлено.")
@@ -39,6 +42,15 @@ async def main() -> None:
     
     notifier.set_bot_instance(application)
 
+    feedback_handler = ConversationHandler(
+        entry_points=[CommandHandler("feedback", public_handlers.feedback_start)],
+        states={
+            WAITING_FEEDBACK: [MessageHandler(filters.TEXT | filters.ATTACHMENT, public_handlers.feedback_receive)],
+        },
+        fallbacks=[CommandHandler("start", public_handlers.feedback_cancel)],
+    )
+
+    application.add_handler(feedback_handler)
     application.add_handler(CommandHandler("start", public_handlers.start))
     application.add_handler(CommandHandler("instructions", public_handlers.instructions))
     application.add_handler(CommandHandler("faq", public_handlers.faq))

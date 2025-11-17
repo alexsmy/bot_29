@@ -6,7 +6,7 @@ import logging
 from configurable_logger import log
 
 # Минимальное и максимальное время ожидания в минутах
-MIN_WAIT_MINUTES = 13
+MIN_WAIT_MINUTES = 14
 MAX_WAIT_MINUTES = 15
 
 # "Железный" запасной URL

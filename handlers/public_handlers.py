@@ -1,13 +1,15 @@
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
-from telegram.ext import ContextTypes, filters
+from telegram.ext import ContextTypes, filters, ConversationHandler
 
 import database
 from configurable_logger import log
-from config import PRIVATE_ROOM_LIFETIME_HOURS, MAX_ACTIVE_ROOMS_PER_USER, MAX_ROOM_CREATIONS_PER_DAY, WEB_APP_URL
+from config import PRIVATE_ROOM_LIFETIME_HOURS, MAX_ACTIVE_ROOMS_PER_USER, MAX_ROOM_CREATIONS_PER_DAY, WEB_APP_URL, ADMIN_USER_ID
 from bot_utils import log_user_and_action, read_template_content, format_hours, check_and_handle_spam, format_remaining_time
 from services import room_service
+
+WAITING_FEEDBACK = 0
 
 def get_room_count_text(n: int) -> str:
     if n == 1:
@@ -20,10 +22,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if await check_and_handle_spam(update, context, "Sent /start command while potentially blocked"):
         return
     
-    await log_user_and_action(update, "/start")
     user = update.effective_user
     user_name = user.first_name
-    log("BOT_SETUP", f"Пользователь {user_name} (ID: {user.id}) запустил команду /start.")
+    
+    is_new_user = await database.get_user_status(user.id) is None
+    
+    await log_user_and_action(update, "/start")
+    log("BOT_SETUP", f"Пользователь {user_name} (ID: {user.id}) запустил команду /start. Новый пользователь: {is_new_user}.")
+
+    if is_new_user:
+        welcome_caption = (
+            f"👋 <b>Добро пожаловать, {user_name}!</b>\n\n"
+            "Этот бот создает приватные, зашифрованные аудио- и видеозвонки прямо в браузере.\n\n"
+            "Нажмите кнопку ниже, чтобы сгенерировать вашу первую ссылку."
+        )
+        keyboard = [[InlineKeyboardButton("➕ Создать новую ссылку", callback_data="create_private_link")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        try:
+            with open('static/img/hero-mockup.jpg', 'rb') as photo:
+                await update.message.reply_photo(
+                    photo=photo,
+                    caption=welcome_caption,
+                    parse_mode=constants.ParseMode.HTML,
+                    reply_markup=reply_markup
+                )
+        except FileNotFoundError:
+            log("ERROR", "Файл hero-mockup.jpg не найден. Отправляю текстовое приветствие.", level=logging.ERROR)
+            await update.message.reply_text(
+                welcome_caption.replace("<b>", "").replace("</b>", ""), 
+                reply_markup=reply_markup
+            )
+        return
 
     active_rooms = await database.get_active_rooms_by_user(user.id)
     n_rooms = len(active_rooms)
@@ -32,11 +62,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     
     if n_rooms == 0:
         message_text = (
-            f"👋 Добро пожаловать, {user_name}!\n\n"
-            "Этот бот создает ссылки на приватные, зашифрованные аудио- и видеозвонки прямо в браузере.\n\n"
-            "Просто нажмите кнопку ниже, чтобы сгенерировать уникальную комнату для звонка. "
-            "Поделитесь этой ссылкой с вашим собеседником, и вы сможете начать разговор.\n\n"
-            f"Ссылка действительна в течение {format_hours(PRIVATE_ROOM_LIFETIME_HOURS)}."
+            f"👋 С возвращением, {user_name}!\n\n"
+            "Готовы создать новую ссылку для звонка?\n\n"
+            f"Напоминаю, что ссылка действительна в течение {format_hours(PRIVATE_ROOM_LIFETIME_HOURS)}."
         )
         keyboard.append([InlineKeyboardButton("➕ Создать новую", callback_data="create_private_link")])
     else:
@@ -94,7 +122,8 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "Я умею генерировать ссылки для звонков, пожалуйста, используйте для этого команду /start.\n\n"
         "Если у вас есть вопросы, воспользуйтесь меню:\n"
         "• /instructions - чтобы посмотреть инструкции.\n"
-        "• /faq - чтобы найти ответы на частые вопросы."
+        "• /faq - чтобы найти ответы на частые вопросы.\n"
+        "• /feedback - чтобы отправить вопрос или пожелание."
     )
     await update.message.reply_text(reminder_text)
 
@@ -107,7 +136,8 @@ async def handle_attachment(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     reply_text = (
         "Извините, я не обрабатываю файлы, изображения и другие вложения.\n\n"
-        "Если Вы хотите создать ссылку для звонков, пожалуйста, используйте команду /start."
+        "Если Вы хотите создать ссылку для звонков, пожалуйста, используйте команду /start.\n"
+        "Если Вы хотите отправить вопрос или пожелание, воспользуйтесь командой /feedback."
     )
     await update.message.reply_text(reply_text)
 
@@ -146,3 +176,37 @@ async def handle_create_link_callback(update: Update, context: ContextTypes.DEFA
     log("ROOM_LIFECYCLE", f"Пользователь {user.first_name} (ID: {user.id}) создает приватную ссылку.")
     
     await room_service.create_and_send_room_link(context, query.message.chat_id, user.id, PRIVATE_ROOM_LIFETIME_HOURS)
+
+async def feedback_start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await log_user_and_action(update, "/feedback")
+    await update.message.reply_text("✍️ Отправьте следующим сообщением Ваш вопрос или пожелание. Я перешлю его администратору.")
+    return WAITING_FEEDBACK
+
+async def feedback_receive(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    user = update.effective_user
+    admin_id = os.environ.get("ADMIN_USER_ID")
+
+    if not admin_id:
+        log("ERROR", "ADMIN_USER_ID не установлен. Невозможно переслать сообщение.", level=logging.ERROR)
+        await update.message.reply_text("К сожалению, сервис обратной связи временно недоступен.")
+        return ConversationHandler.END
+
+    await log_user_and_action(update, "Sent feedback message")
+    
+    try:
+        await context.bot.forward_message(
+            chat_id=admin_id,
+            from_chat_id=user.id,
+            message_id=update.message.message_id
+        )
+        await update.message.reply_text("✅ Спасибо! Ваше сообщение было отправлено.")
+        log("NOTIFICATION", f"Получено и переслано сообщение обратной связи от пользователя {user.id}.")
+    except Exception as e:
+        log("ERROR", f"Не удалось переслать сообщение от {user.id} администратору: {e}", level=logging.ERROR)
+        await update.message.reply_text("Произошла ошибка при отправке. Пожалуйста, попробуйте позже.")
+
+    return ConversationHandler.END
+
+async def feedback_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    await update.message.reply_text("Отправка отзыва отменена. Вы можете продолжить использовать другие команды.")
+    return ConversationHandler.END
