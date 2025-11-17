@@ -1,10 +1,8 @@
 import { fetchData } from './admin_api.js';
-// ИМПОРТИРУЕМ НОВУЮ ФУНКЦИЮ
 import { highlightLogs } from './admin_utils.js';
 
 const API_TOKEN = document.body.dataset.token;
 
-// Расширяем набор иконок
 const ICONS_EXPLORER = {
     caret: ICONS.caret,
     folder: ICONS.folder,
@@ -21,15 +19,15 @@ const ICONS_EXPLORER = {
 };
 
 let explorerContainer, viewerModal, viewerModalTitle, viewerModalBody, viewerModalCloseBtn,
-    actionModal, actionViewBtn, actionDownloadBtn, modalContent; // ДОБАВЛЯЕМ modalContent
+    actionModal, actionOpenBtn, actionViewBtn, actionDownloadBtn, actionDeleteBtn, modalContent;
 
-// Определяем типы файлов для иконок и доступных действий
 const FILE_TYPE_MAP = {
     '.py': { icon: 'python', type: 'code' },
     '.js': { icon: 'javascript', type: 'code' },
     '.html': { icon: 'html', type: 'code' },
     '.css': { icon: 'css', type: 'code' },
     '.json': { icon: 'json', type: 'code' },
+    '.jsonc': { icon: 'json', type: 'code' },
     '.log': { icon: 'doc', type: 'doc' },
     '.txt': { icon: 'doc', type: 'doc' },
     '.md': { icon: 'doc', type: 'doc' },
@@ -49,7 +47,7 @@ const FILE_TYPE_MAP = {
     '.7z': { icon: 'archive', type: 'archive' },
 };
 
-const VIEWABLE_EXTENSIONS = ['.py', '.js', '.css', '.html', '.json', '.txt', '.log', '.md', '.sh', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.webm', '.mp3', '.wav', '.ogg'];
+const VIEWABLE_EXTENSIONS = ['.py', '.js', '.css', '.html', '.json', 'jsonc', '.txt', '.log', '.md', '.sh', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.webm', '.mp3', '.wav', '.ogg'];
 
 function getFileInfo(filename) {
     const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
@@ -117,18 +115,35 @@ function renderTree(nodes) {
 function closeAllModals() {
     viewerModal.classList.remove('visible');
     actionModal.classList.remove('visible');
-    viewerModalBody.innerHTML = ''; // Останавливаем воспроизведение аудио/видео
-    // ИЗМЕНЕНИЕ: Убираем класс для большого окна при закрытии
+    viewerModalBody.innerHTML = '';
     modalContent.classList.remove('log-viewer');
 }
 
-function showActionModal(x, y, path, filename) {
+function isDeletable(path) {
+    return path.startsWith('call_records') || path === 'app.log';
+}
+
+function showActionModal(targetElement, x, y) {
     closeAllModals();
 
-    const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
-    actionViewBtn.disabled = !VIEWABLE_EXTENSIONS.includes(extension);
+    const isFolder = targetElement.classList.contains('folder-item');
+    const liElement = targetElement.closest('li');
+    const path = liElement.dataset.path;
+    const filename = liElement.dataset.filename || path.split('/').pop();
+    const extension = isFolder ? '' : filename.substring(filename.lastIndexOf('.')).toLowerCase();
 
-    // Удаляем старые обработчики, чтобы избежать многократных вызовов
+    actionOpenBtn.style.display = isFolder ? 'block' : 'none';
+    actionViewBtn.style.display = !isFolder ? 'block' : 'none';
+    actionDownloadBtn.style.display = !isFolder ? 'block' : 'none';
+    actionDeleteBtn.style.display = 'block';
+
+    actionViewBtn.disabled = !VIEWABLE_EXTENSIONS.includes(extension);
+    actionDeleteBtn.disabled = !isDeletable(path);
+
+    const newOpenBtn = actionOpenBtn.cloneNode(true);
+    actionOpenBtn.parentNode.replaceChild(newOpenBtn, actionOpenBtn);
+    actionOpenBtn = newOpenBtn;
+
     const newViewBtn = actionViewBtn.cloneNode(true);
     actionViewBtn.parentNode.replaceChild(newViewBtn, actionViewBtn);
     actionViewBtn = newViewBtn;
@@ -137,23 +152,44 @@ function showActionModal(x, y, path, filename) {
     actionDownloadBtn.parentNode.replaceChild(newDownloadBtn, actionDownloadBtn);
     actionDownloadBtn = newDownloadBtn;
 
-    // Добавляем новые обработчики
-    if (!actionViewBtn.disabled) {
-        actionViewBtn.addEventListener('click', () => viewFile(path, filename));
-    }
-    actionDownloadBtn.addEventListener('click', () => {
-        const downloadUrl = `/api/admin/explorer/file-download?path=${encodeURIComponent(path)}&token=${API_TOKEN}`;
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        closeAllModals();
-    });
+    const newDeleteBtn = actionDeleteBtn.cloneNode(true);
+    actionDeleteBtn.parentNode.replaceChild(newDeleteBtn, actionDeleteBtn);
+    actionDeleteBtn = newDeleteBtn;
 
-    // ИЗМЕНЕНИЕ: Динамически определяем положение меню, чтобы оно не выходило за пределы экрана
-    actionModal.classList.add('visible'); // Сначала делаем видимым, чтобы получить размеры
+    if (isFolder) {
+        actionOpenBtn.addEventListener('click', () => {
+            liElement.classList.toggle('collapsed');
+            closeAllModals();
+        });
+    } else {
+        if (!actionViewBtn.disabled) {
+            actionViewBtn.addEventListener('click', () => viewFile(path, filename));
+        }
+        actionDownloadBtn.addEventListener('click', () => {
+            const downloadUrl = `/api/admin/explorer/file-download?path=${encodeURIComponent(path)}&token=${API_TOKEN}`;
+            const a = document.createElement('a');
+            a.href = downloadUrl;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            closeAllModals();
+        });
+    }
+
+    if (!actionDeleteBtn.disabled) {
+        actionDeleteBtn.addEventListener('click', async () => {
+            const type = isFolder ? 'папку' : 'файл';
+            if (confirm(`Вы уверены, что хотите удалить ${type} "${filename}"? Это действие необратимо.`)) {
+                const endpoint = isFolder ? 'folder' : 'file';
+                await fetchData(`explorer/${endpoint}?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
+                loadExplorerData();
+            }
+            closeAllModals();
+        });
+    }
+
+    actionModal.classList.add('visible');
     const modalHeight = actionModal.offsetHeight;
     const modalWidth = actionModal.offsetWidth;
     const viewportHeight = window.innerHeight;
@@ -162,12 +198,8 @@ function showActionModal(x, y, path, filename) {
     let top = y + 5;
     let left = x + 5;
 
-    if (y + modalHeight + 10 > viewportHeight) {
-        top = y - modalHeight - 5; // Открываем вверх
-    }
-    if (x + modalWidth + 10 > viewportWidth) {
-        left = x - modalWidth - 5; // Открываем влево
-    }
+    if (y + modalHeight + 10 > viewportHeight) top = y - modalHeight - 5;
+    if (x + modalWidth + 10 > viewportWidth) left = x - modalWidth - 5;
 
     actionModal.style.top = `${top}px`;
     actionModal.style.left = `${left}px`;
@@ -177,11 +209,9 @@ async function viewFile(path, filename) {
     closeAllModals();
     viewerModalTitle.textContent = filename;
     
-    // --- ИЗМЕНЕНИЕ: Проверяем, является ли файл логом, и применяем стили ---
     if (filename === 'app.log') {
         modalContent.classList.add('log-viewer');
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     viewerModal.classList.add('visible');
     viewerModalBody.innerHTML = '<p style="padding: 1rem;">Загрузка...</p>';
@@ -193,25 +223,16 @@ async function viewFile(path, filename) {
         const img = new Image();
         img.src = fileUrl;
         img.alt = filename;
-        img.addEventListener('click', () => {
-            img.classList.toggle('zoomed-in');
-        });
+        img.addEventListener('click', () => img.classList.toggle('zoomed-in'));
         viewerModalBody.innerHTML = '';
         viewerModalBody.appendChild(img);
     } else if (['.webm', '.mp3', '.wav', '.ogg'].includes(extension)) {
         viewerModalBody.innerHTML = `<audio controls autoplay><source src="${fileUrl}"></audio>`;
     } else {
         const data = await fetchData(`explorer/file-content?path=${encodeURIComponent(path)}`);
-        if (data && data.content) {
-            // --- ИЗМЕНЕНИЕ: Используем новую функцию для логов ---
-            let highlightedContent;
-            if (filename === 'app.log') {
-                highlightedContent = highlightLogs(data.content);
-            } else {
-                highlightedContent = highlightSyntax(data.content, data.lang);
-            }
+        if (data && data.content !== undefined) {
+            let highlightedContent = (filename === 'app.log') ? highlightLogs(data.content) : highlightSyntax(data.content, data.lang);
             viewerModalBody.innerHTML = `<pre><code>${highlightedContent}</code></pre>`;
-            // --- КОНЕЦ ИЗМЕНЕНИЯ ---
         } else {
             viewerModalBody.innerHTML = '<p style="padding: 1rem; color: var(--error-color);">Не удалось загрузить содержимое файла. Возможно, он не является текстовым.</p>';
         }
@@ -271,37 +292,30 @@ export function initExplorer() {
     viewerModalTitle = document.getElementById('viewer-modal-title');
     viewerModalBody = document.getElementById('viewer-modal-body');
     viewerModalCloseBtn = document.getElementById('viewer-modal-close-btn');
-    modalContent = document.querySelector('.modal-content'); // ПОЛУЧАЕМ ЭЛЕМЕНТ
+    modalContent = document.querySelector('.modal-content');
     
     actionModal = document.getElementById('action-modal');
+    actionOpenBtn = document.getElementById('action-open-btn');
     actionViewBtn = document.getElementById('action-view-btn');
     actionDownloadBtn = document.getElementById('action-download-btn');
+    actionDeleteBtn = document.getElementById('action-delete-btn');
 
     const refreshBtn = document.getElementById('refresh-explorer-btn');
     const modalOverlay = document.querySelector('.modal-overlay');
 
     explorerContainer.addEventListener('click', (e) => {
-        const folderItem = e.target.closest('.folder-item');
-        if (folderItem) {
-            folderItem.parentElement.classList.toggle('collapsed');
-            return;
-        }
-
-        const fileItem = e.target.closest('.file-item');
-        if (fileItem) {
+        const treeItem = e.target.closest('.tree-item');
+        if (treeItem) {
             e.preventDefault();
-            const path = fileItem.parentElement.dataset.path;
-            const filename = fileItem.parentElement.dataset.filename;
-            showActionModal(e.clientX, e.clientY, path, filename);
+            showActionModal(treeItem, e.clientX, e.clientY);
         }
     });
 
     viewerModalCloseBtn.addEventListener('click', closeAllModals);
     modalOverlay.addEventListener('click', closeAllModals);
     
-    // Закрытие меню действий при клике вне его
     document.addEventListener('click', (e) => {
-        if (actionModal.classList.contains('visible') && !actionModal.contains(e.target) && !e.target.closest('.file-item')) {
+        if (actionModal.classList.contains('visible') && !actionModal.contains(e.target) && !e.target.closest('.tree-item')) {
             closeAllModals();
         }
     });

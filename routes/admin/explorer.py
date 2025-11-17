@@ -1,4 +1,5 @@
 import os
+import shutil
 import logging
 from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query
@@ -12,23 +13,24 @@ router = APIRouter()
 
 EXCLUDED_DIRS = {'.git', '__pycache__', '.venv', '.idea', 'node_modules'}
 EXCLUDED_FILES = {'.DS_Store'}
-TEXT_EXTENSIONS = {'.py', '.js', '.css', '.html', '.json', '.txt', '.log', '.md', '.yaml', '.yml', '.toml', '.sh', '.bat'}
-# ДОБАВЛЕНО: Определяем расширения, которые не являются текстовыми, чтобы не пытаться их читать
+TEXT_EXTENSIONS = {'.py', '.js', '.css', '.html', '.json', 'jsonc', '.txt', '.log', '.md', '.yaml', '.yml', '.toml', '.sh', '.bat'}
 NON_TEXT_EXTENSIONS = {'.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.webm', '.mp3', '.wav', '.ogg', '.zip', '.rar', '.7z', '.pdf', '.doc', '.docx', '.xls', '.xlsx'}
 
-
-# Получаем абсолютный путь к корневой директории проекта
 PROJECT_ROOT = os.path.abspath(".")
+CALL_RECORDS_PATH = os.path.join(PROJECT_ROOT, "call_records")
+APP_LOG_PATH = os.path.join(PROJECT_ROOT, "app.log")
 
 def is_safe_path(path: str) -> bool:
-    """Проверяет, что путь находится внутри корневой директории проекта."""
     resolved_path = os.path.abspath(path)
     return resolved_path.startswith(PROJECT_ROOT)
 
+def is_deletable(path: str) -> bool:
+    resolved_path = os.path.abspath(path)
+    is_in_records = resolved_path.startswith(CALL_RECORDS_PATH)
+    is_app_log = resolved_path == APP_LOG_PATH
+    return is_in_records or is_app_log
+
 def build_file_tree(path: str) -> List[Dict[str, Any]]:
-    """
-    Рекурсивно строит дерево файлов и директорий с метаданными.
-    """
     tree = []
     try:
         items = sorted(os.listdir(path), key=lambda x: not os.path.isdir(os.path.join(path, x)))
@@ -64,9 +66,6 @@ def build_file_tree(path: str) -> List[Dict[str, Any]]:
 
 @router.get("/file-explorer", response_class=CustomJSONResponse)
 async def get_file_explorer_tree():
-    """
-    Возвращает структуру файлов и папок проекта.
-    """
     try:
         tree = build_file_tree(PROJECT_ROOT)
         return tree
@@ -76,9 +75,6 @@ async def get_file_explorer_tree():
 
 @router.get("/explorer/file-content", response_class=CustomJSONResponse)
 async def get_file_content(path: str = Query(...)):
-    """
-    Возвращает содержимое текстового файла.
-    """
     if not is_safe_path(path):
         raise HTTPException(status_code=403, detail="Forbidden: Access denied.")
     
@@ -86,17 +82,14 @@ async def get_file_content(path: str = Query(...)):
         raise HTTPException(status_code=404, detail="File not found.")
 
     _, extension = os.path.splitext(path)
-    # ИЗМЕНЕНИЕ: Проверяем, что файл не является бинарным/изображением перед чтением
     if extension.lower() in NON_TEXT_EXTENSIONS:
         raise HTTPException(status_code=400, detail="Cannot view this file type as text.")
     if extension.lower() not in TEXT_EXTENSIONS:
-        # Для неизвестных типов файлов тоже не пытаемся читать как текст
         log("ADMIN_ACTION", f"Попытка просмотра файла с неизвестным расширением '{extension}' как текста.", level=logging.WARNING)
 
     try:
         with open(path, 'r', encoding='utf-8') as f:
-            # Ограничиваем размер читаемого файла, чтобы избежать проблем с памятью
-            content = f.read(1024 * 500) # 500 KB limit
+            content = f.read(1024 * 500)
         return {"content": content, "lang": extension.lower().strip('.')}
     except UnicodeDecodeError:
         raise HTTPException(status_code=400, detail="Cannot decode file content. It might be a binary file.")
@@ -106,14 +99,42 @@ async def get_file_content(path: str = Query(...)):
 
 @router.get("/explorer/file-download")
 async def download_file(path: str = Query(...)):
-    """
-    Предоставляет файл для скачивания или стриминга.
-    """
     if not is_safe_path(path):
         raise HTTPException(status_code=403, detail="Forbidden: Access denied.")
 
     if not os.path.exists(path) or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="File not found.")
     
-    # ИЗМЕНЕНИЕ: Убрано принудительное скачивание (attachment), чтобы браузер мог отображать изображения
     return FileResponse(path, filename=os.path.basename(path))
+
+@router.delete("/explorer/file", response_class=CustomJSONResponse)
+async def delete_file(path: str = Query(...)):
+    if not is_safe_path(path) or not is_deletable(path):
+        raise HTTPException(status_code=403, detail="Forbidden: Deletion of this file is not allowed.")
+
+    if not os.path.exists(path) or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="File not found.")
+
+    try:
+        os.remove(path)
+        log("ADMIN_ACTION", f"Администратор удалил файл: {path}", level=logging.WARNING)
+        return {"status": "deleted", "path": path}
+    except Exception as e:
+        log("ERROR", f"Ошибка при удалении файла {path}: {e}", level=logging.ERROR)
+        raise HTTPException(status_code=500, detail=f"Could not delete file: {e}")
+
+@router.delete("/explorer/folder", response_class=CustomJSONResponse)
+async def delete_folder(path: str = Query(...)):
+    if not is_safe_path(path) or not is_deletable(path):
+        raise HTTPException(status_code=403, detail="Forbidden: Deletion of this folder is not allowed.")
+
+    if not os.path.exists(path) or not os.path.isdir(path):
+        raise HTTPException(status_code=404, detail="Folder not found.")
+
+    try:
+        shutil.rmtree(path)
+        log("ADMIN_ACTION", f"Администратор удалил папку: {path}", level=logging.WARNING)
+        return {"status": "deleted", "path": path}
+    except Exception as e:
+        log("ERROR", f"Ошибка при удалении папки {path}: {e}", level=logging.ERROR)
+        raise HTTPException(status_code=500, detail=f"Could not delete folder: {e}")

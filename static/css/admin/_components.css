@@ -422,6 +422,11 @@ html.dark .stat-card.clickable {
     padding: 0.5rem 1rem;
     border: none;
     font-size: 0.9em;
+    background-color: transparent;
+}
+.action-modal-buttons .action-btn:hover:not(:disabled) {
+    background-color: var(--base-bg);
+    border: none;
 }
 .action-modal-buttons .action-btn:disabled {
     color: var(--text-secondary);
@@ -429,16 +434,20 @@ html.dark .stat-card.clickable {
     background-color: transparent;
 }
 .action-modal-buttons .btn-view {
-    background-color: var(--btn-view-bg);
     color: var(--btn-view-text);
 }
 .action-modal-buttons .btn-view:hover:not(:disabled) {
     background-color: var(--btn-view-hover-bg);
 }
 .action-modal-buttons .btn-download {
-    background-color: var(--btn-download-bg);
     color: var(--btn-download-text);
 }
 .action-modal-buttons .btn-download:hover:not(:disabled) {
     background-color: var(--btn-download-hover-bg);
+}
+.action-modal-buttons .btn-delete {
+    color: var(--danger-action);
+}
+.action-modal-buttons .btn-delete:hover:not(:disabled) {
+    background-color: var(--danger-bg);
 }
