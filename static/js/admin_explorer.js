@@ -119,7 +119,7 @@ function closeAllModals() {
     modalContent.classList.remove('log-viewer');
 }
 
-function isDeletable(path) {
+function isUserContent(path) {
     return path.startsWith('call_records') || path === 'app.log';
 }
 
@@ -130,15 +130,17 @@ function showActionModal(targetElement, x, y) {
     const liElement = targetElement.closest('li');
     const path = liElement.dataset.path;
     const filename = liElement.dataset.filename || path.split('/').pop();
-    const extension = isFolder ? '' : filename.substring(filename.lastIndexOf('.')).toLowerCase();
+    const canBeDeleted = isUserContent(path);
 
     actionOpenBtn.style.display = isFolder ? 'block' : 'none';
     actionViewBtn.style.display = !isFolder ? 'block' : 'none';
     actionDownloadBtn.style.display = !isFolder ? 'block' : 'none';
-    actionDeleteBtn.style.display = 'block';
+    actionDeleteBtn.style.display = canBeDeleted ? 'block' : 'none';
 
-    actionViewBtn.disabled = !VIEWABLE_EXTENSIONS.includes(extension);
-    actionDeleteBtn.disabled = !isDeletable(path);
+    if (!isFolder) {
+        const extension = filename.substring(filename.lastIndexOf('.')).toLowerCase();
+        actionViewBtn.disabled = !VIEWABLE_EXTENSIONS.includes(extension);
+    }
 
     const newOpenBtn = actionOpenBtn.cloneNode(true);
     actionOpenBtn.parentNode.replaceChild(newOpenBtn, actionOpenBtn);
@@ -177,7 +179,7 @@ function showActionModal(targetElement, x, y) {
         });
     }
 
-    if (!actionDeleteBtn.disabled) {
+    if (canBeDeleted) {
         actionDeleteBtn.addEventListener('click', async () => {
             const type = isFolder ? 'папку' : 'файл';
             if (confirm(`Вы уверены, что хотите удалить ${type} "${filename}"? Это действие необратимо.`)) {
@@ -305,8 +307,15 @@ export function initExplorer() {
 
     explorerContainer.addEventListener('click', (e) => {
         const treeItem = e.target.closest('.tree-item');
-        if (treeItem) {
-            e.preventDefault();
+        if (!treeItem) return;
+
+        e.preventDefault();
+        const isFolder = treeItem.classList.contains('folder-item');
+        const path = treeItem.closest('li').dataset.path;
+
+        if (isFolder && !isUserContent(path)) {
+            treeItem.parentElement.classList.toggle('collapsed');
+        } else {
             showActionModal(treeItem, e.clientX, e.clientY);
         }
     });
