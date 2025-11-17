@@ -1,6 +1,7 @@
 import * as state from '../call_state.js';
 import * as uiManager from '../call_ui_manager.js';
 import * as webrtc from '../call_webrtc.js';
+import * as media from '../call_media.js';
 import { initializeWebSocket, sendMessage } from '../call_websocket.js';
 import { log } from '../call_logger.js';
 import { acceptCall, declineCall, startActiveCall, endCall } from './in_call_handler.js';
