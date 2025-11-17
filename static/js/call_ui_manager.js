@@ -43,6 +43,12 @@ export function showCallingOverlay(show, callType = 'audio') {
     }
 }
 
+export function showSpecialModeLabel(show) {
+    document.querySelectorAll('#special-mode-label').forEach(el => {
+        el.style.display = show ? 'block' : 'none';
+    });
+}
+
 export function updateStatusIndicators(hasCamera, hasMic) {
     cameraStatus.classList.toggle('status-ok', hasCamera);
     cameraStatus.classList.toggle('status-error', !hasCamera);

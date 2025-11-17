@@ -1,4 +1,3 @@
-
 import asyncpg
 import logging
 from datetime import datetime, timezone
@@ -7,21 +6,15 @@ from typing import Optional, Dict, Any
 from configurable_logger import log
 from data_layer.pool_manager import get_pool
 
-async def log_call_session(room_id: str, user_id: int, created_at: datetime, expires_at: datetime):
-    """
-    Записывает информацию о новой сессии звонка.
-    """
+async def log_call_session(room_id: str, user_id: int, created_at: datetime, expires_at: datetime, room_type: str):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute(
-            "INSERT INTO call_sessions (room_id, generated_by_user_id, created_at, expires_at) VALUES ($1, $2, $3, $4)",
-            room_id, user_id, created_at, expires_at
+            "INSERT INTO call_sessions (room_id, generated_by_user_id, created_at, expires_at, room_type) VALUES ($1, $2, $3, $4, $5)",
+            room_id, user_id, created_at, expires_at, room_type
         )
 
 async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_ip: Optional[str], initiator_ip: Optional[str]):
-    """
-    Логирует начало звонка в истории и обновляет статус сессии.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
@@ -40,9 +33,6 @@ async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_
         await conn.execute("UPDATE call_sessions SET status = 'active' WHERE session_id = $1", session_id)
 
 async def log_call_end(room_id: str):
-    """
-    Логирует завершение звонка, рассчитывает длительность и обновляет статус сессии.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
@@ -75,9 +65,6 @@ async def log_call_end(room_id: str):
             )
 
 async def update_call_connection_type(room_id: str, connection_type: str):
-    """
-    Обновляет тип WebRTC соединения (P2P/Relay) для текущего активного звонка.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
@@ -103,13 +90,10 @@ async def update_call_connection_type(room_id: str, connection_type: str):
             log("DB_LIFECYCLE", f"Тип соединения для звонка в комнате {room_id} обновлен на '{connection_type}'.")
 
 async def get_call_session_details(room_id: str):
-    """
-    Получает детали активной сессии звонка по ID комнаты.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         query = """
-            SELECT room_id, created_at, expires_at
+            SELECT room_id, created_at, expires_at, room_type
             FROM call_sessions
             WHERE room_id = $1 AND expires_at > NOW() AND closed_at IS NULL
         """
@@ -117,9 +101,6 @@ async def get_call_session_details(room_id: str):
         return dict(row) if row else None
 
 async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]]:
-    """
-    Получает детали двух последних подключений в комнате и определяет, кто из них инициатор.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         initiator_ip = await conn.fetchval("""

@@ -1,4 +1,3 @@
-
 import os
 import asyncpg
 from typing import Optional
@@ -9,9 +8,6 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 _pool: Optional[asyncpg.Pool] = None
 
 async def get_pool() -> asyncpg.Pool:
-    """
-    Создает или возвращает существующий пул соединений с базой данных.
-    """
     global _pool
     if _pool is None:
         if not DATABASE_URL:
@@ -21,9 +17,6 @@ async def get_pool() -> asyncpg.Pool:
     return _pool
 
 async def close_pool():
-    """
-    Закрывает пул соединений с базой данных.
-    """
     global _pool
     if _pool:
         await _pool.close()
@@ -31,9 +24,6 @@ async def close_pool():
         log("DB_LIFECYCLE", "Пул соединений с базой данных закрыт.")
 
 async def init_db():
-    """
-    Инициализирует структуру базы данных, создавая таблицы, если они не существуют.
-    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute('''
@@ -69,9 +59,14 @@ async def init_db():
                 expires_at TIMESTAMPTZ NOT NULL,
                 status TEXT DEFAULT 'pending',
                 closed_at TIMESTAMPTZ,
-                close_reason TEXT
+                close_reason TEXT,
+                room_type TEXT NOT NULL DEFAULT 'private'
             )
         ''')
+        try:
+            await conn.execute("ALTER TABLE call_sessions ADD COLUMN IF NOT EXISTS room_type TEXT NOT NULL DEFAULT 'private'")
+        except asyncpg.exceptions.DuplicateColumnError:
+            pass
 
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS call_history (

@@ -22,12 +22,10 @@ class RoomManager:
         self.pending_call_type: Optional[str] = None
         self.details_notification_sent: bool = False
         self.current_call_record_path: Optional[str] = None
-        # --- НОВОЕ: Словарь для отслеживания запущенных сборок ---
         self.assembly_triggered: Dict[str, bool] = {}
+        self.room_type: str = 'private'
 
-    # --- НОВАЯ ФУНКЦИЯ ---
     def set_assembly_triggered(self, user_id: str):
-        """Отмечает, что сборка для пользователя была инициирована."""
         self.assembly_triggered[user_id] = True
 
     async def connect(self, websocket: WebSocket, user_data: dict):
@@ -37,11 +35,18 @@ class RoomManager:
 
         await websocket.accept()
         server_user_id = user_data.get("id", str(uuid.uuid4()))
-        await websocket.send_json({"type": "identity", "data": {"id": server_user_id}})
+        
+        is_first_in_special_room = self.room_type == 'special' and len(self.users) == 0
+        
+        identity_data = {
+            "id": server_user_id,
+            "room_type": self.room_type,
+            "is_first_in_special_room": is_first_in_special_room
+        }
+        await websocket.send_json({"type": "identity", "data": identity_data})
 
         self.active_connections[server_user_id] = websocket
         self.users[server_user_id] = {**user_data, "id": server_user_id, "status": "available"}
-        # --- НОВОЕ: Сбрасываем флаг сборки при подключении ---
         self.assembly_triggered[server_user_id] = False
 
         await self.broadcast_user_list()
@@ -55,7 +60,6 @@ class RoomManager:
             del self.users[user_id]
             await self.broadcast_user_list()
         
-        # --- НОВОЕ: Удаляем флаг при полном дисконнекте ---
         if user_id in self.assembly_triggered:
             del self.assembly_triggered[user_id]
 
@@ -83,7 +87,6 @@ class RoomManager:
     async def set_user_status(self, user_id: Any, status: str):
         if user_id in self.users:
             self.users[user_id]["status"] = status
-            # --- НОВОЕ: Сбрасываем флаг, если пользователь снова доступен ---
             if status == "available":
                 self.assembly_triggered[user_id] = False
             await self.broadcast_user_list()
@@ -134,6 +137,7 @@ class ConnectionManager:
 
         room = RoomManager(room_id, lifetime_hours=lifetime_hours)
         room.creation_time = created_at
+        room.room_type = session_details.get('room_type', 'private')
         
         self.rooms[room_id] = room
         

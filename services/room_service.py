@@ -10,26 +10,19 @@ import notifier
 from main import manager
 from bot_utils import format_hours
 
-async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int, lifetime_hours: int):
-    """
-    Создает комнату, логирует сессию и отправляет пользователю сообщение со ссылкой.
-    """
+async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id: int, user_id: int, lifetime_hours: int, room_type: str = 'private'):
     room_id = str(uuid.uuid4())
-    # ИЗМЕНЕНИЕ: Используем RENDER_EXTERNAL_URL, если он доступен
     web_app_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
     full_link = f"{web_app_url}call/{room_id}"
 
-    # Создаем комнату в менеджере соединений
     await manager.get_or_create_room(room_id, lifetime_hours=lifetime_hours)
 
-    # Логируем сессию в БД
     created_at = datetime.now(timezone.utc)
     expires_at = created_at + timedelta(hours=lifetime_hours)
-    asyncio.create_task(database.log_call_session(room_id, user_id, created_at, expires_at))
+    asyncio.create_task(database.log_call_session(room_id, user_id, created_at, expires_at, room_type))
 
-    # Отправляем уведомление администратору, если это не админ-комната
     is_admin_room = str(user_id) == os.environ.get("ADMIN_USER_ID")
     if not is_admin_room:
         message_to_admin = (
@@ -42,7 +35,6 @@ async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id:
             notifier.send_admin_notification(message_to_admin, 'notify_on_room_creation')
         )
 
-    # Формируем и отправляем сообщение пользователю
     link_text = "🔗 <b>Ссылка для соединения</b> 📞"
     lifetime_text = format_hours(lifetime_hours)
     message_text = (

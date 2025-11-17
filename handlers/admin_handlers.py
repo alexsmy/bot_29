@@ -1,4 +1,3 @@
-
 import os
 import uuid
 import logging
@@ -11,13 +10,13 @@ from config import (
     ADMIN_ROOM_LIFETIME_1_HOUR,
     ADMIN_ROOM_LIFETIME_1_DAY,
     ADMIN_ROOM_LIFETIME_1_MONTH,
-    ADMIN_ROOM_LIFETIME_1_YEAR
+    ADMIN_ROOM_LIFETIME_1_YEAR,
+    SPECIAL_ROOM_LIFETIME_MONTH
 )
 from bot_utils import log_user_and_action
 from services import room_service
 
 async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обрабатывает команду /admin."""
     await log_user_and_action(update, "/admin")
     user = update.effective_user
     admin_id_str = os.environ.get("ADMIN_USER_ID")
@@ -31,14 +30,14 @@ async def admin_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     
     keyboard = [
         [InlineKeyboardButton("🔗 Ссылка на админ-панель", callback_data="admin_panel_link")],
-        [InlineKeyboardButton("📞 Создать комнату для звонков", callback_data="admin_create_room_menu")]
+        [InlineKeyboardButton("📞 Создать комнату для звонков", callback_data="admin_create_room_menu")],
+        [InlineKeyboardButton("🌟 Создать спец-комнату", callback_data="create_special_room")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     await update.message.reply_text("Панель администратора. Выберите действие:", reply_markup=reply_markup)
 
 async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Обрабатывает нажатие на кнопку 'Ссылка на админ-панель'."""
     query = update.callback_query
     await query.answer()
     await log_user_and_action(update, "admin_panel_link")
@@ -46,7 +45,6 @@ async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAUL
     token = str(uuid.uuid4())
     await database.add_admin_token(token)
 
-    # ИЗМЕНЕНИЕ: Используем RENDER_EXTERNAL_URL, если он доступен
     web_app_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("WEB_APP_URL", "http://localhost:8000")
     if not web_app_url.endswith('/'):
         web_app_url += '/'
@@ -65,7 +63,6 @@ async def admin_panel_link_callback(update: Update, context: ContextTypes.DEFAUL
     )
 
 async def admin_create_room_menu_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Показывает меню выбора времени жизни для админ-комнаты."""
     query = update.callback_query
     await query.answer()
     await log_user_and_action(update, "admin_create_room_menu")
@@ -85,7 +82,6 @@ async def admin_create_room_menu_callback(update: Update, context: ContextTypes.
     await query.edit_message_text("Выберите время действия комнаты:", reply_markup=reply_markup)
 
 async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Создает админ-комнату с выбранным временем жизни."""
     query = update.callback_query
     await query.answer("Создаю долгоживущую ссылку...")
     
@@ -97,3 +93,21 @@ async def admin_create_room_callback(update: Update, context: ContextTypes.DEFAU
     
     await query.message.delete()
     await room_service.create_and_send_room_link(context, query.message.chat_id, user.id, lifetime_hours)
+
+async def create_special_room_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer("Создаю специальную ссылку...")
+    
+    await log_user_and_action(update, "create_special_room")
+    
+    user = update.effective_user
+    log("ADMIN_ACTION", f"Администратор {user.first_name} (ID: {user.id}) создает специальную комнату на 1 месяц.")
+    
+    await query.message.delete()
+    await room_service.create_and_send_room_link(
+        context,
+        query.message.chat_id,
+        user.id,
+        SPECIAL_ROOM_LIFETIME_MONTH,
+        room_type='special'
+    )

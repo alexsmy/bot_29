@@ -1,5 +1,3 @@
-// static/js/call_state.js
-
 const state = {
     currentUser: {},
     targetUser: {},
@@ -20,8 +18,9 @@ const state = {
     isEndingCall: false,
     isRecordingEnabled: false,
     localRecordingChunkIndex: 0,
-    // --- НОВОЕ: Флаг для предотвращения повторной инициализации ---
     isCallConnected: false,
+    roomType: 'private',
+    isAutoAnswerDevice: false,
 };
 
 export function getState() {
@@ -48,8 +47,9 @@ export function setIsEndingCall(ending) { state.isEndingCall = ending; }
 export function setIsRecordingEnabled(enabled) { state.isRecordingEnabled = enabled; }
 export function setLocalRecordingChunkIndex(index) { state.localRecordingChunkIndex = index; }
 export function incrementLocalRecordingChunkIndex() { state.localRecordingChunkIndex++; }
-// --- НОВОЕ ---
 export function setIsCallConnected(connected) { state.isCallConnected = connected; }
+export function setRoomType(type) { state.roomType = type; }
+export function setIsAutoAnswerDevice(isAuto) { state.isAutoAnswerDevice = isAuto; }
 
 
 export function resetCallState() {
@@ -59,6 +59,5 @@ export function resetCallState() {
     setIsEndingCall(false);
     setTargetUser({});
     setLocalRecordingChunkIndex(0);
-    // --- НОВОЕ: Сбрасываем флаг при завершении ---
     setIsCallConnected(false);
 }

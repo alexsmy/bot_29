@@ -70,7 +70,17 @@ function proceedToCall(asSpectator = false) {
     const wsHandlers = {
         onIdentity: (data) => {
             state.setCurrentUser({ id: data.id });
-            log('APP_LIFECYCLE', `Identity assigned by server: ${state.getState().currentUser.id}`);
+            state.setRoomType(data.room_type || 'private');
+            state.setIsAutoAnswerDevice(data.is_first_in_special_room || false);
+            
+            log('APP_LIFECYCLE', `Identity assigned: ${state.getState().currentUser.id}, RoomType: ${state.getState().roomType}`);
+
+            if (state.getState().roomType === 'special') {
+                uiManager.showSpecialModeLabel(true);
+            }
+            if (state.getState().isAutoAnswerDevice) {
+                log('APP_LIFECYCLE', 'This device is set to auto-answer mode.');
+            }
         },
         onUserList: handleUserList,
         onIncomingCall: handleIncomingCall,
@@ -139,6 +149,15 @@ async function initiateCall(userToCall, callType) {
 }
 
 function handleIncomingCall(data) {
+    if (state.getState().isAutoAnswerDevice) {
+        log('CALL_FLOW', 'Auto-answering incoming call.');
+        state.setIsCallInitiator(false);
+        state.setTargetUser(data.from_user);
+        state.setCurrentCallType(data.call_type);
+        acceptCall();
+        return;
+    }
+
     log('CALL_FLOW', `Incoming call from ${data.from_user?.id}, type: ${data.call_type}`);
     state.setIsCallInitiator(false);
     state.setTargetUser(data.from_user);
@@ -245,10 +264,22 @@ async function initializeLocalMedia(callType) {
         isVideoCall = true;
     }
     const s = state.getState();
+
+    // --- ИЗМЕНЕНИЕ: Добавляем sampleRate для iOS, чтобы повлиять на битрейт ---
+    const audioConstraints = {
+        deviceId: { exact: s.selectedAudioInId }
+    };
+    if (isIOS()) {
+        audioConstraints.sampleRate = { ideal: 8000 };
+        log('MEDIA_DEVICES', 'iOS detected. Requesting ideal audio sample rate of 8000Hz.');
+    }
+    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+
     const constraints = {
-        audio: hasMicrophoneAccess ? { deviceId: { exact: s.selectedAudioInId } } : false,
+        audio: hasMicrophoneAccess ? audioConstraints : false,
         video: isVideoCall && hasCameraAccess ? { deviceId: { exact: s.selectedVideoId } } : false
     };
+
     const result = await media.getStreamForCall(constraints, localVideo, document.getElementById('localAudio'));
     if (result.stream) {
         if (isIOSAudioCall && result.stream.getVideoTracks().length > 0) {
