@@ -21,6 +21,7 @@ const state = {
     isCallConnected: false,
     roomType: 'private',
     isAutoAnswerDevice: false,
+    role: 'none',
 };
 
 export function getState() {
@@ -50,6 +51,7 @@ export function incrementLocalRecordingChunkIndex() { state.localRecordingChunkI
 export function setIsCallConnected(connected) { state.isCallConnected = connected; }
 export function setRoomType(type) { state.roomType = type; }
 export function setIsAutoAnswerDevice(isAuto) { state.isAutoAnswerDevice = isAuto; }
+export function setRole(role) { state.role = role; }
 
 
 export function resetCallState() {

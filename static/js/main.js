@@ -1,5 +1,4 @@
 import * as orchestrator from './call_orchestrator.js';
-// --- ИЗМЕНЕНИЕ: Импортируем наш новый логгер ---
 import * as logger from './call_logger.js';
 
 function loadIcons() {
@@ -28,9 +27,10 @@ async function main() {
     }
     
     const roomId = path.split('/')[2];
-    // --- ИЗМЕНЕНИЕ: Инициализируем логгер сразу с ID комнаты ---
+    const role = document.body.dataset.role || 'none';
+
     logger.init(roomId);
-    logger.log('APP_LIFECYCLE', `App loaded. Path: ${path}`);
+    logger.log('APP_LIFECYCLE', `App loaded. Path: ${path}, Role: ${role}`);
 
     let rtcConfig = null;
     let iceServerDetails = {};
@@ -79,7 +79,7 @@ async function main() {
         };
     }
 
-    orchestrator.initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled);
+    orchestrator.initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled, role);
 }
 
 document.addEventListener('DOMContentLoaded', main);

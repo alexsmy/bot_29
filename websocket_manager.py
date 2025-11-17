@@ -24,6 +24,7 @@ class RoomManager:
         self.current_call_record_path: Optional[str] = None
         self.assembly_triggered: Dict[str, bool] = {}
         self.room_type: str = room_type
+        self.connected_roles: Dict[str, Optional[str]] = {"roll_in": None, "roll_out": None}
 
     def set_assembly_triggered(self, user_id: str):
         self.assembly_triggered[user_id] = True
@@ -33,8 +34,17 @@ class RoomManager:
             await websocket.close(code=1008, reason="Room is full")
             return None
 
-        await websocket.accept()
         server_user_id = user_data.get("id", str(uuid.uuid4()))
+        role = user_data.get("role", "none")
+
+        if self.room_type == 'special' and role in self.connected_roles:
+            if self.connected_roles[role] is not None and self.connected_roles[role] != server_user_id:
+                log("AUTH_ATTEMPT", f"Роль '{role}' в спец. комнате {self.room_id} уже занята. Отклоняем соединение.", level=logging.WARNING)
+                await websocket.close(code=1008, reason=f"Role '{role}' is already taken")
+                return None
+            self.connected_roles[role] = server_user_id
+
+        await websocket.accept()
         
         is_first_in_special_room = self.room_type == 'special' and len(self.users) == 0
         
@@ -62,6 +72,12 @@ class RoomManager:
         
         if user_id in self.assembly_triggered:
             del self.assembly_triggered[user_id]
+
+        for role, uid in self.connected_roles.items():
+            if uid == user_id:
+                self.connected_roles[role] = None
+                log("ROOM_LIFECYCLE", f"Роль '{role}' в спец. комнате {self.room_id} освобождена.", level=logging.INFO)
+                break
 
     async def broadcast_user_list(self):
         user_list = list(self.users.values())

@@ -66,14 +66,21 @@ function proceedToCall(asSpectator = false) {
     log('CALL_SESSION', `Proceeding to call screen. Spectator mode: ${asSpectator}`);
     media.stopPreviewStream();
     uiManager.showScreen('pre-call');
-    uiManager.showPopup('waiting');
+
+    const currentRole = state.getState().role;
+    if (currentRole === 'roll_in') {
+        uiManager.showPopup('receiver-waiting');
+    } else {
+        uiManager.showPopup('waiting');
+    }
+
     const wsHandlers = {
         onIdentity: (data) => {
             state.setCurrentUser({ id: data.id });
             state.setRoomType(data.room_type || 'private');
             state.setIsAutoAnswerDevice(data.is_first_in_special_room || false);
             
-            log('APP_LIFECYCLE', `Identity assigned: ${state.getState().currentUser.id}, RoomType: ${state.getState().roomType}`);
+            log('APP_LIFECYCLE', `Identity assigned: ${state.getState().currentUser.id}, RoomType: ${state.getState().roomType}, Role: ${currentRole}`);
 
             if (state.getState().roomType === 'special') {
                 uiManager.showSpecialModeLabel(true);
@@ -113,15 +120,25 @@ function proceedToCall(asSpectator = false) {
 
 function handleUserList(users) {
     const otherUsers = users.filter(u => u.id !== state.getState().currentUser.id);
+    const currentRole = state.getState().role;
+
     if (otherUsers.length === 0) {
         state.setTargetUser({});
-        uiManager.showPopup('waiting');
+        if (currentRole === 'roll_in') {
+            uiManager.showPopup('receiver-waiting');
+        } else {
+            uiManager.showPopup('waiting');
+        }
     } else {
         state.setTargetUser(otherUsers[0]);
         if (state.getState().targetUser.status === 'busy') {
             uiManager.showPopup('initiating');
         } else {
-            uiManager.showPopup('actions');
+            if (currentRole === 'roll_in') {
+                uiManager.showPopup('receiver-waiting');
+            } else {
+                uiManager.showPopup('actions');
+            }
         }
     }
 }
@@ -149,8 +166,9 @@ async function initiateCall(userToCall, callType) {
 }
 
 function handleIncomingCall(data) {
-    if (state.getState().isAutoAnswerDevice) {
-        log('CALL_FLOW', 'Auto-answering incoming call.');
+    const s = state.getState();
+    if (s.role === 'roll_in' || s.isAutoAnswerDevice) {
+        log('CALL_FLOW', 'Auto-answering incoming call due to role or device setting.');
         state.setIsCallInitiator(false);
         state.setTargetUser(data.from_user);
         state.setCurrentCallType(data.call_type);
@@ -265,7 +283,6 @@ async function initializeLocalMedia(callType) {
     }
     const s = state.getState();
 
-    // --- ИЗМЕНЕНИЕ: Добавляем sampleRate для iOS, чтобы повлиять на битрейт ---
     const audioConstraints = {
         deviceId: { exact: s.selectedAudioInId }
     };
@@ -273,7 +290,6 @@ async function initializeLocalMedia(callType) {
         audioConstraints.sampleRate = { ideal: 8000 };
         log('MEDIA_DEVICES', 'iOS detected. Requesting ideal audio sample rate of 8000Hz.');
     }
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
     const constraints = {
         audio: hasMicrophoneAccess ? audioConstraints : false,
@@ -465,7 +481,9 @@ function setupEventListeners() {
     acceptBtn.addEventListener('click', acceptCall);
     declineBtn.addEventListener('click', declineCall);
     hangupBtn.addEventListener('click', () => {
-        endCall(true, 'cancelled_by_user');
+        if (state.getState().role !== 'roll_in') {
+            endCall(true, 'cancelled_by_user');
+        }
     });
     instructionsBtn.addEventListener('click', () => uiManager.showModal('instructions', true));
     document.querySelectorAll('.close-instructions-btn').forEach(btn => btn.addEventListener('click', () => uiManager.showModal('instructions', false)));
@@ -495,12 +513,13 @@ function setupEventListeners() {
     uiManager.setupLocalVideoInteraction();
 }
 
-export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled) {
-    log('APP_LIFECYCLE', `Initializing in Private Call mode for room: ${roomId}`);
+export function initialize(roomId, rtcConfig, iceServerDetails, isRecordingEnabled, role) {
+    log('APP_LIFECYCLE', `Initializing for room: ${roomId}, Role: ${role}`);
     state.setRoomId(roomId);
     state.setRtcConfig(rtcConfig);
     state.setIceServerDetails(iceServerDetails);
     state.setIsRecordingEnabled(isRecordingEnabled);
+    state.setRole(role);
 
     media.init(log);
     monitor.init({

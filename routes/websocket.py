@@ -1,5 +1,3 @@
-
-
 import asyncio
 import uuid
 import logging
@@ -24,6 +22,13 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     ip_address = x_forwarded_for.split(',')[0].strip() if x_forwarded_for else (websocket.headers.get("x-real-ip") or websocket.client.host)
     user_agent = websocket.headers.get("user-agent", "Unknown")
     
+    referer = websocket.headers.get("referer", "")
+    role = "none"
+    if "?roll_in" in referer:
+        role = "roll_in"
+    elif "?roll_out" in referer:
+        role = "roll_out"
+
     location_data = await utils.get_ip_location(ip_address)
     ua_data = utils.parse_user_agent(user_agent)
     
@@ -43,6 +48,7 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
         "first_name": "Собеседник", 
         "last_name": "",
         "ip_address": ip_address,
+        "role": role,
         **parsed_data
     }
     

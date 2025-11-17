@@ -10,8 +10,10 @@ import {
     callingOverlay, callingOverlayTitle, callerName, incomingCallType,
     ringInAudio, ringOutAudio, connectAudio, lifetimeTimer, remoteAudioLevel,
     cameraSelectCall, micSelectCall, speakerSelectCall,
-    cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall
+    cameraSelectContainerCall, micSelectContainerCall, speakerSelectContainerCall,
+    hangupBtn
 } from './call_ui_elements.js';
+import { getState } from './call_state.js';
 
 let uiFadeTimeout = null;
 let remoteMuteToastTimeout = null;
@@ -30,7 +32,10 @@ export function showModal(modalName, show) {
 
 export function showPopup(popupName) {
     document.querySelectorAll('.popup').forEach(p => p.classList.remove('active'));
-    if (popupName) document.getElementById(`popup-${popupName}`).classList.add('active');
+    if (popupName) {
+        const popup = document.getElementById(`popup-${popupName}`);
+        if (popup) popup.classList.add('active');
+    }
 }
 
 export function showCallingOverlay(show, callType = 'audio') {
@@ -81,6 +86,12 @@ export function updateCallUI(callType, targetUser, mediaStatus, isMobile) {
     remoteVideo.style.display = isVideoCall ? 'block' : 'none';
     callScreen.classList.toggle('video-call-active', isVideoCall);
     callScreen.classList.toggle('audio-call-active', !isVideoCall);
+
+    if (getState().role === 'roll_in') {
+        hangupBtn.style.display = 'none';
+    } else {
+        hangupBtn.style.display = 'inline-flex';
+    }
 }
 
 export function resetCallControls() {

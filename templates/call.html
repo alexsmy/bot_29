@@ -9,7 +9,7 @@
     <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
     <script src="/static/js/lib/html2canvas.min.js"></script>
 </head>
-<body>
+<body data-role="{{ role }}">
     <div id="app-container">
         <div id="pre-call-check-screen" class="screen">
             <div class="check-container">
@@ -71,6 +71,12 @@
             <main class="pre-call-center">
                 <div id="popup-waiting" class="popup">
                     <h2>Ожидаем подключение второго собеседника...</h2>
+                    <div class="spinner"></div>
+                </div>
+
+                <div id="popup-receiver-waiting" class="popup">
+                    <h2>Готов к приёму</h2>
+                    <p>Ожидание вызова от отправляющей стороны...</p>
                     <div class="spinner"></div>
                 </div>
 

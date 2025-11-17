@@ -17,16 +17,13 @@ from routes.admin_router import router as admin_router
 from routes.api_router import router as api_router
 from core import CustomJSONResponse, templates
 
-# --- ИЗМЕНЕНИЕ: Настройка Rate Limiter ---
 limiter = Limiter(key_func=get_remote_address, default_limits=["100 per minute"])
 
 app = FastAPI()
 
-# Применяем Rate Limiter как middleware
 app.state.limiter = limiter
 app.add_middleware(SlowAPIMiddleware)
 
-# Добавляем обработчик исключений для RateLimitExceeded
 @app.exception_handler(RateLimitExceeded)
 async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
     log("AUTH_ATTEMPT", f"Rate limit exceeded for {request.client.host}: {exc.detail}", level=logging.WARNING)
@@ -34,7 +31,6 @@ async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
         content={"detail": f"Rate limit exceeded: {exc.detail}"},
     )
-# --- КОНЕЦ ИЗМЕНЕНИЯ ---
 
 
 app.include_router(websocket_router)
@@ -61,22 +57,33 @@ async def get_welcome(request: Request):
     return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
 
 @app.get("/api/ice-servers", response_class=CustomJSONResponse)
-@limiter.limit("10/minute")  # --- ИЗМЕНЕНИЕ: Строгий лимит для этого эндпоинта
+@limiter.limit("10/minute")
 async def get_ice_servers_endpoint(request: Request):
     servers = ice_provider.get_ice_servers()
     return servers
 
 @app.get("/call/{room_id}", response_class=HTMLResponse)
-@limiter.limit("15/minute") # --- ИЗМЕНЕНИЕ: Строгий лимит для этого эндпоинта
+@limiter.limit("15/minute")
 async def get_call_page(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+    role = "none"
+    if "roll_in" in request.query_params:
+        role = "roll_in"
+    elif "roll_out" in request.query_params:
+        role = "roll_out"
+
+    if room.room_type != 'special' and role != 'none':
+        log("AUTH_ATTEMPT", f"Попытка использовать роль '{role}' для обычной комнаты {room_id}.", level=logging.WARNING)
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid link parameters for this room type")
+
     bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username})
+    return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username, "role": role})
 
 @app.post("/room/close/{room_id}", response_class=CustomJSONResponse)
-@limiter.limit("20/minute") # --- ИЗМЕНЕНИЕ: Лимит для этого эндпоинта
+@limiter.limit("20/minute")
 async def close_room_endpoint(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
