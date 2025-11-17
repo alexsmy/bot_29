@@ -166,7 +166,10 @@ export function stopCallTimer(intervalId) {
 }
 
 export function updateConnectionIcon(type) {
-    connectionStatus.querySelectorAll('.icon:not(#connection-quality)').forEach(icon => icon.classList.remove('active'));
+    ['conn-local', 'conn-p2p', 'conn-relay', 'conn-unknown'].forEach(id => {
+        const icon = document.getElementById(id);
+        if (icon) icon.classList.remove('active');
+    });
     const typeMap = {
         local: { id: 'conn-local', title: 'Прямое локальное соединение (LAN)' },
         p2p: { id: 'conn-p2p', title: 'Прямое P2P соединение (Direct)' },
