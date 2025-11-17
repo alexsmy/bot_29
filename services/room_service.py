@@ -17,7 +17,7 @@ async def create_and_send_room_link(context: ContextTypes.DEFAULT_TYPE, chat_id:
         web_app_url += '/'
     full_link = f"{web_app_url}call/{room_id}"
 
-    await manager.get_or_create_room(room_id, lifetime_hours=lifetime_hours)
+    await manager.get_or_create_room(room_id, lifetime_hours=lifetime_hours, room_type=room_type)
 
     created_at = datetime.now(timezone.utc)
     expires_at = created_at + timedelta(hours=lifetime_hours)

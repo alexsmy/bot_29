@@ -11,7 +11,7 @@ from configurable_logger import log
 from config import PRIVATE_ROOM_LIFETIME_HOURS
 
 class RoomManager:
-    def __init__(self, room_id: str, lifetime_hours: int):
+    def __init__(self, room_id: str, lifetime_hours: int, room_type: str = 'private'):
         self.room_id = room_id
         self.lifetime_hours = lifetime_hours
         self.max_users = 2
@@ -23,7 +23,7 @@ class RoomManager:
         self.details_notification_sent: bool = False
         self.current_call_record_path: Optional[str] = None
         self.assembly_triggered: Dict[str, bool] = {}
-        self.room_type: str = 'private'
+        self.room_type: str = room_type
 
     def set_assembly_triggered(self, user_id: str):
         self.assembly_triggered[user_id] = True
@@ -134,10 +134,10 @@ class ConnectionManager:
         
         lifetime_seconds = (expires_at - created_at).total_seconds()
         lifetime_hours = round(lifetime_seconds / 3600)
+        room_type = session_details.get('room_type', 'private')
 
-        room = RoomManager(room_id, lifetime_hours=lifetime_hours)
+        room = RoomManager(room_id, lifetime_hours=lifetime_hours, room_type=room_type)
         room.creation_time = created_at
-        room.room_type = session_details.get('room_type', 'private')
         
         self.rooms[room_id] = room
         
@@ -150,9 +150,9 @@ class ConnectionManager:
 
         return room
 
-    async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS) -> RoomManager:
+    async def get_or_create_room(self, room_id: str, lifetime_hours: int = PRIVATE_ROOM_LIFETIME_HOURS, room_type: str = 'private') -> RoomManager:
         if room_id not in self.rooms:
-            self.rooms[room_id] = RoomManager(room_id, lifetime_hours)
+            self.rooms[room_id] = RoomManager(room_id, lifetime_hours, room_type)
             await self.schedule_private_room_cleanup(room_id, lifetime_hours * 3600)
         return self.rooms[room_id]
 
