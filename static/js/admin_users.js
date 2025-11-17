@@ -1,8 +1,3 @@
-
-// static/js/admin_users.js
-
-// Этот модуль отвечает за логику раздела "Пользователи".
-
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
@@ -20,25 +15,33 @@ function renderUsers(users) {
         const isBlocked = user.status === 'blocked';
         
         const actionsHtml = isBlocked ? `
-            <div class="user-actions">
+            <div class="user-card-actions">
                 <button class="action-btn unblock-btn" data-user-id="${user.user_id}">Разблокировать</button>
                 <button class="action-btn danger delete-btn" data-user-id="${user.user_id}">Удалить</button>
             </div>
-        ` : '';
+        ` : `
+            <div class="user-card-actions">
+                <button class="action-btn block-btn" data-user-id="${user.user_id}">Заблокировать</button>
+                <button class="action-btn danger delete-btn" data-user-id="${user.user_id}">Удалить</button>
+            </div>
+        `;
 
         return `
-            <div class="user-item ${isBlocked ? 'blocked' : ''}" data-user-id="${user.user_id}">
-                <div class="user-summary-wrapper">
-                    <div class="user-summary">
-                        <div>
-                            <div class="user-name">${displayName}</div>
-                            <div class="user-id">ID: ${user.user_id}</div>
+            <div class="user-card ${isBlocked ? 'blocked' : ''}" data-user-id="${user.user_id}">
+                <div class="user-card-info">
+                    <div class="user-card-header">
+                        <span class="icon">${ICONS.clock}</span>
+                        <span>${formatDate(user.first_seen)}</span>
+                    </div>
+                    <div class="user-card-body">
+                        <div class="user-name">
+                            <span class="icon">${ICONS.person}</span>
+                            <span>${displayName}</span>
                         </div>
-                        <div class="user-first-seen">${formatDate(user.first_seen)}</div>
+                        <div class="user-id">ID: ${user.user_id}</div>
                     </div>
                 </div>
                 ${actionsHtml}
-                <div class="user-details" id="details-${user.user_id}"></div>
             </div>`;
     }).join('');
 }
@@ -47,7 +50,18 @@ async function loadUsers() {
     const users = await fetchData('users');
     if (users) {
         allUsersData = users;
-        renderUsers(allUsersData);
+        const searchTerm = userSearchInput.value.trim().toLowerCase();
+        if (searchTerm) {
+            const filtered = allUsersData.filter(user => {
+                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
+                const username = (user.username || '').toLowerCase();
+                const id = String(user.user_id);
+                return fullName.includes(searchTerm) || username.includes(searchTerm) || id.includes(searchTerm);
+            });
+            renderUsers(filtered);
+        } else {
+            renderUsers(allUsersData);
+        }
     }
 }
 
@@ -68,49 +82,35 @@ export function initUsers() {
 
     usersListContainer.addEventListener('click', async (e) => {
         const target = e.target;
-        const userItem = target.closest('.user-item');
-        if (!userItem) return;
-        
-        const userId = userItem.dataset.userId;
+        const userId = target.dataset.userId;
 
-        // --- НОВАЯ ЛОГИКА ОБРАБОТКИ КНОПОК ---
+        if (!userId) return;
+
+        if (target.classList.contains('block-btn')) {
+            e.stopPropagation();
+            if (confirm(`Вы уверены, что хотите заблокировать пользователя ID ${userId}?`)) {
+                await fetchData(`user/${userId}/block`, { method: 'POST' });
+                loadUsers();
+            }
+            return;
+        }
+
         if (target.classList.contains('unblock-btn')) {
-            e.stopPropagation(); // Предотвращаем открытие деталей
+            e.stopPropagation();
             if (confirm(`Вы уверены, что хотите разблокировать пользователя ID ${userId}?`)) {
                 await fetchData(`user/${userId}/unblock`, { method: 'POST' });
-                loadUsers(); // Перезагружаем список для обновления
+                loadUsers();
             }
             return;
         }
 
         if (target.classList.contains('delete-btn')) {
-            e.stopPropagation(); // Предотвращаем открытие деталей
-            if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные (действия, сессии). Это действие необратимо. Продолжить?`)) {
+            e.stopPropagation();
+            if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные. Это действие необратимо. Продолжить?`)) {
                 await fetchData(`user/${userId}`, { method: 'DELETE' });
-                loadUsers(); // Перезагружаем список для обновления
+                loadUsers();
             }
             return;
-        }
-        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
-
-        // Логика открытия/закрытия деталей
-        const detailsContainer = userItem.querySelector('.user-details');
-        const isVisible = detailsContainer.style.display === 'block';
-
-        if (isVisible) {
-            detailsContainer.style.display = 'none';
-        } else {
-            detailsContainer.style.display = 'block';
-            if (!detailsContainer.innerHTML.trim()) {
-                detailsContainer.innerHTML = '<p>Загрузка действий...</p>';
-                const actions = await fetchData(`user_actions/${userId}`);
-                if (actions && actions.length > 0) {
-                    detailsContainer.innerHTML = '<div class="user-details-content"><ul>' + actions.map(action => `
-                        <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>`).join('') + '</ul></div>';
-                } else {
-                    detailsContainer.innerHTML = '<p>Действий не найдено.</p>';
-                }
-            }
         }
     });
 
