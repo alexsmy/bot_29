@@ -1,7 +1,6 @@
-
 import asyncpg
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from configurable_logger import log
 from data_layer.pool_manager import get_pool
@@ -56,3 +55,36 @@ async def delete_user(user_id: int):
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM users WHERE user_id = $1", user_id)
     log("ADMIN_ACTION", f"Пользователь {user_id} и все его данные были удалены администратором.", level="WARNING")
+
+async def import_users_batch(users_data: List[Dict[str, Any]]):
+    """
+    Массово импортирует пользователей. Если пользователь существует, обновляет его данные.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Подготавливаем данные для executemany
+        data_tuples = [
+            (
+                u['user_id'],
+                u.get('first_name'),
+                u.get('last_name'),
+                u.get('username'),
+                u.get('first_seen'), # asyncpg корректно обрабатывает datetime объекты
+                u.get('status', 'active')
+            )
+            for u in users_data
+        ]
+
+        query = """
+            INSERT INTO users (user_id, first_name, last_name, username, first_seen, status)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (user_id) DO UPDATE
+            SET first_name = EXCLUDED.first_name,
+                last_name = EXCLUDED.last_name,
+                username = EXCLUDED.username,
+                first_seen = EXCLUDED.first_seen,
+                status = EXCLUDED.status
+        """
+        
+        await conn.executemany(query, data_tuples)
+        log("ADMIN_ACTION", f"Импортировано/обновлено {len(users_data)} пользователей.")
