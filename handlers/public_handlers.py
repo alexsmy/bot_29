@@ -1,3 +1,4 @@
+
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
@@ -20,18 +21,29 @@ def get_room_count_text(n: int) -> str:
     return "комнат"
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if await check_and_handle_spam(update, context, "Sent /start command while potentially blocked"):
-        return
-    
     user = update.effective_user
     user_name = user.first_name
-    
-    is_new_user = await database.get_user_status(user.id) is None
-    
+
+    # --- ИСПРАВЛЕНИЕ: Начало ---
+    # 1. Сначала проверяем статус пользователя, чтобы понять, новый он или нет,
+    #    а также не заблокирован ли он.
+    status = await database.get_user_status(user.id)
+
+    if status == 'blocked':
+        log("SPAM_DETECT", f"Получено /start от заблокированного пользователя {user.id}. Игнорируем.", level=logging.WARNING)
+        return
+
+    # 2. Определяем, новый ли пользователь, ДО того, как он будет записан в БД.
+    is_new_user = status is None
+
+    # 3. Теперь, когда мы определили статус, можно безопасно логировать.
+    #    Если пользователя не было, он будет создан здесь.
     await log_user_and_action(update, "/start")
     log("BOT_SETUP", f"Пользователь {user_name} (ID: {user.id}) запустил команду /start. Новый пользователь: {is_new_user}.")
+    # --- ИСПРАВЛЕНИЕ: Конец ---
 
     if is_new_user:
+        # Теперь этот блок будет корректно выполняться для новых пользователей.
         await notifier.send_new_user_notification(user.id, user.first_name, user.username)
         
         welcome_caption = (
