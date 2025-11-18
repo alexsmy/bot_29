@@ -66,10 +66,10 @@
     border-radius: 8px;
     padding: 1rem 1.25rem;
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 1rem;
-    align-items: center;
     transition: box-shadow 0.2s, border-color 0.2s;
+    cursor: pointer;
 }
 .user-card:hover {
     box-shadow: var(--shadow-md);
@@ -78,6 +78,12 @@
 .user-card.blocked {
     border-left: 4px solid var(--error-color);
     background-color: var(--danger-bg);
+}
+.user-card-main {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
 }
 .user-card-info {
     flex-grow: 1;
@@ -131,6 +137,7 @@
 .user-card-actions .action-btn {
     padding: 0.4rem 0.8rem;
     font-size: 0.85em;
+    cursor: pointer;
 }
 .user-card-actions .block-btn {
     border-color: var(--pending-color);
@@ -148,6 +155,22 @@
     background-color: var(--success-color);
     color: #fff;
 }
+.user-details {
+    display: none;
+    width: 100%;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+.user-details-content {
+    max-height: 140px;
+    overflow-y: auto;
+    background-color: var(--base-bg);
+    border-radius: 6px;
+    padding: 0.75rem;
+    border: 1px solid var(--border-color);
+}
+.user-details-content ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
+.user-details-content li { padding: 0.2rem 0; }
 
 /* --- Секция "Соединения" --- */
 .connections-list {

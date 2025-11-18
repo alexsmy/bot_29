@@ -28,20 +28,23 @@ function renderUsers(users) {
 
         return `
             <div class="user-card ${isBlocked ? 'blocked' : ''}" data-user-id="${user.user_id}">
-                <div class="user-card-info">
-                    <div class="user-card-header">
-                        <span class="icon">${ICONS.clock}</span>
-                        <span>${formatDate(user.first_seen)}</span>
-                    </div>
-                    <div class="user-card-body">
-                        <div class="user-name">
-                            <span class="icon">${ICONS.person}</span>
-                            <span>${displayName}</span>
+                <div class="user-card-main">
+                    <div class="user-card-info">
+                        <div class="user-card-header">
+                            <span class="icon">${ICONS.clock}</span>
+                            <span>${formatDate(user.first_seen)}</span>
                         </div>
-                        <div class="user-id">ID: ${user.user_id}</div>
+                        <div class="user-card-body">
+                            <div class="user-name">
+                                <span class="icon">${ICONS.person}</span>
+                                <span>${displayName}</span>
+                            </div>
+                            <div class="user-id">ID: ${user.user_id}</div>
+                        </div>
                     </div>
+                    ${actionsHtml}
                 </div>
-                ${actionsHtml}
+                <div class="user-details" id="details-${user.user_id}"></div>
             </div>`;
     }).join('');
 }
@@ -82,35 +85,51 @@ export function initUsers() {
 
     usersListContainer.addEventListener('click', async (e) => {
         const target = e.target;
-        const userId = target.dataset.userId;
+        const userCard = target.closest('.user-card');
+        if (!userCard) return;
+        
+        const userId = userCard.dataset.userId;
 
-        if (!userId) return;
-
-        if (target.classList.contains('block-btn')) {
+        // Обработка кликов по кнопкам
+        if (target.closest('.user-card-actions')) {
             e.stopPropagation();
-            if (confirm(`Вы уверены, что хотите заблокировать пользователя ID ${userId}?`)) {
-                await fetchData(`user/${userId}/block`, { method: 'POST' });
-                loadUsers();
+            if (target.classList.contains('block-btn')) {
+                if (confirm(`Вы уверены, что хотите заблокировать пользователя ID ${userId}?`)) {
+                    await fetchData(`user/${userId}/block`, { method: 'POST' });
+                    loadUsers();
+                }
+            } else if (target.classList.contains('unblock-btn')) {
+                if (confirm(`Вы уверены, что хотите разблокировать пользователя ID ${userId}?`)) {
+                    await fetchData(`user/${userId}/unblock`, { method: 'POST' });
+                    loadUsers();
+                }
+            } else if (target.classList.contains('delete-btn')) {
+                if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные. Это действие необратимо. Продолжить?`)) {
+                    await fetchData(`user/${userId}`, { method: 'DELETE' });
+                    loadUsers();
+                }
             }
             return;
         }
 
-        if (target.classList.contains('unblock-btn')) {
-            e.stopPropagation();
-            if (confirm(`Вы уверены, что хотите разблокировать пользователя ID ${userId}?`)) {
-                await fetchData(`user/${userId}/unblock`, { method: 'POST' });
-                loadUsers();
-            }
-            return;
-        }
+        // Логика открытия/закрытия деталей при клике на саму карточку
+        const detailsContainer = userCard.querySelector('.user-details');
+        const isVisible = detailsContainer.style.display === 'block';
 
-        if (target.classList.contains('delete-btn')) {
-            e.stopPropagation();
-            if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные. Это действие необратимо. Продолжить?`)) {
-                await fetchData(`user/${userId}`, { method: 'DELETE' });
-                loadUsers();
+        if (isVisible) {
+            detailsContainer.style.display = 'none';
+        } else {
+            detailsContainer.style.display = 'block';
+            if (!detailsContainer.innerHTML.trim()) {
+                detailsContainer.innerHTML = '<p>Загрузка действий...</p>';
+                const actions = await fetchData(`user_actions/${userId}`);
+                if (actions && actions.length > 0) {
+                    detailsContainer.innerHTML = '<div class="user-details-content"><ul>' + actions.map(action => `
+                        <li><strong>${action.action}</strong> - ${formatDate(action.timestamp)}</li>`).join('') + '</ul></div>';
+                } else {
+                    detailsContainer.innerHTML = '<p>Действий не найдено.</p>';
+                }
             }
-            return;
         }
     });
 
