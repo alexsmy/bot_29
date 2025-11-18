@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Комната занята — PrivacyCall</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="/static/css/welcome.css">
+</head>
+<body>
+
+    <div class="shape shape-1"></div>
+    <div class="shape shape-2"></div>
+    <div class="shape shape-3"></div>
+
+    <main class="content-wrapper">
+        <section class="hero-section" style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding-bottom: 0;">
+            <div class="hero-content" style="text-align: center;">
+                <h1 class="hero-title">Эта комната<br>уже занята</h1>
+                <p class="hero-subtitle">
+                    В звонке уже участвуют два человека. Пожалуйста, попросите создать для Вас новую ссылку для звонка, или создайте её самостоятельно.
+                </p>
+                
+                <a href="/" class="cta-button primary">
+                    <span>На главную страницу</span>
+                </a>
+
+                <p id="redirect-timer" class="redirect-info"></p>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const timerElement = document.getElementById('redirect-timer');
+            let timeLeft = 5;
+
+            const updateTimer = () => {
+                if (timeLeft > 0) {
+                    timerElement.textContent = `Перенаправление на главную через ${timeLeft}...`;
+                } else {
+                    timerElement.textContent = 'Перенаправляем...';
+                }
+            };
+
+            updateTimer();
+
+            const intervalId = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+                if (timeLeft < 0) {
+                    clearInterval(intervalId);
+                    window.location.href = '/';
+                }
+            }, 1000);
+        });
+    </script>
+
+</body>
+</html>

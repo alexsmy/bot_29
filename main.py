@@ -4,6 +4,12 @@ from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
+import os
+import logging
+from fastapi import FastAPI, Request, HTTPException, status
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.exception_handlers import http_exception_handler
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -68,6 +74,15 @@ async def get_call_page(request: Request, room_id: str):
     room = await manager.get_or_restore_room(room_id)
     if not room:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
+
+    if len(room.users) >= room.max_users:
+        log("AUTH_ATTEMPT", f"Попытка входа в заполненную комнату {room_id}. Показываем room_occupied.html.", level=logging.WARNING)
+        bot_username = os.environ.get("BOT_USERNAME", "")
+        return templates.TemplateResponse(
+            "room_occupied.html",
+            {"request": request, "bot_username": bot_username},
+            status_code=status.HTTP_403_FORBIDDEN
+        )
 
     role = "none"
     if "roll_in" in request.query_params:
