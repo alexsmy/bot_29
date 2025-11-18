@@ -1,4 +1,4 @@
-
+# handlers/public_handlers.py
 import os
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constants
@@ -106,7 +106,8 @@ async def instructions(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     if await check_and_handle_spam(update, context, "Sent /instructions command"):
         return
         
-    await log_user_and_action(update, "/instructions")
+    # ИСПРАВЛЕНИЕ: Удален избыточный вызов log_user_and_action.
+    # Основное логирование уже произошло внутри check_and_handle_spam.
     user_name = update.effective_user.first_name
     log("BOT_SETUP", f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил инструкцию.")
 
@@ -118,7 +119,8 @@ async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if await check_and_handle_spam(update, context, "Sent /faq command"):
         return
         
-    await log_user_and_action(update, "/faq")
+    # ИСПРАВЛЕНИЕ: Удален избыточный вызов log_user_and_action.
+    # Основное логирование уже произошло внутри check_and_handle_spam.
     user_name = update.effective_user.first_name
     log("BOT_SETUP", f"Пользователь {user_name} (ID: {update.effective_user.id}) запросил FAQ.")
 
