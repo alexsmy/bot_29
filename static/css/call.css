@@ -498,7 +498,7 @@
   flex-shrink: 0;
 }
 .modal-footer .action-btn {
-  padding: 10px 25px;
+  padding: 6px 25px;
   border: none;
   background-color: var(--accent-blue);
   color: white;
