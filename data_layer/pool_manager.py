@@ -54,7 +54,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS call_sessions (
                 session_id SERIAL PRIMARY KEY,
                 room_id TEXT NOT NULL UNIQUE,
-                generated_by_user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+                generated_by_user_id BIGINT NOT NULL,
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
                 status TEXT DEFAULT 'pending',
@@ -67,13 +67,6 @@ async def init_db():
             await conn.execute("ALTER TABLE call_sessions ADD COLUMN IF NOT EXISTS room_type TEXT NOT NULL DEFAULT 'private'")
         except asyncpg.exceptions.DuplicateColumnError:
             pass
-        
-        try:
-            await conn.execute("ALTER TABLE call_sessions DROP CONSTRAINT IF EXISTS call_sessions_generated_by_user_id_fkey")
-            await conn.execute("ALTER TABLE call_sessions ADD FOREIGN KEY (generated_by_user_id) REFERENCES users(user_id) ON DELETE CASCADE")
-        except asyncpg.PostgresError as e:
-            log("DB_LIFECYCLE", f"Не удалось обновить внешний ключ для call_sessions: {e}", level="WARNING")
-
 
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS call_history (

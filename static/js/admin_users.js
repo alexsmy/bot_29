@@ -1,3 +1,8 @@
+
+// static/js/admin_users.js
+
+// Этот модуль отвечает за логику раздела "Пользователи".
+
 import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
@@ -15,35 +20,24 @@ function renderUsers(users) {
         const isBlocked = user.status === 'blocked';
         
         const actionsHtml = isBlocked ? `
-            <div class="user-card-actions">
+            <div class="user-actions">
                 <button class="action-btn unblock-btn" data-user-id="${user.user_id}">Разблокировать</button>
                 <button class="action-btn danger delete-btn" data-user-id="${user.user_id}">Удалить</button>
             </div>
-        ` : `
-            <div class="user-card-actions">
-                <button class="action-btn block-btn" data-user-id="${user.user_id}">Заблокировать</button>
-                <button class="action-btn danger delete-btn" data-user-id="${user.user_id}">Удалить</button>
-            </div>
-        `;
+        ` : '';
 
         return `
-            <div class="user-card ${isBlocked ? 'blocked' : ''}" data-user-id="${user.user_id}">
-                <div class="user-card-main">
-                    <div class="user-card-info">
-                        <div class="user-card-header">
-                            <span class="icon">${ICONS.clock}</span>
-                            <span>${formatDate(user.first_seen)}</span>
-                        </div>
-                        <div class="user-card-body">
-                            <div class="user-name">
-                                <span class="icon">${ICONS.person}</span>
-                                <span>${displayName}</span>
-                            </div>
+            <div class="user-item ${isBlocked ? 'blocked' : ''}" data-user-id="${user.user_id}">
+                <div class="user-summary-wrapper">
+                    <div class="user-summary">
+                        <div>
+                            <div class="user-name">${displayName}</div>
                             <div class="user-id">ID: ${user.user_id}</div>
                         </div>
+                        <div class="user-first-seen">${formatDate(user.first_seen)}</div>
                     </div>
-                    ${actionsHtml}
                 </div>
+                ${actionsHtml}
                 <div class="user-details" id="details-${user.user_id}"></div>
             </div>`;
     }).join('');
@@ -53,18 +47,7 @@ async function loadUsers() {
     const users = await fetchData('users');
     if (users) {
         allUsersData = users;
-        const searchTerm = userSearchInput.value.trim().toLowerCase();
-        if (searchTerm) {
-            const filtered = allUsersData.filter(user => {
-                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
-                const username = (user.username || '').toLowerCase();
-                const id = String(user.user_id);
-                return fullName.includes(searchTerm) || username.includes(searchTerm) || id.includes(searchTerm);
-            });
-            renderUsers(filtered);
-        } else {
-            renderUsers(allUsersData);
-        }
+        renderUsers(allUsersData);
     }
 }
 
@@ -85,35 +68,33 @@ export function initUsers() {
 
     usersListContainer.addEventListener('click', async (e) => {
         const target = e.target;
-        const userCard = target.closest('.user-card');
-        if (!userCard) return;
+        const userItem = target.closest('.user-item');
+        if (!userItem) return;
         
-        const userId = userCard.dataset.userId;
+        const userId = userItem.dataset.userId;
 
-        // Обработка кликов по кнопкам
-        if (target.closest('.user-card-actions')) {
-            e.stopPropagation();
-            if (target.classList.contains('block-btn')) {
-                if (confirm(`Вы уверены, что хотите заблокировать пользователя ID ${userId}?`)) {
-                    await fetchData(`user/${userId}/block`, { method: 'POST' });
-                    loadUsers();
-                }
-            } else if (target.classList.contains('unblock-btn')) {
-                if (confirm(`Вы уверены, что хотите разблокировать пользователя ID ${userId}?`)) {
-                    await fetchData(`user/${userId}/unblock`, { method: 'POST' });
-                    loadUsers();
-                }
-            } else if (target.classList.contains('delete-btn')) {
-                if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные. Это действие необратимо. Продолжить?`)) {
-                    await fetchData(`user/${userId}`, { method: 'DELETE' });
-                    loadUsers();
-                }
+        // --- НОВАЯ ЛОГИКА ОБРАБОТКИ КНОПОК ---
+        if (target.classList.contains('unblock-btn')) {
+            e.stopPropagation(); // Предотвращаем открытие деталей
+            if (confirm(`Вы уверены, что хотите разблокировать пользователя ID ${userId}?`)) {
+                await fetchData(`user/${userId}/unblock`, { method: 'POST' });
+                loadUsers(); // Перезагружаем список для обновления
             }
             return;
         }
 
-        // Логика открытия/закрытия деталей при клике на саму карточку
-        const detailsContainer = userCard.querySelector('.user-details');
+        if (target.classList.contains('delete-btn')) {
+            e.stopPropagation(); // Предотвращаем открытие деталей
+            if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные (действия, сессии). Это действие необратимо. Продолжить?`)) {
+                await fetchData(`user/${userId}`, { method: 'DELETE' });
+                loadUsers(); // Перезагружаем список для обновления
+            }
+            return;
+        }
+        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+
+        // Логика открытия/закрытия деталей
+        const detailsContainer = userItem.querySelector('.user-details');
         const isVisible = detailsContainer.style.display === 'block';
 
         if (isVisible) {
