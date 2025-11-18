@@ -1,3 +1,4 @@
+<!-- templates/call.html -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
@@ -253,23 +254,30 @@
         </div>
     </div>
 
-    <div id="instructions-modal" class="modal-instructions">
+    <div id="instructions-modal" class="modal-container">
         <div class="modal-overlay"></div>
-        <div class="modal-instructions-content">
-            <button class="close-instructions-btn top">Закрыть</button>
-            <div class="instructions-content">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Инструкции</h2>
+                <button class="modal-close-btn close-instructions-btn">&times;</button>
+            </div>
+            <div class="modal-body">
                 {% include 'instructions_call.html' %}
             </div>
-            <button class="close-instructions-btn bottom">Закрыть</button>
+            <div class="modal-footer">
+                <button class="action-btn close-instructions-btn">Понятно</button>
+            </div>
         </div>
     </div>
 
-    <div id="device-settings-modal" class="modal-instructions">
+    <div id="device-settings-modal" class="modal-container">
         <div class="modal-overlay"></div>
-        <div class="modal-instructions-content">
-            <button class="close-settings-btn top">Закрыть</button>
-            <div class="settings-content">
+        <div class="modal-content">
+            <div class="modal-header">
                 <h2>Настройки устройств</h2>
+                <button class="modal-close-btn close-settings-btn">&times;</button>
+            </div>
+            <div class="modal-body">
                 <div class="device-selectors-modal">
                     <div id="camera-select-container-call" class="device-selector" style="display: none;">
                         <label for="camera-select-call">Камера:</label>
@@ -285,7 +293,9 @@
                     </div>
                 </div>
             </div>
-            <button class="close-settings-btn bottom">Закрыть</button>
+            <div class="modal-footer">
+                <button class="action-btn close-settings-btn">Закрыть</button>
+            </div>
         </div>
     </div>
 
