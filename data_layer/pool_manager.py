@@ -54,7 +54,7 @@ async def init_db():
             CREATE TABLE IF NOT EXISTS call_sessions (
                 session_id SERIAL PRIMARY KEY,
                 room_id TEXT NOT NULL UNIQUE,
-                generated_by_user_id BIGINT NOT NULL,
+                generated_by_user_id BIGINT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
                 created_at TIMESTAMPTZ NOT NULL,
                 expires_at TIMESTAMPTZ NOT NULL,
                 status TEXT DEFAULT 'pending',
@@ -63,6 +63,14 @@ async def init_db():
                 room_type TEXT NOT NULL DEFAULT 'private'
             )
         ''')
+        try:
+            await conn.execute("ALTER TABLE call_sessions DROP CONSTRAINT IF EXISTS call_sessions_generated_by_user_id_fkey")
+            await conn.execute("ALTER TABLE call_sessions ADD CONSTRAINT call_sessions_generated_by_user_id_fkey FOREIGN KEY (generated_by_user_id) REFERENCES users(user_id) ON DELETE CASCADE")
+        except asyncpg.exceptions.UndefinedTableError:
+             pass # Таблицы еще не существует, ограничение будет создано выше
+        except Exception as e:
+            log("DB_LIFECYCLE", f"Не удалось обновить ограничение внешнего ключа для call_sessions: {e}")
+
         try:
             await conn.execute("ALTER TABLE call_sessions ADD COLUMN IF NOT EXISTS room_type TEXT NOT NULL DEFAULT 'private'")
         except asyncpg.exceptions.DuplicateColumnError:

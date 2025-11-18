@@ -1,8 +1,7 @@
 import json
 import logging
 from datetime import datetime
-from fastapi import APIRouter, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, UploadFile, File, Response
 
 import database
 from core import CustomJSONResponse
@@ -53,7 +52,7 @@ async def delete_user_by_admin(user_id: int):
         log("ERROR", f"Ошибка при удалении пользователя {user_id}: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Failed to delete user.")
 
-@router.get("/users/export", response_class=JSONResponse)
+@router.get("/users/export", response_class=Response)
 async def export_users_data():
     try:
         users = await database.get_users_info()
@@ -69,15 +68,13 @@ async def export_users_data():
             'Content-Disposition': f'attachment; filename="users_export_{datetime.utcnow().strftime("%Y%m%d")}.json"'
         }
         
-        # Используем стандартный JSONResponse для корректной сериализации datetime
         def json_default(o):
-            if isinstance(o, (datetime,)):
+            if isinstance(o, datetime):
                 return o.isoformat()
         
-        return JSONResponse(
-            content=json.loads(json.dumps(data_to_export, default=json_default)),
-            headers=headers
-        )
+        json_content = json.dumps(data_to_export, default=json_default, indent=4, ensure_ascii=False)
+        
+        return Response(content=json_content, media_type="application/json", headers=headers)
     except Exception as e:
         log("ERROR", f"Ошибка при экспорте данных пользователей: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Failed to export data.")

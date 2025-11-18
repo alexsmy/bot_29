@@ -6,8 +6,8 @@ let allActionsData = [];
 let usersListContainer, userSearchInput, exportBtn, importBtn, importInput;
 
 function renderUserCard(user) {
-    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
-    const displayName = fullName || (user.username ? `@${user.username}` : 'Без имени');
+    const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
+    const displayName = (fullName && fullName !== '.') ? fullName : (user.username ? `@${user.username}` : 'Без имени');
     const isBlocked = user.status === 'blocked';
     const actionsCount = allActionsData.filter(a => a.user_id === user.user_id).length;
 
