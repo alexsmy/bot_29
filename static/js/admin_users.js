@@ -1,6 +1,4 @@
-
-// static/js/admin_users.js
-
+// bot_29-main/static/js/admin_users.js
 // Этот модуль отвечает за логику раздела "Пользователи".
 
 import { fetchData } from './admin_api.js';
@@ -19,12 +17,18 @@ function renderUsers(users) {
         const displayName = fullName || (user.username ? `@${user.username}` : 'Без имени');
         const isBlocked = user.status === 'blocked';
         
-        const actionsHtml = isBlocked ? `
+        const blockOrUnblockBtn = isBlocked
+            ? `<button class="action-btn unblock-btn" data-user-id="${user.user_id}">Разблокировать</button>`
+            : `<button class="action-btn block-btn" data-user-id="${user.user_id}">Заблокировать</button>`;
+
+        const deleteBtn = `<button class="action-btn danger delete-btn" data-user-id="${user.user_id}">Удалить</button>`;
+
+        const actionsHtml = `
             <div class="user-actions">
-                <button class="action-btn unblock-btn" data-user-id="${user.user_id}">Разблокировать</button>
-                <button class="action-btn danger delete-btn" data-user-id="${user.user_id}">Удалить</button>
+                ${blockOrUnblockBtn}
+                ${deleteBtn}
             </div>
-        ` : '';
+        `;
 
         return `
             <div class="user-item ${isBlocked ? 'blocked' : ''}" data-user-id="${user.user_id}">
@@ -73,25 +77,34 @@ export function initUsers() {
         
         const userId = userItem.dataset.userId;
 
-        // --- НОВАЯ ЛОГИКА ОБРАБОТКИ КНОПОК ---
+        // --- ОБНОВЛЕННАЯ ЛОГИКА ОБРАБОТКИ КНОПОК ---
+        if (target.classList.contains('block-btn')) {
+            e.stopPropagation();
+            if (confirm(`Вы уверены, что хотите заблокировать пользователя ID ${userId}?`)) {
+                await fetchData(`user/${userId}/block`, { method: 'POST' });
+                loadUsers();
+            }
+            return;
+        }
+
         if (target.classList.contains('unblock-btn')) {
-            e.stopPropagation(); // Предотвращаем открытие деталей
+            e.stopPropagation();
             if (confirm(`Вы уверены, что хотите разблокировать пользователя ID ${userId}?`)) {
                 await fetchData(`user/${userId}/unblock`, { method: 'POST' });
-                loadUsers(); // Перезагружаем список для обновления
+                loadUsers();
             }
             return;
         }
 
         if (target.classList.contains('delete-btn')) {
-            e.stopPropagation(); // Предотвращаем открытие деталей
+            e.stopPropagation();
             if (confirm(`ВНИМАНИЕ! Вы собираетесь удалить пользователя ID ${userId} и все его данные (действия, сессии). Это действие необратимо. Продолжить?`)) {
                 await fetchData(`user/${userId}`, { method: 'DELETE' });
-                loadUsers(); // Перезагружаем список для обновления
+                loadUsers();
             }
             return;
         }
-        // --- КОНЕЦ НОВОЙ ЛОГИКИ ---
+        // --- КОНЕЦ ОБНОВЛЕННОЙ ЛОГИКИ ---
 
         // Логика открытия/закрытия деталей
         const detailsContainer = userItem.querySelector('.user-details');

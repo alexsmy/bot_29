@@ -1,3 +1,4 @@
+/* bot_29-main/static/css/admin/_sections.css */
 /*
   Модуль секций.
   Содержит стили, специфичные для каждой отдельной вкладки админ-панели.
@@ -86,6 +87,14 @@ html.dark .user-item.blocked {
 }
 .user-actions .unblock-btn:hover {
     background-color: var(--success-color);
+    color: #fff;
+}
+.user-actions .block-btn {
+    border-color: var(--pending-color);
+    color: var(--pending-color);
+}
+.user-actions .block-btn:hover {
+    background-color: var(--pending-color);
     color: #fff;
 }
 .user-summary {

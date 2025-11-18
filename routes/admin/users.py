@@ -1,3 +1,4 @@
+# bot_29-main/routes/admin/users.py
 import logging
 from fastapi import APIRouter, HTTPException
 
@@ -24,6 +25,16 @@ async def get_admin_user_actions(user_id: int):
     return actions
 
 # --- ИЗМЕНЕННЫЕ ЭНДПОИНТЫ ---
+
+@router.post("/user/{user_id}/block", response_class=CustomJSONResponse)
+async def block_user(user_id: int):
+    """Принудительно блокирует пользователя."""
+    try:
+        await database.update_user_status(user_id, 'blocked')
+        return {"status": "ok", "message": f"User {user_id} blocked."}
+    except Exception as e:
+        log("ERROR", f"Ошибка при блокировке пользователя {user_id}: {e}", level=logging.ERROR)
+        raise HTTPException(status_code=500, detail="Failed to block user.")
 
 @router.post("/user/{user_id}/unblock", response_class=CustomJSONResponse)
 async def unblock_user(user_id: int):
