@@ -5,14 +5,16 @@ from data_layer.user_queries import (
     get_users_info,
     get_user_status,
     update_user_status,
-    delete_user
+    delete_user,
+    import_users_and_actions
 )
 
 from data_layer.action_queries import (
     log_bot_action,
     get_user_actions,
     count_spam_strikes,
-    forgive_spam_strikes
+    forgive_spam_strikes,
+    get_all_actions
 )
 
 from data_layer.call_queries import (
@@ -49,8 +51,8 @@ from data_layer.danger_zone_queries import clear_all_data
 
 __all__ = [
     'get_pool', 'close_pool', 'init_db',
-    'log_user', 'get_users_info', 'get_user_status', 'update_user_status', 'delete_user',
-    'log_bot_action', 'get_user_actions', 'count_spam_strikes', 'forgive_spam_strikes',
+    'log_user', 'get_users_info', 'get_user_status', 'update_user_status', 'delete_user', 'import_users_and_actions',
+    'log_bot_action', 'get_user_actions', 'count_spam_strikes', 'forgive_spam_strikes', 'get_all_actions',
     'log_call_session', 'log_call_start', 'log_call_end', 'update_call_connection_type',
     'get_call_session_details', 'get_call_participants_details',
     'log_room_closure', 'get_room_lifetime_hours', 'get_all_active_sessions',

@@ -20,6 +20,11 @@ async def get_admin_user_actions(user_id: int):
     actions = await database.get_user_actions(user_id)
     return actions
 
+@router.get("/users/all_actions", response_class=CustomJSONResponse)
+async def get_all_user_actions():
+    actions = await database.get_all_actions()
+    return actions
+
 @router.post("/user/{user_id}/block", response_class=CustomJSONResponse)
 async def block_user(user_id: int):
     try:
@@ -64,7 +69,15 @@ async def export_users_data():
             'Content-Disposition': f'attachment; filename="users_export_{datetime.utcnow().strftime("%Y%m%d")}.json"'
         }
         
-        return JSONResponse(content=data_to_export, headers=headers)
+        # Используем стандартный JSONResponse для корректной сериализации datetime
+        def json_default(o):
+            if isinstance(o, (datetime,)):
+                return o.isoformat()
+        
+        return JSONResponse(
+            content=json.loads(json.dumps(data_to_export, default=json_default)),
+            headers=headers
+        )
     except Exception as e:
         log("ERROR", f"Ошибка при экспорте данных пользователей: {e}", level=logging.ERROR)
         raise HTTPException(status_code=500, detail="Failed to export data.")

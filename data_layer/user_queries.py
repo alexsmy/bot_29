@@ -1,4 +1,6 @@
+
 import asyncpg
+import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 
@@ -39,7 +41,7 @@ async def delete_user(user_id: int):
     pool = await get_pool()
     async with pool.acquire() as conn:
         await conn.execute("DELETE FROM users WHERE user_id = $1", user_id)
-    log("ADMIN_ACTION", f"Пользователь {user_id} и все его данные были удалены администратором.", level="WARNING")
+    log("ADMIN_ACTION", f"Пользователь {user_id} и все его данные были удалены администратором.", level=logging.WARNING)
 
 async def import_users_and_actions(data: Dict[str, List[Dict[str, Any]]]):
     pool = await get_pool()
@@ -67,9 +69,3 @@ async def import_users_and_actions(data: Dict[str, List[Dict[str, Any]]]):
                     [(a['user_id'], a['action'], a['timestamp']) for a in actions]
                 )
     log("ADMIN_ACTION", f"Импортировано {len(users)} пользователей и {len(actions)} действий из файла.")
-
-async def get_all_actions() -> List[Dict[str, Any]]:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        rows = await conn.fetch("SELECT user_id, action, timestamp FROM bot_actions")
-        return [dict(row) for row in rows]

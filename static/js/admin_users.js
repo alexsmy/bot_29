@@ -2,12 +2,14 @@ import { fetchData } from './admin_api.js';
 import { formatDate } from './admin_utils.js';
 
 let allUsersData = [];
+let allActionsData = [];
 let usersListContainer, userSearchInput, exportBtn, importBtn, importInput;
 
-function renderUserCard(user, actionsCount) {
+function renderUserCard(user) {
     const fullName = [user.first_name, user.last_name].filter(Boolean).join(' ');
     const displayName = fullName || (user.username ? `@${user.username}` : 'Без имени');
     const isBlocked = user.status === 'blocked';
+    const actionsCount = allActionsData.filter(a => a.user_id === user.user_id).length;
 
     const buttonsHtml = isBlocked ? `
         <button class="action-btn success unblock-btn" data-user-id="${user.user_id}" title="Разблокировать">
@@ -56,7 +58,7 @@ function renderUserCard(user, actionsCount) {
     `;
 }
 
-async function renderUsers() {
+function renderUsers() {
     const searchTerm = userSearchInput.value.trim().toLowerCase();
     const filteredUsers = allUsersData.filter(user => {
         const fullName = `${user.first_name || ''} ${user.last_name || ''}`.toLowerCase();
@@ -70,25 +72,20 @@ async function renderUsers() {
         return;
     }
 
-    const actions = await fetchData('user_actions/0'); 
-    const allActions = actions || [];
-    
-    const userActionCounts = allActions.reduce((acc, action) => {
-        acc[action.user_id] = (acc[action.user_id] || 0) + 1;
-        return acc;
-    }, {});
-
-    usersListContainer.innerHTML = filteredUsers.map(user => 
-        renderUserCard(user, userActionCounts[user.user_id] || 0)
-    ).join('');
+    usersListContainer.innerHTML = filteredUsers.map(user => renderUserCard(user)).join('');
 }
 
 async function loadAndRenderUsers() {
     usersListContainer.innerHTML = '<div class="skeleton-list"></div>';
-    const users = await fetchData('users');
+    const [users, actions] = await Promise.all([
+        fetchData('users'),
+        fetchData('users/all_actions')
+    ]);
+
     if (users) {
         allUsersData = users;
-        await renderUsers();
+        allActionsData = actions || [];
+        renderUsers();
     } else {
         usersListContainer.innerHTML = '<p class="empty-list">Не удалось загрузить список пользователей.</p>';
     }
@@ -166,9 +163,12 @@ export function initUsers() {
                 detailsContainer.style.maxHeight = '300px';
                 if (!detailsContainer.innerHTML.trim()) {
                     detailsContainer.innerHTML = '<p style="padding: 1rem;">Загрузка действий...</p>';
-                    const actions = await fetchData(`user_actions/${userItem.dataset.userId}`);
-                    if (actions && actions.length > 0) {
-                        const actionsHtml = actions.map(action => `
+                    const userId = userItem.dataset.userId;
+                    const userActions = allActionsData.filter(a => a.user_id == userId)
+                                                     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+                    if (userActions && userActions.length > 0) {
+                        const actionsHtml = userActions.map(action => `
                             <div class="action-log-entry">
                                 <span class="action-name">${action.action}</span>
                                 <span class="action-time">${formatDate(action.timestamp)}</span>
