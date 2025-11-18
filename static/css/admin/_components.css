@@ -1,10 +1,3 @@
-/*
-  Модуль компонентов.
-  Содержит стили для переиспользуемых элементов UI: кнопок, карточек,
-  модальных окон, полей ввода, значков и т.д.
-*/
-
-/* --- Навигация --- */
 .nav-link {
     display: flex;
     align-items: center;
@@ -29,7 +22,6 @@
     height: 20px;
 }
 
-/* --- Элементы хэдера --- */
 #token-info {
     font-size: 0.875rem;
     color: var(--text-secondary);
@@ -65,7 +57,6 @@
     height: 20px;
 }
 
-/* --- Фильтры и кнопки --- */
 .filters {
     margin-bottom: 1.5rem;
     display: flex;
@@ -93,6 +84,13 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.action-btn .icon {
+    width: 16px;
+    height: 16px;
 }
 .action-btn:hover {
     border-color: var(--text-primary);
@@ -114,8 +112,15 @@
     background-color: var(--danger-action);
     color: #fff;
 }
+.action-btn.success {
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+.action-btn.success:hover {
+    background-color: var(--success-color);
+    color: #fff;
+}
 
-/* --- Карточки --- */
 .stat-card {
     background-color: var(--surface-bg);
     padding: 1.5rem;
@@ -150,8 +155,7 @@ html.dark .stat-card.clickable {
     color: var(--accent-color);
 }
 
-/* --- Элементы списков --- */
-.room-item, .user-item {
+.room-item {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
     border-radius: 8px;
@@ -164,15 +168,11 @@ html.dark .stat-card.clickable {
     flex-wrap: wrap;
     gap: 1rem;
 }
-.room-item:hover, .user-item:hover {
+.room-item:hover {
     box-shadow: var(--shadow-md);
     border-color: var(--accent-color);
 }
-.user-item {
-    cursor: pointer;
-}
 
-/* --- Значки (Badges) --- */
 .creator-badge {
     font-size: 0.8em;
     font-weight: 600;
@@ -202,7 +202,6 @@ html.dark .stat-card.clickable {
 .status.closed { background-color: var(--text-secondary); color: var(--accent-text); }
 .status.expired { background-color: var(--pending-color); color: var(--accent-text); }
 
-/* --- Иконки --- */
 .call-status-icon {
     display: inline-flex;
     align-items: center;
@@ -227,7 +226,6 @@ html.dark .stat-card.clickable {
 .icon-device.desktop { color: var(--icon-color-desktop); }
 .icon-location { color: var(--icon-color-location); }
 
-/* --- Скелетоны (загрузчики) --- */
 .skeleton {
     animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
     background-color: var(--skeleton-bg);
@@ -251,7 +249,6 @@ html.dark .stat-card.clickable {
 .skeleton-list::after { width: 70%; }
 @keyframes pulse { 50% { opacity: .5; } }
 
-/* --- Мобильное меню --- */
 .mobile-menu-toggle {
     display: none;
     background: var(--surface-bg);
@@ -288,7 +285,6 @@ html.dark .stat-card.clickable {
     visibility: visible;
 }
 
-/* --- Модальное окно просмотра --- */
 .viewer-modal {
     position: fixed;
     top: 0;
@@ -395,7 +391,6 @@ html.dark .stat-card.clickable {
     cursor: zoom-out;
 }
 
-/* --- Модальное окно действий --- */
 .action-modal {
     display: none;
     position: fixed;

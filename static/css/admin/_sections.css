@@ -1,16 +1,9 @@
-/*
-  Модуль секций.
-  Содержит стили, специфичные для каждой отдельной вкладки админ-панели.
-*/
-
-/* --- Секция "Статистика" --- */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 1rem;
 }
 
-/* --- Секция "Активные комнаты" --- */
 .room-list-container {
     display: flex;
     flex-direction: column;
@@ -54,11 +47,21 @@
     color: var(--success-color);
 }
 
-/* --- Секция "Пользователи" --- */
 .users-list {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+}
+.user-item {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.2s ease-in-out, border-color 0.2s ease-in-out;
+}
+.user-item:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent-color);
 }
 .user-item.blocked {
     border-left: 4px solid var(--error-color);
@@ -67,56 +70,105 @@
 .user-item.blocked .user-name, .user-item.blocked .user-id {
     color: var(--danger-text);
 }
-html.dark .user-item.blocked {
-    color: var(--danger-text);
-}
-.user-actions {
-    margin-left: auto;
-    display: flex;
-    gap: 0.5rem;
-    flex-shrink: 0;
-}
-.user-actions .action-btn {
-    padding: 0.3rem 0.8rem;
-    font-size: 0.85em;
-}
-.user-actions .unblock-btn {
-    border-color: var(--success-color);
-    color: var(--success-color);
-}
-.user-actions .unblock-btn:hover {
-    background-color: var(--success-color);
-    color: #fff;
-}
-.user-summary {
+.user-item-header {
+    padding: 1rem 1.25rem;
+    cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    width: 100%;
-    flex-grow: 1;
+    flex-wrap: wrap;
+    gap: 1rem;
 }
-.user-name { font-weight: 600; color: var(--text-primary); }
-.user-id { color: var(--text-secondary); font-size: 0.9em; }
-.user-first-seen { color: var(--text-secondary); font-size: 0.9em; text-align: right; }
+.user-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+.user-status-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--base-bg);
+    color: var(--text-secondary);
+}
+.user-item.blocked .user-status-icon {
+    background-color: var(--error-color);
+    color: #fff;
+}
+.user-name-id {
+    display: flex;
+    flex-direction: column;
+}
+.user-name {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+.user-id {
+    font-size: 0.85em;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+.user-meta {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+.user-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.user-meta-item .icon {
+    width: 16px;
+    height: 16px;
+}
+.user-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+.user-actions .action-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85em;
+}
 .user-details {
-    display: none;
-    width: 100%;
-    margin-top: 1rem;
+    padding: 0 1.25rem;
+    background-color: var(--base-bg);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out;
+}
+.user-item.open .user-details {
     padding-top: 1rem;
+    padding-bottom: 1.25rem;
     border-top: 1px solid var(--border-color);
 }
-.user-details-content {
-    max-height: 140px;
+.action-log {
+    font-family: monospace;
+    font-size: 0.85em;
+    line-height: 1.6;
+    max-height: 200px;
     overflow-y: auto;
-    background-color: var(--base-bg);
-    border-radius: 6px;
+    background-color: var(--surface-bg);
     padding: 0.75rem;
+    border-radius: 6px;
     border: 1px solid var(--border-color);
 }
-.user-details-content ul { list-style: none; padding: 0; margin: 0; font-size: 0.9em; }
-.user-details-content li { padding: 0.2rem 0; }
+.action-log-entry {
+    display: flex;
+    justify-content: space-between;
+}
+.action-log-entry .action-name {
+    color: var(--text-primary);
+}
+.action-log-entry .action-time {
+    color: var(--text-secondary);
+}
 
-/* --- Секция "Соединения" --- */
 .connections-list {
     display: flex;
     flex-direction: column;
@@ -289,7 +341,6 @@ html.dark .call-count-badge {
 html.dark .connection-type-badge.p2p { background-color: #1d4226; color: #c3e6cb; }
 html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffeeba; }
 
-/* --- Секция "Проводник" --- */
 .file-explorer {
     background-color: var(--surface-bg);
     border: 1px solid var(--border-color);
@@ -350,7 +401,6 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     gap: 1rem;
 }
 
-/* --- Секция "Опасная зона" --- */
 .danger-zone {
     background-color: var(--danger-bg);
     border: 1px solid var(--danger-border);
