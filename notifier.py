@@ -48,7 +48,6 @@ async def send_admin_notification(message: str, setting_key: str, file_path: str
         log("ERROR", f"Не удалось отправить уведомление администратору ('{setting_key}'): {e}", level=logging.ERROR)
 
 async def send_admin_photo_notification(caption: str, setting_key: str, file_path: str):
-    """Отправляет администратору уведомление с фотографией."""
     if not _bot_app or not _admin_id:
         log("NOTIFICATION", "Попытка отправить фото, но бот или ADMIN_USER_ID не настроены.", level=logging.WARNING)
         return
@@ -102,9 +101,7 @@ async def send_notification_with_content_handling(message: str, file_path: str, 
     except Exception as e:
         log("ERROR", f"Общая ошибка при отправке уведомления с контентом: {e}", level=logging.ERROR)
 
-# --- НОВАЯ ФУНКЦИЯ ---
 async def send_user_blocked_notification(user_id: int, first_name: str, username: str, strike_count: int):
-    """Отправляет администратору уведомление о блокировке пользователя."""
     if not _bot_app or not _admin_id:
         return
     
@@ -120,7 +117,23 @@ async def send_user_blocked_notification(user_id: int, first_name: str, username
         log("NOTIFICATION", f"Администратору отправлено уведомление о блокировке пользователя {user_id}.")
     except Exception as e:
         log("ERROR", f"Не удалось отправить уведомление о блокировке пользователя {user_id}: {e}", level=logging.ERROR)
-# --- КОНЕЦ НОВОЙ ФУНКЦИИ ---
+
+async def send_new_user_notification(user_id: int, first_name: str, username: str):
+    if not _bot_app or not _admin_id:
+        return
+
+    username_str = f"(@{username})" if username else "(нет username)"
+    message = (
+        f"👋 <b>Новый пользователь в боте!</b>\n\n"
+        f"<b>Имя:</b> {first_name}\n"
+        f"<b>Username:</b> {username_str}\n"
+        f"<b>ID:</b> <code>{user_id}</code>"
+    )
+    try:
+        await _bot_app.bot.send_message(chat_id=_admin_id, text=message, parse_mode='HTML')
+        log("NOTIFICATION", f"Администратору отправлено уведомление о новом пользователе {user_id}.")
+    except Exception as e:
+        log("ERROR", f"Не удалось отправить уведомление о новом пользователе {user_id}: {e}", level=logging.ERROR)
 
 def schedule_notification(*args, **kwargs):
     asyncio.run_coroutine_threadsafe(send_admin_notification(*args, **kwargs), _bot_app.loop)

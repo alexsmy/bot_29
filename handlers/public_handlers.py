@@ -4,6 +4,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, constan
 from telegram.ext import ContextTypes, filters, ConversationHandler
 
 import database
+import notifier
 from configurable_logger import log
 from config import PRIVATE_ROOM_LIFETIME_HOURS, MAX_ACTIVE_ROOMS_PER_USER, MAX_ROOM_CREATIONS_PER_DAY, WEB_APP_URL, ADMIN_USER_ID
 from bot_utils import log_user_and_action, read_template_content, format_hours, check_and_handle_spam, format_remaining_time
@@ -31,6 +32,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     log("BOT_SETUP", f"Пользователь {user_name} (ID: {user.id}) запустил команду /start. Новый пользователь: {is_new_user}.")
 
     if is_new_user:
+        await notifier.send_new_user_notification(user.id, user.first_name, user.username)
+        
         welcome_caption = (
             f"👋 <b>Добро пожаловать, {user_name}!</b>\n\n"
             "Этот бот создает приватные, зашифрованные аудио- и видеозвонки прямо в браузере.\n\n"
