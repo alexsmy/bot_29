@@ -1,18 +1,167 @@
 /* 
   Адаптивность для мобильных устройств.
+  Включает оптимизацию для маленьких экранов (iPhone 5/SE, старые Android).
 */
 
+/* --- Стандартные мобильные устройства (до 480px) --- */
 @media (max-width: 480px) {
+    /* Pre-call check */
     .check-title { font-size: 1.5rem; }
+    .check-subtitle { font-size: 0.85rem; }
+    
+    /* Pre-call waiting */
     .pre-call-header h1 { font-size: 1.5rem; }
     .pre-call-header p { font-size: 0.9rem; }
-    .popup { padding: 20px; }
+    
+    /* Popups */
+    .popup { padding: 20px; width: 95%; }
     .popup h2 { font-size: 1.3rem; }
     .action-call-btn { padding: 15px; font-size: 1rem; }
+    
+    /* Footer info */
     #lifetime-timer { font-size: 2rem; }
     .info-block-lifetime p { font-size: 0.8rem; }
     .footer-actions { flex-direction: column; gap: 10px; align-items: stretch; }
+    
+    /* Visualizer */
     #audio-call-visualizer { gap: 10px; }
     .avatar-container { width: 90px; height: 90px; }
     .avatar-container svg { width: 40px; height: 40px; }
+
+    /* Active Call Controls - Base Mobile Adjustment */
+    .call-controls-grid {
+        gap: 10px;
+    }
+    .control-btn {
+        width: 55px;
+        height: 55px;
+    }
+    .control-btn svg {
+        width: 24px;
+        height: 24px;
+    }
+}
+
+/* --- Маленькие экраны (iPhone 5, SE, 6, 7, 8 - ширина 320px - 400px) --- */
+@media (max-width: 400px) {
+    /* Pre-call Check: Stack selectors vertically to avoid overflow */
+    .device-selectors {
+        grid-template-columns: 1fr !important; /* Force single column */
+        gap: 8px;
+    }
+    .device-selector label {
+        text-align: left;
+        margin-bottom: 2px;
+    }
+    .device-selector select {
+        padding: 6px;
+        font-size: 0.85rem;
+    }
+    
+    /* Reduce padding on main container */
+    #pre-call-check-screen {
+        padding: 10px;
+    }
+    .check-container {
+        gap: 10px;
+    }
+    .media-preview-area {
+        max-width: 240px;
+    }
+
+    /* Active Call UI Compression */
+    .call-ui-overlay {
+        padding: 10px;
+    }
+    
+    .top-info {
+        top: 10px;
+        right: 10px;
+    }
+
+    /* Shrink Caller Info */
+    #remote-user-name {
+        font-size: 1.5rem;
+        margin-bottom: 4px;
+    }
+    #call-timer {
+        font-size: 1rem;
+    }
+
+    /* Shrink Controls to fit 320px width */
+    .call-controls-grid {
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+    .control-item {
+        width: 50px; /* Force narrower items */
+        gap: 4px;
+    }
+    .control-item span {
+        font-size: 10px;
+    }
+    .control-btn {
+        width: 48px;
+        height: 48px;
+    }
+    .control-btn svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    /* Shrink Hangup Button */
+    .hangup-btn {
+        width: 60px;
+        height: 60px;
+    }
+    .hangup-btn svg {
+        width: 28px;
+        height: 28px;
+    }
+    .hangup-wrapper {
+        margin-top: 10px;
+    }
+
+    /* Local Video - Make smaller by default so it doesn't cover controls */
+    #local-video-container {
+        top: 10px;
+        left: 10px;
+    }
+    #localVideo {
+        width: 80px;
+        height: 120px;
+    }
+    
+    /* Visualizer scaling */
+    .avatar-container { width: 70px; height: 70px; }
+    .avatar-container svg { width: 30px; height: 30px; }
+}
+
+/* --- Короткие экраны (ландшафт или старые телефоны) --- */
+@media (max-height: 600px) {
+    .pre-call-header { height: auto; padding-bottom: 10px; }
+    .pre-call-header h1 { font-size: 1.4rem; margin-bottom: 5px; }
+    .pre-call-center { align-items: flex-start; overflow-y: auto; }
+    .popup { margin-top: 10px; transform: none; top: 0; position: relative; }
+    
+    /* Modal adjustments */
+    .modal-content {
+        height: 95%;
+        max-height: 95vh;
+    }
+    .modal-header {
+        padding: 10px 15px;
+    }
+    .modal-footer {
+        padding: 10px 15px;
+    }
+    
+    /* Active call vertical spacing */
+    .center-info {
+        justify-content: center;
+        padding-bottom: 5px;
+    }
+    .bottom-controls {
+        padding-bottom: 10px;
+    }
 }
