@@ -1,0 +1,19 @@
+/* 
+  Модуль переменных для интерфейса звонка.
+  Определяет Z-индексы и специфичные настройки.
+  Основные цвета берутся из base.css.
+*/
+
+:root {
+    /* Z-Indices */
+    --z-screen: 100;
+    --z-video-remote: 101;
+    --z-ui-overlay: 102;
+    --z-video-local: 103;
+    --z-video-local-dragging: 104;
+    --z-calling-overlay: 105;
+    --z-connection-popup: 110;
+    --z-modal: 1000;
+    --z-toast: 2000;
+    --z-modal-container: 2000;
+}

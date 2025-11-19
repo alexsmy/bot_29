@@ -1,0 +1,417 @@
+/* 
+  Стили для экрана активного звонка.
+  Включает видео-контейнеры, оверлеи управления, визуализаторы.
+*/
+
+#call-screen {
+    padding: 0;
+    background-color: #1c1c1e;
+    z-index: var(--z-screen);
+    transform: scale(1.1);
+}
+
+#call-screen.active {
+    transform: scale(1);
+}
+
+#call-screen.audio-call-active {
+    background: radial-gradient(ellipse at center, var(--bg-color) 40%, #1a2a4f 100%);
+    transition: background 0.5s ease-in-out;
+}
+
+#call-screen.call-connected {
+    background: radial-gradient(ellipse at center, var(--bg-color) 40%, #103c22 100%);
+    box-shadow: inset 0 0 80px -20px #50ff70;
+    transition: background 0.5s ease-in-out, box-shadow 0.5s ease-in-out;
+}
+
+#call-screen.call-ended {
+    background: radial-gradient(ellipse at center, var(--bg-color) 40%, #4d1a1a 100%);
+}
+
+/* --- Видео элементы --- */
+#remoteVideo {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: contain;
+    background-color: #000;
+    z-index: var(--z-video-remote);
+    display: none;
+}
+
+#local-video-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: var(--z-video-local);
+    display: none;
+    cursor: pointer;
+    transform-origin: top left;
+    transition: opacity 0.3s, transform 0.3s ease-in-out, box-shadow 0.2s ease-in-out;
+    background-color: rgba(0,0,0,0.3);
+    border-radius: 10px;
+    overflow: visible;
+    display: flex;
+    align-items: center;
+}
+
+#localVideo {
+    width: 100px;
+    height: 150px;
+    object-fit: contain;
+    background-color: #000;
+    display: block;
+    border-radius: 10px;
+    transition: width 0.2s ease, height 0.2s ease;
+}
+
+#local-video-container.small #localVideo {
+    width: 50px;
+    height: 75px;
+}
+
+#local-video-container.dragging {
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+    transform: scale(1.05);
+    cursor: grabbing;
+    z-index: var(--z-video-local-dragging);
+    transition: opacity 0.3s, transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out, left 0s;
+}
+
+#local-video-container.small.dragging {
+    transform: scale(1.05);
+}
+
+.view-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-left: 8px;
+}
+
+.view-control-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    background-color: rgba(0, 0, 0, 0.5);
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: background-color 0.2s ease;
+}
+
+.view-control-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.view-control-btn .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+}
+
+.view-control-btn .icon svg {
+    width: 100%;
+    height: 100%;
+}
+
+.force-cover {
+    object-fit: cover !important;
+}
+
+/* --- Аудио визуализатор --- */
+#audio-call-visualizer {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: var(--z-ui-overlay);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.avatar-container {
+    width: 100px;
+    height: 100px;
+    background-color: var(--secondary-surface);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.avatar-container svg {
+    width: 50px;
+    height: 50px;
+}
+
+.glow {
+    --glow-intensity: 0;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    box-shadow: 0 0 15px 5px var(--glow-color);
+    opacity: var(--glow-intensity);
+    transform: scale(calc(1 + var(--glow-intensity) * 0.2));
+    transition: transform 0.1s ease-out, opacity 0.1s ease-out;
+    pointer-events: none;
+}
+
+.avatar-container.local .glow { --glow-color: var(--local-glow-color); }
+.avatar-container.remote .glow { --glow-color: var(--remote-glow-color); }
+
+.data-flow {
+    display: flex;
+    gap: 8px;
+}
+
+.data-flow span {
+    width: 6px;
+    height: 6px;
+    background-color: var(--accent-blue);
+    border-radius: 50%;
+    opacity: 0;
+    animation: flow-dots 1.5s infinite ease-in-out;
+}
+
+.data-flow span:nth-child(2) { animation-delay: 0.2s; }
+.data-flow span:nth-child(3) { animation-delay: 0.4s; }
+.data-flow span:nth-child(4) { animation-delay: 0.6s; }
+.data-flow span:nth-child(5) { animation-delay: 0.8s; }
+
+@keyframes flow-dots {
+    0% { opacity: 0; transform: translateX(-10px); }
+    50% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(10px); }
+}
+
+/* --- UI Оверлей (контролы, инфо) --- */
+.call-ui-overlay {
+    position: relative;
+    z-index: var(--z-ui-overlay);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    text-align: center;
+    padding: 20px;
+    background: linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.7) 100%);
+}
+
+.top-info {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.center-info {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-bottom: 20px;
+}
+
+.caller-info-top {
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.7);
+}
+
+#remote-user-name {
+    font-size: 28px;
+    margin: 0 0 8px 0;
+}
+
+#call-timer {
+    font-size: 18px;
+    color: var(--text-secondary);
+    font-family: monospace;
+}
+
+.bottom-controls {
+    flex-shrink: 0;
+    padding-bottom: 20px;
+}
+
+.call-controls-grid {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    max-width: 400px; 
+    margin: 0 auto 25px auto;
+    flex-wrap: wrap;
+}
+
+.control-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 60px; 
+    flex-shrink: 0;
+}
+
+.control-item span {
+    font-size: 12px;
+    color: var(--text-secondary);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.4);
+}
+
+.hangup-wrapper { margin-top: 20px; }
+
+/* --- Индикаторы соединения --- */
+#connection-status {
+    padding: 5px 10px;
+    background-color: rgba(0, 0, 0, 0.4);
+    border-radius: 10px;
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    opacity: 1; 
+    cursor: pointer;
+}
+
+#connection-status .icon {
+    display: none;
+    width: 24px;
+    height: 24px;
+}
+
+#connection-status .icon.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#connection-status .icon svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    stroke: currentColor;
+}
+
+#connection-quality {
+    margin-right: 8px;
+}
+
+#connection-quality .quality-svg {
+    display: none;
+}
+
+#connection-quality .quality-svg.active-quality-svg {
+    display: flex !important; 
+    align-items: center;
+    justify-content: center;
+}
+
+#connection-quality.quality-good { color: var(--status-ok); }
+#connection-quality.quality-medium { color: #ffc107; }
+#connection-quality.quality-bad { color: var(--status-error); }
+
+.remote-audio-level-container {
+    display: flex;
+    gap: 3px;
+    align-items: center;
+    height: 24px;
+    z-index: var(--z-ui-overlay);
+    display: none;
+    opacity: 1; 
+}
+
+.remote-audio-level-bar {
+    width: 6px;
+    height: 16px;
+    background-color: var(--secondary-surface);
+    border-radius: 2px;
+    transition: background-color 0.1s ease-out;
+}
+
+.remote-audio-level-bar.active {
+    background-color: var(--accent-green);
+}
+
+.remote-audio-level-bar:last-child.active {
+    background-color: var(--accent-red);
+}
+
+.connection-info-popup {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 8px;
+    background-color: rgba(42, 42, 42, 0.95);
+    backdrop-filter: blur(5px);
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    z-index: var(--z-connection-popup);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.connection-info-popup.active {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* --- Анимация UI при видеозвонке --- */
+.video-call-active .center-info,
+.video-call-active .call-controls-grid,
+.video-call-active .hangup-wrapper,
+.video-call-active .top-info { 
+    transition: opacity 3s ease-out;
+}
+
+.video-call-active.ui-interactive .center-info,
+.video-call-active.ui-interactive .call-controls-grid,
+.video-call-active.ui-interactive .hangup-wrapper,
+.video-call-active.ui-interactive .top-info {
+    transition: opacity 0.1s ease-out;
+}
+
+.video-call-active .top-info,
+.video-call-active .center-info,
+.video-call-active .bottom-controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.video-call-active.ui-faded .center-info,
+.video-call-active.ui-faded .call-controls-grid {
+    opacity: 0.3;
+    pointer-events: none;
+}
+
+.video-call-active.ui-faded .hangup-wrapper {
+    opacity: 0.6;
+}
+
+.video-call-active.ui-faded .top-info,
+.video-call-active.ui-faded .remote-audio-level-container {
+    opacity: 1;
+    pointer-events: auto;
+}

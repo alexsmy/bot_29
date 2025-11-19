@@ -1,0 +1,212 @@
+/* 
+  Стили для экранов до начала звонка:
+  1. Проверка оборудования (Pre-call check)
+  2. Ожидание собеседника (Pre-call screen)
+*/
+
+/* --- Экран проверки оборудования --- */
+#pre-call-check-screen {
+    justify-content: space-around; 
+    align-items: center;
+    text-align: center;
+    padding: 15px; 
+    background: linear-gradient(180deg, #232526 0%, #121212 100%);
+}
+
+.check-container {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px; 
+}
+
+.check-title {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0 0 10px;
+}
+
+.check-subtitle {
+    color: var(--text-secondary);
+    margin: 0; 
+    font-size: 0.9rem; 
+}
+
+.media-preview-area {
+    position: relative;
+    width: 100%;
+    max-width: 280px; 
+    margin: 0 auto; 
+}
+
+#previewVideo {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9; 
+    background-color: #000;
+    border-radius: 12px; 
+    object-fit: cover;
+    transform: scaleX(-1); 
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mic-level-meter {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    margin-top: 10px; 
+    height: 15px; 
+}
+
+.mic-level-bar {
+    width: 6px; 
+    height: 100%;
+    background-color: var(--secondary-surface);
+    border-radius: 3px; 
+    transition: background-color 0.1s ease-out, transform 0.1s ease-out;
+}
+
+.mic-level-bar.active {
+    background-color: var(--accent-green);
+    transform: scaleY(1.2);
+}
+
+.compact-grid {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+}
+
+.device-selectors {
+    grid-template-columns: repeat(3, 1fr);
+    margin: 0;
+}
+
+.status-indicators {
+    grid-template-columns: repeat(2, 1fr);
+    margin: 0;
+}
+
+.media-error {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: var(--status-error);
+    border: 1px solid var(--status-error);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 20px;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    display: none; 
+}
+
+.ios-note {
+    display: none; 
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    background-color: rgba(255, 255, 255, 0.05);
+    padding: 8px;
+    border-radius: 8px;
+    margin: 0;
+    line-height: 1.4;
+}
+
+/* --- Экран ожидания собеседника --- */
+#pre-call-screen {
+    text-align: center;
+    justify-content: space-between;
+    padding: 20px;
+    background: linear-gradient(180deg, #232526 0%, #121212 100%);
+}
+
+.pre-call-header {
+    flex-shrink: 0;
+    height: 20%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+.pre-call-header h1 {
+    margin: 0;
+    font-size: 1.8rem;
+    font-weight: 600;
+}
+.pre-call-header p {
+    margin: 5px 0 0;
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.pre-call-center {
+    flex-grow: 1;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+}
+
+.call-actions-container {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.pre-call-footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+.info-block-lifetime {
+    height: auto;
+    padding: 15px;
+    background-color: var(--primary-surface);
+    border-radius: 15px;
+}
+.info-block-lifetime p {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+#lifetime-timer {
+    font-size: 2.2rem;
+    font-weight: 700;
+    color: var(--accent-blue);
+    margin-bottom: 8px;
+}
+.footer-actions {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 15px;
+}
+#close-session-btn, .footer-actions a {
+    padding: 8px 16px;
+    border-radius: 10px;
+    border: none;
+    font-size: 0.9rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+#close-session-btn {
+    background-color: var(--accent-red-dark);
+    color: white;
+}
+#close-session-btn:hover {
+    background-color: var(--accent-red);
+}
+.footer-actions a {
+    background-color: var(--secondary-surface);
+    color: var(--text-primary);
+}
+.footer-actions a:hover {
+    background-color: #444;
+}
+.info-block-security {
+    height: auto;
+}

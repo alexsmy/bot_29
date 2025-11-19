@@ -1,0 +1,27 @@
+/* 
+  Базовые стили макета и переходов экранов.
+*/
+
+#app-container {
+  position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease-out, visibility 0.3s;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen.active {
+  opacity: 1;
+  visibility: visible;
+}

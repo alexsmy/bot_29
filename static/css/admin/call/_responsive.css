@@ -1,0 +1,18 @@
+/* 
+  Адаптивность для мобильных устройств.
+*/
+
+@media (max-width: 480px) {
+    .check-title { font-size: 1.5rem; }
+    .pre-call-header h1 { font-size: 1.5rem; }
+    .pre-call-header p { font-size: 0.9rem; }
+    .popup { padding: 20px; }
+    .popup h2 { font-size: 1.3rem; }
+    .action-call-btn { padding: 15px; font-size: 1rem; }
+    #lifetime-timer { font-size: 2rem; }
+    .info-block-lifetime p { font-size: 0.8rem; }
+    .footer-actions { flex-direction: column; gap: 10px; align-items: stretch; }
+    #audio-call-visualizer { gap: 10px; }
+    .avatar-container { width: 90px; height: 90px; }
+    .avatar-container svg { width: 40px; height: 40px; }
+}
