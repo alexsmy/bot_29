@@ -79,9 +79,15 @@ async def init_db():
                 participant1_ip TEXT,
                 participant2_ip TEXT,
                 connection_type TEXT,
-                initiator_ip TEXT
+                initiator_ip TEXT,
+                initiator_user_id TEXT
             )
         ''')
+        # Добавляем колонку initiator_user_id, если её нет
+        try:
+            await conn.execute("ALTER TABLE call_history ADD COLUMN IF NOT EXISTS initiator_user_id TEXT")
+        except asyncpg.exceptions.DuplicateColumnError:
+            pass
 
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS connections (
@@ -94,9 +100,15 @@ async def init_db():
                 os_info TEXT,
                 browser_info TEXT,
                 country TEXT,
-                city TEXT
+                city TEXT,
+                user_id TEXT
             )
         ''')
+        # Добавляем колонку user_id в connections, если её нет
+        try:
+            await conn.execute("ALTER TABLE connections ADD COLUMN IF NOT EXISTS user_id TEXT")
+        except asyncpg.exceptions.DuplicateColumnError:
+            pass
 
         await conn.execute('''
             CREATE TABLE IF NOT EXISTS admin_tokens (
@@ -104,4 +116,4 @@ async def init_db():
                 expires_at TIMESTAMPTZ NOT NULL
             )
         ''')
-    log("DB_LIFECYCLE", "База данных PostgreSQL успешно инициализирована.")
+        log("DB_LIFECYCLE", "База данных PostgreSQL успешно инициализирована.")

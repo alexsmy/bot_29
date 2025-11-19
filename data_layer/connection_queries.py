@@ -1,11 +1,10 @@
-
 import asyncpg
 from datetime import datetime, date, timezone
 from typing import List, Dict, Any
 
 from data_layer.pool_manager import get_pool
 
-async def log_connection(room_id: str, ip_address: str, user_agent: str, parsed_data: dict):
+async def log_connection(room_id: str, ip_address: str, user_agent: str, parsed_data: dict, user_id: str = None):
     """
     Записывает информацию о новом подключении к комнате.
     """
@@ -15,12 +14,12 @@ async def log_connection(room_id: str, ip_address: str, user_agent: str, parsed_
             """
             INSERT INTO connections (
                 room_id, connected_at, ip_address, user_agent,
-                device_type, os_info, browser_info, country, city
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                device_type, os_info, browser_info, country, city, user_id
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             """,
             room_id, datetime.now(timezone.utc), ip_address, user_agent,
             parsed_data['device'], parsed_data['os'], parsed_data['browser'],
-            parsed_data['country'], parsed_data['city']
+            parsed_data['country'], parsed_data['city'], user_id
         )
 
 async def get_connections_info(date_obj: date) -> List[Dict[str, Any]]:
@@ -37,18 +36,20 @@ async def get_connections_info(date_obj: date) -> List[Dict[str, Any]]:
         for session in sessions:
             session_dict = dict(session)
             
+            # Добавляем initiator_user_id в выборку
             calls = await conn.fetch(
                 """
-                SELECT call_type, call_started_at, duration_seconds, participant1_ip, participant2_ip, connection_type, initiator_ip
+                SELECT call_type, call_started_at, duration_seconds, participant1_ip, participant2_ip, connection_type, initiator_ip, initiator_user_id
                 FROM call_history WHERE session_id = $1 ORDER BY call_started_at ASC
                 """,
                 session_dict['session_id']
             )
             session_dict['calls'] = [dict(call) for call in calls]
             
+            # Добавляем user_id в выборку
             connections = await conn.fetch(
                 """
-                SELECT ip_address, device_type, os_info, browser_info, country, city
+                SELECT ip_address, device_type, os_info, browser_info, country, city, user_id
                 FROM connections WHERE room_id = $1 ORDER BY connected_at ASC
                 """,
                 session_dict['room_id']

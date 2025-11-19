@@ -13,32 +13,54 @@ function getDeviceIconHtml(deviceType) {
     return `<span class="icon icon-device ${iconClass}">${iconSvg}</span>`;
 }
 
-function renderParticipantDetails(ip, connections, isInitiator) {
-    if (!ip) return '<p>N/A</p>';
-
+function renderParticipantDetails(call, connections, isInitiator) {
+    // Определяем, кого мы ищем: инициатора или участника
+    // Если есть user_id, используем его для точного сопоставления
+    // Если нет (старые записи), используем IP
+    
     let conn = null;
-    for (let i = connections.length - 1; i >= 0; i--) {
-        if (connections[i].ip_address === ip) {
-            conn = connections[i];
-            break;
+    
+    if (call.initiator_user_id) {
+        // Новая логика: ищем по user_id
+        if (isInitiator) {
+            conn = connections.find(c => c.user_id === call.initiator_user_id);
+        } else {
+            conn = connections.find(c => c.user_id !== call.initiator_user_id);
+        }
+    } else {
+        // Старая логика: ищем по IP (fallback)
+        const targetIp = isInitiator ? call.initiator_ip : (call.initiator_ip === call.participant1_ip ? call.participant2_ip : call.participant1_ip);
+        
+        // Пытаемся найти соединение с таким IP. 
+        // ВАЖНО: Если IP одинаковые, это может вернуть не того, но для старых записей лучше не сделать.
+        // Для новых записей с user_id этот блок не выполнится.
+        conn = connections.find(c => c.ip_address === targetIp);
+        
+        // Если IP одинаковые у обоих, и мы ищем участника, нужно убедиться, что мы не взяли инициатора (если это возможно различить)
+        if (!isInitiator && conn && conn.ip_address === call.initiator_ip && connections.length > 1) {
+             // Это эвристика: если нашли инициатора, берем другого
+             const other = connections.find(c => c !== conn);
+             if (other) conn = other;
         }
     }
-    
+
     const initiatorClass = isInitiator ? 'initiator' : 'receiver';
+    const roleTitle = isInitiator ? 'Инициатор' : 'Участник';
+    const ipDisplay = conn ? conn.ip_address : (isInitiator ? call.initiator_ip : 'N/A');
 
     const detailsHtml = conn ? `
         <span>${getDeviceIconHtml(conn.device_type)} ${conn.device_type || 'N/A'}, ${conn.os_info || 'N/A'}, ${conn.browser_info || 'N/A'}</span>
         <span><span class="icon icon-location">${ICONS.location}</span> ${conn.country || 'N/A'}, ${conn.city || 'N/A'}</span>
-    ` : '<span><i>Детали подключения не найдены для этого IP.</i></span>';
+    ` : '<span><i>Детали подключения не найдены.</i></span>';
 
     return `
         <div class="participant-column">
             <h6 class="${initiatorClass}">
                 <span class="icon icon-person">${ICONS.person}</span>
-                <span>${isInitiator ? 'Инициатор' : 'Участник'}</span>
+                <span>${roleTitle}</span>
             </h6>
             <div class="participant-details">
-                <span><span class="icon icon-ip">${ICONS.ip}</span> ${ip}</span>
+                <span><span class="icon icon-ip">${ICONS.ip}</span> ${ipDisplay}</span>
                 ${detailsHtml}
             </div>
         </div>
@@ -61,9 +83,6 @@ function renderCallHistory(calls, connections) {
         const duration = call.duration_seconds !== null ? `${call.duration_seconds} сек` : 'N/A';
         const connectionType = call.connection_type || 'N/A';
         
-        const isP1Initiator = call.initiator_ip === call.participant1_ip;
-        const isP2Initiator = call.initiator_ip === call.participant2_ip;
-
         return `
         <div class="call-card">
             <div class="call-card-header">
@@ -78,8 +97,8 @@ function renderCallHistory(calls, connections) {
                 <span class="connection-type-badge ${connectionType.toLowerCase()}">${connectionType}</span>
             </div>
             <div class="participants-grid">
-                ${renderParticipantDetails(call.participant1_ip, connections, isP1Initiator)}
-                ${renderParticipantDetails(call.participant2_ip, connections, isP2Initiator)}
+                ${renderParticipantDetails(call, connections, true)}
+                ${renderParticipantDetails(call, connections, false)}
             </div>
         </div>
     `}).join('') + `</div>`;

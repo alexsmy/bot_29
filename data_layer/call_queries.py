@@ -14,7 +14,7 @@ async def log_call_session(room_id: str, user_id: int, created_at: datetime, exp
             room_id, user_id, created_at, expires_at, room_type
         )
 
-async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_ip: Optional[str], initiator_ip: Optional[str]):
+async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_ip: Optional[str], initiator_ip: Optional[str], initiator_user_id: Optional[str] = None):
     pool = await get_pool()
     async with pool.acquire() as conn:
         session_row = await conn.fetchrow("SELECT session_id FROM call_sessions WHERE room_id = $1", room_id)
@@ -25,10 +25,10 @@ async def log_call_start(room_id: str, call_type: str, p1_ip: Optional[str], p2_
 
         await conn.execute(
             """
-            INSERT INTO call_history (session_id, call_type, call_started_at, participant1_ip, participant2_ip, initiator_ip)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO call_history (session_id, call_type, call_started_at, participant1_ip, participant2_ip, initiator_ip, initiator_user_id)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             """,
-            session_id, call_type, datetime.now(timezone.utc), p1_ip, p2_ip, initiator_ip
+            session_id, call_type, datetime.now(timezone.utc), p1_ip, p2_ip, initiator_ip, initiator_user_id
         )
         await conn.execute("UPDATE call_sessions SET status = 'active' WHERE session_id = $1", session_id)
 
@@ -103,8 +103,9 @@ async def get_call_session_details(room_id: str):
 async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]]:
     pool = await get_pool()
     async with pool.acquire() as conn:
-        initiator_ip = await conn.fetchval("""
-            SELECT ch.initiator_ip
+        # Получаем initiator_user_id из активного звонка
+        call_info = await conn.fetchrow("""
+            SELECT ch.initiator_ip, ch.initiator_user_id
             FROM call_history ch
             JOIN call_sessions cs ON ch.session_id = cs.session_id
             WHERE cs.room_id = $1 AND ch.call_ended_at IS NULL
@@ -112,12 +113,15 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
             LIMIT 1
         """, room_id)
 
-        if not initiator_ip:
-            log("DB_LIFECYCLE", f"Не найден активный звонок или IP инициатора для комнаты {room_id}, чтобы получить детали участников.", level=logging.WARNING)
+        if not call_info:
+            log("DB_LIFECYCLE", f"Не найден активный звонок для комнаты {room_id}.", level=logging.WARNING)
             return None
 
+        initiator_user_id = call_info.get('initiator_user_id')
+        initiator_ip = call_info.get('initiator_ip')
+
         connections = await conn.fetch("""
-            SELECT ip_address, device_type, os_info, browser_info, country, city
+            SELECT ip_address, device_type, os_info, browser_info, country, city, user_id
             FROM connections
             WHERE room_id = $1
             ORDER BY connected_at DESC
@@ -131,9 +135,12 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         initiator_details = None
         participant_details = None
 
+        # Логика сопоставления: Сначала пробуем по user_id, если нет - по IP (для старых записей)
         if len(connections) == 1:
             conn_dict = dict(connections[0])
-            if conn_dict['ip_address'] == initiator_ip:
+            if initiator_user_id and conn_dict.get('user_id') == initiator_user_id:
+                initiator_details = conn_dict
+            elif not initiator_user_id and conn_dict['ip_address'] == initiator_ip:
                 initiator_details = conn_dict
             else:
                 participant_details = conn_dict
@@ -141,16 +148,28 @@ async def get_call_participants_details(room_id: str) -> Optional[Dict[str, Any]
         elif len(connections) == 2:
             conn1 = dict(connections[0])
             conn2 = dict(connections[1])
-            if conn1['ip_address'] == initiator_ip:
-                initiator_details = conn1
-                participant_details = conn2
-            elif conn2['ip_address'] == initiator_ip:
-                initiator_details = conn2
-                participant_details = conn1
-            else:
-                log("DB_LIFECYCLE", f"Не удалось сопоставить IP инициатора {initiator_ip} для комнаты {room_id}. Роли назначены по порядку подключения.", level=logging.WARNING)
-                initiator_details = conn2
-                participant_details = conn1
+            
+            # Попытка 1: По user_id (надежно)
+            if initiator_user_id:
+                if conn1.get('user_id') == initiator_user_id:
+                    initiator_details = conn1
+                    participant_details = conn2
+                elif conn2.get('user_id') == initiator_user_id:
+                    initiator_details = conn2
+                    participant_details = conn1
+            
+            # Попытка 2: По IP (ненадежно, но нужно для обратной совместимости)
+            if not initiator_details:
+                if conn1['ip_address'] == initiator_ip and conn2['ip_address'] != initiator_ip:
+                    initiator_details = conn1
+                    participant_details = conn2
+                elif conn2['ip_address'] == initiator_ip and conn1['ip_address'] != initiator_ip:
+                    initiator_details = conn2
+                    participant_details = conn1
+                else:
+                    # Если IP одинаковые или не совпадают, просто назначаем по порядку
+                    initiator_details = conn2
+                    participant_details = conn1
 
         return {
             "initiator": initiator_details,

@@ -34,14 +34,17 @@ async def websocket_endpoint_private(websocket: WebSocket, room_id: str):
     
     parsed_data = {**location_data, **ua_data}
 
+    # Генерируем ID здесь, чтобы записать его в БД
+    new_user_id = str(uuid.uuid4())
+
+    # Передаем user_id в функцию логирования
     asyncio.create_task(database.log_connection(
         room_id, 
         ip_address, 
         user_agent, 
-        parsed_data
+        parsed_data,
+        new_user_id
     ))
-
-    new_user_id = str(uuid.uuid4())
     
     user_data_for_room = {
         "id": new_user_id, 

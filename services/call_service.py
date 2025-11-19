@@ -12,6 +12,7 @@ from groq_transcriber import transcribe_audio_file
 
 RECORDS_DIR = "call_records"
 
+# ... (функция assemble_audio_chunks без изменений) ...
 async def assemble_audio_chunks(session_folder_path: str, user_id: str, wait_for_final_chunk: bool = True):
     """
     Находит, сортирует и объединяет аудио-чанки в один файл для указанного пользователя.
@@ -98,13 +99,17 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
         p1_ip = initiator.get('ip_address') if initiator else None
         p2_ip = receiver.get('ip_address') if receiver else None
         initiator_ip = p1_ip
+        
+        # Получаем ID инициатора
+        initiator_user_id = initiator.get('id') if initiator else None
 
         asyncio.create_task(database.log_call_start(
             room.room_id,
             room.pending_call_type,
             p1_ip,
             p2_ip,
-            initiator_ip
+            initiator_ip,
+            initiator_user_id # Передаем ID
         ))
         
         message_to_admin = (
@@ -120,6 +125,7 @@ async def accept_call(room: RoomManager, acceptor_id: str, caller_id: str):
         
     await room.send_personal_message({"type": "call_accepted", "data": {"from": acceptor_id}}, caller_id)
 
+# ... (остальные функции без изменений) ...
 async def end_call(room: RoomManager, initiator_id: str, target_id: str, is_hangup: bool):
     room.cancel_call_timeout(initiator_id, target_id)
     room.details_notification_sent = False
@@ -156,12 +162,10 @@ async def handle_abrupt_disconnection(room: RoomManager, disconnected_user_id: s
         asyncio.create_task(assemble_audio_chunks(room.current_call_record_path, disconnected_user_id, wait_for_final_chunk=False))
 
 async def process_webrtc_signal(room: RoomManager, sender_id: str, message: dict):
-    # --- ИСПРАВЛЕНИЕ: Добавляем проверку на наличие target_id ---
     target_id = message.get("data", {}).get("target_id")
     if not target_id:
         log("WEBSOCKET_EVENT", f"Получено WebRTC сообщение типа '{message.get('type')}' без target_id от {sender_id}. Игнорируется.", level=logging.WARNING)
         return
-    # --- КОНЕЦ ИСПРАВЛЕНИЯ ---
     
     message["data"]["from"] = sender_id
     await room.send_personal_message(message, target_id)
