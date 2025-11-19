@@ -298,6 +298,47 @@ html.dark .call-count-badge {
 html.dark .connection-type-badge.p2p { background-color: #1d4226; color: #c3e6cb; }
 html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffeeba; }
 
+/* --- Секция "База данных" --- */
+.db-viewer-container {
+    background-color: var(--surface-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.db-table-wrapper {
+    overflow-x: auto;
+    width: 100%;
+}
+.db-table-wrapper table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    white-space: nowrap;
+}
+.db-table-wrapper th, .db-table-wrapper td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    text-align: left;
+}
+.db-table-wrapper th {
+    background-color: var(--base-bg);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+}
+.db-table-wrapper tr:last-child td {
+    border-bottom: none;
+}
+.db-table-wrapper tr:hover {
+    background-color: var(--base-bg);
+}
+.null-val {
+    color: var(--text-secondary);
+    font-style: italic;
+    font-size: 0.85em;
+}
+
 /* --- Секция "Проводник" --- */
 .file-explorer {
     background-color: var(--surface-bg);

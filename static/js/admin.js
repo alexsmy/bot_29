@@ -1,4 +1,3 @@
-
 import { initApi } from './admin_api.js';
 import { initUi } from './admin_ui.js';
 import { initStats, loadStats } from './admin_stats.js';
@@ -7,6 +6,7 @@ import { initUsers } from './admin_users.js';
 import { initConnections } from './admin_connections.js';
 import { initExplorer } from './admin_explorer.js';
 import { initDangerZone } from './admin_danger_zone.js';
+import { initDatabase } from './admin_database.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const API_TOKEN = document.body.dataset.token;
@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initRooms();
     initUsers();
     initConnections();
+    initDatabase();
     initExplorer();
     initDangerZone();
 

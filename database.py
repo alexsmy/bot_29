@@ -47,6 +47,11 @@ from data_layer.token_queries import (
 
 from data_layer.danger_zone_queries import clear_all_data
 
+from data_layer.db_viewer_queries import (
+    get_all_tables,
+    get_table_data
+)
+
 __all__ = [
     'get_pool', 'close_pool', 'init_db',
     'log_user', 'get_users_info', 'get_user_status', 'update_user_status', 'delete_user',
@@ -58,5 +63,6 @@ __all__ = [
     'log_connection', 'get_connections_info',
     'get_stats',
     'add_admin_token', 'get_admin_token_expiry',
-    'clear_all_data'
+    'clear_all_data',
+    'get_all_tables', 'get_table_data'
 ]

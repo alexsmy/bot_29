@@ -7,10 +7,7 @@ function populateIcons() {
     document.getElementById('icon-rooms').innerHTML = ICONS.rooms;
     document.getElementById('icon-users').innerHTML = ICONS.users;
     document.getElementById('icon-connections').innerHTML = ICONS.connections;
-    // --- ИЗМЕНЕНИЕ: Удаляем строки для несуществующих элементов ---
-    // document.getElementById('icon-notifications').innerHTML = ICONS.notifications;
-    // document.getElementById('icon-recording').innerHTML = ICONS.recording;
-    // --- КОНЕЦ ИЗМЕНЕНИЯ ---
+    document.getElementById('icon-database').innerHTML = ICONS.database;
     document.getElementById('icon-explorer').innerHTML = ICONS.explorer;
     document.getElementById('icon-danger').innerHTML = ICONS.danger;
 }

@@ -30,6 +30,9 @@
                 <a href="#connections" class="nav-link">
                     <span class="icon" id="icon-connections"></span> Соединения
                 </a>
+                <a href="#database" class="nav-link">
+                    <span class="icon" id="icon-database"></span> База данных
+                </a>
                 <a href="#explorer" class="nav-link">
                     <span class="icon" id="icon-explorer"></span> Проводник
                 </a>
@@ -117,6 +120,23 @@
                 </div>
                 <div id="connections-list" class="connections-list">
                     <p class="empty-list">Выберите дату для просмотра соединений.</p>
+                </div>
+            </section>
+
+            <section id="database" class="content-section">
+                <div class="section-header">
+                    <h2>База данных</h2>
+                    <div class="filters" style="margin-bottom: 0;">
+                        <select id="db-table-select" class="action-btn">
+                            <option value="" disabled selected>Выберите таблицу</option>
+                        </select>
+                        <button id="refresh-db-btn" class="action-btn">Обновить</button>
+                    </div>
+                </div>
+                <p class="section-description">Просмотр содержимого таблиц базы данных (последние 100 записей).</p>
+                
+                <div id="db-viewer-container" class="db-viewer-container">
+                    <p class="empty-list">Выберите таблицу для просмотра данных.</p>
                 </div>
             </section>
 
