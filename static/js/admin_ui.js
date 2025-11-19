@@ -89,18 +89,25 @@ function setupMobileMenu() {
 
 function setupTokenTimer(tokenExpiresAtIso) {
     const tokenTimerEl = document.getElementById('token-timer');
-    let tokenLifetime = Math.floor((new Date(tokenExpiresAtIso) - new Date()) / 1000);
+    
+    // Преобразуем время истечения в timestamp (миллисекунды)
+    const expiryTime = new Date(tokenExpiresAtIso).getTime();
     
     const updateTokenTimer = () => {
-        tokenLifetime--;
-        if (tokenLifetime <= 0) {
+        const now = Date.now();
+        // Вычисляем разницу в секундах
+        const secondsLeft = Math.floor((expiryTime - now) / 1000);
+        
+        if (secondsLeft <= 0) {
             tokenTimerEl.textContent = 'Истёк!';
             clearInterval(tokenInterval);
             return;
         }
-        tokenTimerEl.textContent = formatRemainingTime(tokenLifetime).substring(3);
+        tokenTimerEl.textContent = formatRemainingTime(secondsLeft).substring(3); // Обрезаем часы, если нужно, или оставляем как есть
     };
     
+    // Запускаем сразу, чтобы не ждать 1 секунду
+    updateTokenTimer();
     const tokenInterval = setInterval(updateTokenTimer, 1000);
 }
 

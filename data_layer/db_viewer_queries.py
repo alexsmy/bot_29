@@ -1,5 +1,5 @@
 import asyncpg
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from data_layer.pool_manager import get_pool
 
 async def get_all_tables() -> List[str]:
@@ -16,10 +16,9 @@ async def get_all_tables() -> List[str]:
         """)
         return [row['table_name'] for row in rows]
 
-async def get_table_data(table_name: str) -> List[Dict[str, Any]]:
+async def get_table_data(table_name: str, limit: int = 100, offset: int = 0) -> Tuple[List[Dict[str, Any]], int]:
     """
-    Возвращает последние 100 записей из указанной таблицы.
-    Включает защиту от SQL-инъекций путем проверки существования таблицы.
+    Возвращает записи из таблицы с пагинацией и общее количество строк.
     """
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -55,18 +54,22 @@ async def get_table_data(table_name: str) -> List[Dict[str, Any]]:
             elif col_names:
                 pk_column = col_names[0]
             else:
-                return [] # Таблица без колонок?
+                return [], 0 # Таблица без колонок
 
-        # 3. Выполняем запрос данных (используем форматирование строки, т.к. имя таблицы проверено)
-        # asyncpg не позволяет передавать имя таблицы как параметр $1
-        query = f"SELECT * FROM \"{table_name}\" ORDER BY \"{pk_column}\" DESC LIMIT 100"
+        # 3. Получаем общее количество строк (для пагинации)
+        # Используем форматирование, так как имя таблицы проверено выше
+        count_query = f"SELECT COUNT(*) FROM \"{table_name}\""
+        total_count = await conn.fetchval(count_query)
+
+        # 4. Выполняем запрос данных с LIMIT и OFFSET
+        query = f"SELECT * FROM \"{table_name}\" ORDER BY \"{pk_column}\" DESC LIMIT {limit} OFFSET {offset}"
         
         rows = await conn.fetch(query)
         
-        # Преобразуем Record объекты в словари, сериализуя сложные типы
+        # Преобразуем Record объекты в словари
         result = []
         for row in rows:
             row_dict = dict(row)
             result.append(row_dict)
             
-        return result
+        return result, total_count

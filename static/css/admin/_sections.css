@@ -1,8 +1,4 @@
 /* bot_29-main/static/css/admin/_sections.css */
-/*
-  Модуль секций.
-  Содержит стили, специфичные для каждой отдельной вкладки админ-панели.
-*/
 
 /* --- Секция "Статистика" --- */
 .stats-grid {
@@ -304,16 +300,24 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     border: 1px solid var(--border-color);
     border-radius: 8px;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 .db-table-wrapper {
     overflow-x: auto;
     width: 100%;
+    /* Добавляем фон, чтобы при прокрутке не было прозрачности */
+    background-color: var(--surface-bg);
 }
 .db-table-wrapper table {
-    width: 100%;
+    /* ВАЖНО: auto позволяет колонкам сжиматься до контента */
+    width: auto;
+    /* Растягиваем на всю ширину, если контента мало, но table-layout: auto распределит место умно */
+    min-width: 100%;
     border-collapse: collapse;
     font-size: 0.9em;
     white-space: nowrap;
+    table-layout: auto; 
 }
 .db-table-wrapper th, .db-table-wrapper td {
     padding: 0.75rem 1rem;
@@ -326,17 +330,80 @@ html.dark .connection-type-badge.relay { background-color: #4d3c0a; color: #ffee
     color: var(--text-primary);
     position: sticky;
     top: 0;
+    z-index: 10;
+    /* Тень под заголовком при прокрутке */
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
 }
+
+/* Настройка ширины для колонки с номером (#) */
+.db-table-wrapper th:first-child,
+.db-table-wrapper td:first-child {
+    width: 1%; /* Заставляет колонку сжаться до минимума */
+    white-space: nowrap;
+    text-align: center;
+    color: var(--text-secondary);
+    font-weight: 500;
+    background-color: var(--base-bg); /* Выделяем индекс цветом фона */
+}
+
+/* Чередование цветов столбцов (Зебра) - делаем более заметным */
+.db-table-wrapper td:nth-child(even), 
+.db-table-wrapper th:nth-child(even) {
+    background-color: rgba(0, 0, 0, 0.03); /* Чуть темнее для светлой темы */
+}
+html.dark .db-table-wrapper td:nth-child(even), 
+html.dark .db-table-wrapper th:nth-child(even) {
+    background-color: rgba(255, 255, 255, 0.04); /* Чуть светлее для темной темы */
+}
+
+/* Ховер эффект для строки */
+.db-table-wrapper tr:hover td {
+    background-color: var(--accent-color);
+    color: var(--accent-text);
+    cursor: default;
+}
+/* При ховере убираем цвет зебры, чтобы строка была однотонной */
+.db-table-wrapper tr:hover td:nth-child(even) {
+    background-color: var(--accent-color);
+}
+/* При ховере null значения делаем светлыми */
+.db-table-wrapper tr:hover .null-val {
+    color: rgba(255, 255, 255, 0.7);
+}
+
 .db-table-wrapper tr:last-child td {
     border-bottom: none;
 }
-.db-table-wrapper tr:hover {
-    background-color: var(--base-bg);
-}
+
 .null-val {
     color: var(--text-secondary);
     font-style: italic;
     font-size: 0.85em;
+}
+
+/* Пагинация БД */
+.db-pagination {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background-color: var(--base-bg);
+    border-top: 1px solid var(--border-color);
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+.db-pagination-info {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+}
+.db-pagination-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.db-pagination-controls button {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9em;
 }
 
 /* --- Секция "Проводник" --- */
