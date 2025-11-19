@@ -1,2 +1,3 @@
-# routes/admin/__init__.py
-from . import auth, connections, danger_zone, rooms, stats, users, views, explorer, database_viewer
+# routes/__init__.py
+# Этот файл делает директорию 'routes' пакетом Python.
+# Он должен быть пустым, чтобы не мешать импортам подмодулей.
