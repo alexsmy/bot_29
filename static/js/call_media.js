@@ -153,6 +153,28 @@ export async function getStreamForCall(constraints, localVideoEl, localAudioEl) 
         return { stream: null, isVideo: false };
     }
 
+    // --- ИЗМЕНЕНИЕ: Принудительно добавляем параметры аудио для экономии трафика ---
+    if (constraints.audio) {
+        // Если constraints.audio === true, превращаем его в объект
+        if (typeof constraints.audio === 'boolean') {
+            constraints.audio = {};
+        }
+        
+        // Добавляем предпочтительные настройки
+        // channelCount: 1 (Моно)
+        // sampleRate: 16000 (16кГц) - достаточно для голоса, экономит CPU
+        // echoCancellation: true - важно для громкой связи
+        constraints.audio = {
+            ...constraints.audio,
+            channelCount: { ideal: 1 },
+            sampleRate: { ideal: 16000 },
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+        };
+        log("MEDIA_DEVICES", "Requesting optimized audio constraints: 16kHz, Mono");
+    }
+
     try {
         localStream = await navigator.mediaDevices.getUserMedia(constraints);
         log("MEDIA_DEVICES", "Media stream acquired successfully.");

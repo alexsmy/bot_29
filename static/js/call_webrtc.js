@@ -32,6 +32,87 @@ export function getRemoteStream() {
     return remoteStream;
 }
 
+// --- НОВАЯ ФУНКЦИЯ: Модификация SDP для управления битрейтом и каналами ---
+function setAudioPreferences(sdp) {
+    try {
+        // Ищем Opus кодек. Обычно он выглядит как "a=rtpmap:111 opus/48000/2"
+        // Важно: 48000/2 в rtpmap - это clock rate, его менять нельзя.
+        // Мы меняем параметры передачи в a=fmtp
+        const audioCodecs = sdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i);
+        if (!audioCodecs) {
+            callbacks.log('WEBRTC_SIGNALS', 'Opus codec not found in SDP, skipping modification.');
+            return sdp;
+        }
+
+        const opusPt = audioCodecs[1];
+        
+        // Параметры для 16kHz Mono и низкого битрейта
+        // maxplaybackrate=16000: Максимальная частота воспроизведения
+        // sprop-maxcapturerate=16000: Подсказка удаленной стороне захватывать 16кГц
+        // stereo=0: Моно
+        // sprop-stereo=0: Подсказка удаленной стороне слать моно
+        // maxaveragebitrate=20000: Ограничение битрейта (20 кбит/с достаточно для речи 16кГц)
+        const newParams = 'minptime=10;useinbandfec=1;maxplaybackrate=16000;sprop-maxcapturerate=16000;stereo=0;sprop-stereo=0;maxaveragebitrate=20000';
+        
+        // Ищем существующую строку fmtp для Opus
+        const fmtpLineRegex = new RegExp(`a=fmtp:${opusPt} (.*)`, 'i');
+        
+        if (fmtpLineRegex.test(sdp)) {
+            // Если строка есть, заменяем её параметры на наши
+            return sdp.replace(fmtpLineRegex, `a=fmtp:${opusPt} ${newParams}`);
+        } else {
+            // Если строки нет, добавляем её после rtpmap
+            return sdp.replace(audioCodecs[0], `${audioCodecs[0]}\r\na=fmtp:${opusPt} ${newParams}`);
+        }
+    } catch (e) {
+        callbacks.log('ERROR', `Failed to modify SDP audio preferences: ${e}`);
+        return sdp; // В случае ошибки возвращаем оригинальный SDP (безопасный откат)
+    }
+}
+
+// --- НОВАЯ ФУНКЦИЯ: Логирование итоговых параметров аудио ---
+async function logAudioStats() {
+    if (!peerConnection) return;
+    
+    // Даем время на стабилизацию соединения
+    setTimeout(async () => {
+        try {
+            // Анализируем LocalDescription (что мы обещали отправлять/принимать)
+            const localSdp = peerConnection.currentLocalDescription?.sdp;
+            if (localSdp) {
+                const opusMatch = localSdp.match(/a=rtpmap:(\d+) opus\/48000\/2/i);
+                if (opusMatch) {
+                    const pt = opusMatch[1];
+                    const fmtp = localSdp.match(new RegExp(`a=fmtp:${pt} (.*)`, 'i'));
+                    const params = fmtp ? fmtp[1] : 'default';
+                    callbacks.log('MANDATORY', `[AUDIO_CONFIG] Negotiated Local SDP Params: ${params}`);
+                }
+            }
+
+            // Пытаемся получить реальную статистику из getStats (если браузер поддерживает)
+            const stats = await peerConnection.getStats();
+            let audioStatsLog = [];
+            
+            stats.forEach(report => {
+                if (report.type === 'outbound-rtp' && report.kind === 'audio') {
+                    // Chrome/Safari могут не показывать bitrate в stats сразу, но показывают codec
+                    audioStatsLog.push(`Outbound Audio: bytesSent=${report.bytesSent}`);
+                }
+                if (report.type === 'codec' && report.mimeType === 'audio/opus') {
+                    audioStatsLog.push(`Codec: ${report.mimeType}, ClockRate: ${report.clockRate}, Channels: ${report.channels}`);
+                }
+            });
+            
+            if (audioStatsLog.length > 0) {
+                callbacks.log('MANDATORY', `[AUDIO_STATS] ${audioStatsLog.join(' | ')}`);
+            }
+
+        } catch (e) {
+            callbacks.log('ERROR', `Error logging audio stats: ${e}`);
+        }
+    }, 2000);
+}
+
 function setupDataChannelEvents(channel) {
     channel.onopen = () => callbacks.log('WEBSOCKET_MESSAGES', 'DataChannel is open.');
     channel.onclose = () => callbacks.log('WEBSOCKET_MESSAGES', 'DataChannel is closed.');
@@ -56,8 +137,12 @@ async function initiateIceRestart() {
     callbacks.log('WEBRTC_LIFECYCLE', 'Creating new offer with iceRestart: true');
     try {
         const offer = await peerConnection.createOffer({ iceRestart: true });
-        await peerConnection.setLocalDescription(offer);
-        sendMessage({ type: 'offer', data: { target_id: callbacks.getTargetUser().id, offer: offer } });
+        // При рестарте ICE тоже применяем настройки аудио
+        const modifiedOfferSdp = setAudioPreferences(offer.sdp);
+        const modifiedOffer = { type: offer.type, sdp: modifiedOfferSdp };
+        
+        await peerConnection.setLocalDescription(modifiedOffer);
+        sendMessage({ type: 'offer', data: { target_id: callbacks.getTargetUser().id, offer: modifiedOffer } });
     } catch (error) {
         callbacks.log('CRITICAL_ERROR', `ICE Restart failed: ${error}`);
         callbacks.onCallEndedByPeer('ice_restart_failed');
@@ -104,6 +189,8 @@ export async function createPeerConnection(rtcConfig, localStream, selectedAudio
                 iceRestartTimeoutId = null;
                 callbacks.log('WEBRTC_LIFECYCLE', 'Connection recovered before ICE Restart was initiated.');
             }
+            // Запускаем логирование параметров аудио при успешном соединении
+            logAudioStats();
         } else if (state === 'disconnected') {
             callbacks.log('WEBRTC_LIFECYCLE', 'Connection is disconnected. Scheduling ICE Restart check.');
             if (iceRestartTimeoutId) clearTimeout(iceRestartTimeoutId);
@@ -164,8 +251,13 @@ export async function startPeerConnection(targetId, isCaller, callType, localStr
         callbacks.log('WEBRTC_SIGNALS', `Creating Offer with options:`, offerOptions);
         const offer = await peerConnection.createOffer(offerOptions);
 
-        await peerConnection.setLocalDescription(offer);
-        sendMessage({ type: 'offer', data: { target_id: targetId, offer: offer } });
+        // --- ПРИМЕНЯЕМ НАСТРОЙКИ АУДИО (16k Mono) ---
+        const modifiedSdp = setAudioPreferences(offer.sdp);
+        const modifiedOffer = { type: offer.type, sdp: modifiedSdp };
+        callbacks.log('WEBRTC_SIGNALS', 'Applied audio constraints (16kHz/Mono) to Offer.');
+
+        await peerConnection.setLocalDescription(modifiedOffer);
+        sendMessage({ type: 'offer', data: { target_id: targetId, offer: modifiedOffer } });
     }
 }
 
@@ -187,9 +279,16 @@ export async function handleOffer(data, localStream, rtcConfig) {
         await startPeerConnection(data.from, false, data.call_type, localStream, rtcConfig);
     }
     await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+    
     const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-    sendMessage({ type: 'answer', data: { target_id: data.from, answer: answer } });
+    
+    // --- ПРИМЕНЯЕМ НАСТРОЙКИ АУДИО (16k Mono) ---
+    const modifiedSdp = setAudioPreferences(answer.sdp);
+    const modifiedAnswer = { type: answer.type, sdp: modifiedSdp };
+    callbacks.log('WEBRTC_SIGNALS', 'Applied audio constraints (16kHz/Mono) to Answer.');
+
+    await peerConnection.setLocalDescription(modifiedAnswer);
+    sendMessage({ type: 'answer', data: { target_id: data.from, answer: modifiedAnswer } });
     
     callbacks.onCallConnected();
     processIceCandidateQueue();
@@ -305,7 +404,16 @@ export async function switchInputDevice(kind, deviceId, localStream) {
             currentTrack.stop();
         }
 
-        const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: { deviceId: { exact: deviceId } } });
+        // При переключении устройства также запрашиваем оптимальные параметры
+        const constraints = { 
+            deviceId: { exact: deviceId } 
+        };
+        if (kind === 'audio') {
+            constraints.channelCount = 1;
+            constraints.sampleRate = 16000;
+        }
+
+        const newStream = await navigator.mediaDevices.getUserMedia({ [kind]: constraints });
         const newTrack = newStream.getTracks()[0];
 
         const sender = peerConnection.getSenders().find(s => s.track?.kind === kind);
