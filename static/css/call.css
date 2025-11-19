@@ -1,12 +1,12 @@
 /* 
   Главный файл стилей для интерфейса звонка.
-  Импортирует функциональные модули.
+  Импортирует функциональные модули из папки call/.
 */
 
-@import url("call/_variables.css");
-@import url("call/_base.css");
-@import url("call/_components.css");
-@import url("call/_modals.css");
-@import url("call/_pre_call.css");
-@import url("call/_active_call.css");
-@import url("call/_responsive.css");
+@import "call/_variables.css";
+@import "call/_base.css";
+@import "call/_components.css";
+@import "call/_modals.css";
+@import "call/_pre_call.css";
+@import "call/_active_call.css";
+@import "call/_responsive.css";
