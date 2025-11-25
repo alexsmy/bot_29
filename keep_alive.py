@@ -6,8 +6,8 @@ import logging
 from configurable_logger import log
 
 # Минимальное и максимальное время ожидания в минутах
-MIN_WAIT_MINUTES = 13
-MAX_WAIT_MINUTES = 14
+MIN_WAIT_MINUTES = 1440
+MAX_WAIT_MINUTES = 1450
 
 # "Железный" запасной URL
 FALLBACK_URL = "https://bot-29-nx0w.onrender.com"
