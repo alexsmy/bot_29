@@ -20,7 +20,7 @@ FALLBACK_PRIMARY_URL = "https://bot-29-nx0w.onrender.com"
 # ВТОРОЙ НЕЗАВИСИМЫЙ АДРЕС (вводится напрямую в код)
 # Замените на нужный вам URL
 SECONDARY_URL = "https://ai-web-1z20.onrender.com" 
-T3_URL = "https://wbtg-001.onrender.com/"
+T3_URL = "https://wbtg-001.onrender.com/ping"
 
 async def check_internet_connection():
     """Проверяет базовое подключение к интернету, обращаясь к google.com."""
@@ -112,7 +112,7 @@ async def start_keep_alive_task():
     }
 
     # 3. Запуск независимых задач
-    # Создаем две задачи с понятными именами для логов
+    # Создаем задачи с понятными именами для логов
     task1 = asyncio.create_task(monitor_url(primary_url, "PRIMARY", headers))
     task2 = asyncio.create_task(monitor_url(SECONDARY_URL, "SECONDARY", headers))
     task3 = asyncio.create_task(monitor_url(T3_URL, "T3", headers))
