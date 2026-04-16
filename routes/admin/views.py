@@ -1,6 +1,3 @@
-
-# routes/admin/views.py
-
 import os
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
@@ -16,4 +13,8 @@ async def get_admin_page(request: Request, token: str = Depends(verify_admin_tok
     Отдает HTML-страницу админ-панели.
     """
     expires_at_iso = request.state.token_expires_at.isoformat()
-    return templates.TemplateResponse("admin.html", {"request": request, "token": token, "expires_at": expires_at_iso})
+    return templates.TemplateResponse(
+        request=request,
+        name="admin.html", 
+        context={"request": request, "token": token, "expires_at": expires_at_iso}
+    )

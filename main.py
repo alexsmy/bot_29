@@ -4,12 +4,6 @@ from fastapi import FastAPI, Request, HTTPException, status
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.staticfiles import StaticFiles
-import os
-import logging
-from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.exception_handlers import http_exception_handler
-from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -47,12 +41,13 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    if exc.status_code in [status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
+    if exc.status_code in[status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
         log("AUTH_ATTEMPT", f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.", level=logging.WARNING)
         bot_username = os.environ.get("BOT_USERNAME", "")
         return templates.TemplateResponse(
-            "invalid_link.html",
-            {"request": request, "bot_username": bot_username},
+            request=request,
+            name="invalid_link.html",
+            context={"request": request, "bot_username": bot_username},
             status_code=exc.status_code
         )
     return await http_exception_handler(request, exc)
@@ -60,7 +55,11 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 @app.get("/", response_class=HTMLResponse)
 async def get_welcome(request: Request):
     bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse("welcome.html", {"request": request, "bot_username": bot_username})
+    return templates.TemplateResponse(
+        request=request,
+        name="welcome.html", 
+        context={"request": request, "bot_username": bot_username}
+    )
 
 @app.get("/api/ice-servers", response_class=CustomJSONResponse)
 @limiter.limit("10/minute")
@@ -79,8 +78,9 @@ async def get_call_page(request: Request, room_id: str):
         log("AUTH_ATTEMPT", f"Попытка входа в заполненную комнату {room_id}. Показываем room_occupied.html.", level=logging.WARNING)
         bot_username = os.environ.get("BOT_USERNAME", "")
         return templates.TemplateResponse(
-            "room_occupied.html",
-            {"request": request, "bot_username": bot_username},
+            request=request,
+            name="room_occupied.html",
+            context={"request": request, "bot_username": bot_username},
             status_code=status.HTTP_403_FORBIDDEN
         )
 
@@ -95,7 +95,11 @@ async def get_call_page(request: Request, room_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid link parameters for this room type")
 
     bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse("call.html", {"request": request, "bot_username": bot_username, "role": role})
+    return templates.TemplateResponse(
+        request=request,
+        name="call.html", 
+        context={"request": request, "bot_username": bot_username, "role": role}
+    )
 
 @app.post("/room/close/{room_id}", response_class=CustomJSONResponse)
 @limiter.limit("20/minute")
@@ -111,7 +115,8 @@ async def catch_all_invalid_paths(request: Request, full_path: str):
     log("AUTH_ATTEMPT", f"Обработан невалидный путь (catch-all): /{full_path}", level=logging.WARNING)
     bot_username = os.environ.get("BOT_USERNAME", "")
     return templates.TemplateResponse(
-        "invalid_link.html",
-        {"request": request, "bot_username": bot_username},
+        request=request,
+        name="invalid_link.html",
+        context={"request": request, "bot_username": bot_username},
         status_code=status.HTTP_404_NOT_FOUND
     )

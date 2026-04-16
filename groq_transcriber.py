@@ -43,9 +43,9 @@ async def summarize_dialogue(dialogue_filepath: str):
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             messages=[{"role": "user", "content": prompt}],
-            model="openai/gpt-oss-120b",
+            model="groq/compound",
             temperature=0.1,
-            max_tokens=8192,
+            max_tokens=5000,
             top_p=1,
             stream=False
         )
@@ -101,9 +101,9 @@ async def merge_transcriptions_to_dialogue(file1_path: str, file2_path: str):
         chat_completion = await asyncio.to_thread(
             client.chat.completions.create,
             messages=[{"role": "user", "content": prompt}],
-            model="openai/gpt-oss-120b",
+            model="groq/compound",
             temperature=0.1,
-            max_tokens=8192,
+            max_tokens=5000,
             top_p=1,
             stream=False
         )

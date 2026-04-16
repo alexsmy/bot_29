@@ -19,8 +19,8 @@ FALLBACK_PRIMARY_URL = "https://bot-29-nx0w.onrender.com"
 
 # ВТОРОЙ НЕЗАВИСИМЫЙ АДРЕС (вводится напрямую в код)
 # Замените на нужный вам URL
-SECONDARY_URL = "https://ai-web-1z20.onrender.com" 
-T3_URL = "https://wbtg-001.onrender.com/ping"
+SECONDARY_URL = "https://groq.com" 
+T3_URL = "https://ya.ru"
 
 async def check_internet_connection():
     """Проверяет базовое подключение к интернету, обращаясь к google.com."""
