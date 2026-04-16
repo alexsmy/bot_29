@@ -1,28 +1,61 @@
 import asyncio
 import random
 import os
+import json
 import httpx
 import logging
 from configurable_logger import log
 
-# --- КОНФИГУРАЦИЯ ---
+CONFIG_FILE = "keep_alive_urls.json"
 
-# Минимальное и максимальное время ожидания в минутах (для успешных запросов)
-MIN_WAIT_MINUTES = 13
-MAX_WAIT_MINUTES = 14
+def load_config() -> dict:
+    """
+    Загружает конфигурацию URL-адресов и таймингов из JSON файла.
+    Если файл отсутствует, создает его с настройками по умолчанию.
+    """
+    default_config = {
+        "settings": {
+            "min_wait_minutes": 13,
+            "max_wait_minutes": 14,
+            "error_wait_seconds": 60,
+            "initial_delay_seconds": 600
+        },
+        "targets":[
+            {
+                "name": "PRIMARY",
+                "url": "https://bot-29-nx0w.onrender.com",
+                "env_override": "WEB_APP_URL"
+            },
+            {
+                "name": "SECONDARY",
+                "url": "https://ai-web-1z20.onrender.com",
+                "env_override": None
+            },
+            {
+                "name": "T3",
+                "url": "https://wbtg-001.onrender.com/ping",
+                "env_override": None
+            }
+        ]
+    }
 
-# Время ожидания при ошибке (в секундах)
-ERROR_WAIT_SECONDS = 60
+    if not os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+                json.dump(default_config, f, indent=4, ensure_ascii=False)
+            log("KEEP_ALIVE", f"Создан файл конфигурации по умолчанию: {CONFIG_FILE}")
+        except Exception as e:
+            log("ERROR", f"Не удалось создать {CONFIG_FILE}: {e}", level=logging.ERROR)
+        return default_config
 
-# "Железный" запасной URL для основного приложения
-FALLBACK_PRIMARY_URL = "https://bot-29-nx0w.onrender.com"
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        log("ERROR", f"Ошибка чтения {CONFIG_FILE}, используются настройки по умолчанию. Ошибка: {e}", level=logging.ERROR)
+        return default_config
 
-# ВТОРОЙ НЕЗАВИСИМЫЙ АДРЕС (вводится напрямую в код)
-# Замените на нужный вам URL
-SECONDARY_URL = "https://groq.com" 
-T3_URL = "https://ya.ru"
-
-async def check_internet_connection():
+async def check_internet_connection() -> bool:
     """Проверяет базовое подключение к интернету, обращаясь к google.com."""
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -34,15 +67,20 @@ async def check_internet_connection():
         log("ERROR", f"Не удалось подключиться к google.com. Проверьте сетевые настройки. Ошибка: {e}", level=logging.ERROR)
         return False
 
-async def monitor_url(url: str, task_name: str, headers: dict):
+async def monitor_url(url: str, task_name: str, headers: dict, settings: dict):
     """
     Универсальная функция для периодической проверки доступности URL.
     
     :param url: Адрес для проверки.
     :param task_name: Имя задачи для логов (например, "PRIMARY" или "SECONDARY").
     :param headers: Заголовки запроса.
+    :param settings: Словарь с настройками таймингов.
     """
     log("KEEP_ALIVE", f"[{task_name}] 🚀 Запущен мониторинг для: {url}")
+
+    min_wait = settings.get("min_wait_minutes", 13)
+    max_wait = settings.get("max_wait_minutes", 14)
+    error_wait = settings.get("error_wait_seconds", 60)
 
     while True:
         wait_seconds = 0
@@ -69,53 +107,66 @@ async def monitor_url(url: str, task_name: str, headers: dict):
 
         # Логика определения времени ожидания и информирование
         if is_success:
-            # Если успех - ждем от 13 до 14 минут
-            wait_seconds = random.randint(MIN_WAIT_MINUTES * 60, MAX_WAIT_MINUTES * 60)
+            # Если успех - ждем случайное время в заданном диапазоне
+            wait_seconds = random.randint(min_wait * 60, max_wait * 60)
             minutes, seconds = divmod(wait_seconds, 60)
             log("KEEP_ALIVE", f"[{task_name}] 💤 Ухожу в сон на {minutes} мин {seconds} сек.")
         else:
-            # Если ошибка - ждем 60 секунд (режим восстановления)
-            wait_seconds = ERROR_WAIT_SECONDS
+            # Если ошибка - ждем фиксированное время (режим восстановления)
+            wait_seconds = error_wait
             log("KEEP_ALIVE", f"[{task_name}] 🔄 Режим восстановления. Повторная проверка через {wait_seconds} сек.")
 
         await asyncio.sleep(wait_seconds)
 
 async def start_keep_alive_task():
     """
-    Основная задача-оркестратор. Инициализирует переменные и запускает
-    независимые процессы мониторинга.
+    Основная задача-оркестратор. Загружает конфиг и динамически запускает
+    независимые процессы мониторинга для каждого URL.
     """
-    log("KEEP_ALIVE", "Сервис самоподдержки инициализирован, старт через 600 секунд...")
+    config = load_config()
+    settings = config.get("settings", {})
+    targets = config.get("targets",[])
+
+    initial_delay = settings.get("initial_delay_seconds", 600)
+    log("KEEP_ALIVE", f"Сервис самоподдержки инициализирован, старт через {initial_delay} секунд...")
     
     # Первичная задержка перед стартом всего сервиса
-    await asyncio.sleep(600)
+    await asyncio.sleep(initial_delay)
 
-    # 1. Настройка основного URL
-    app_url_from_env = os.environ.get("WEB_APP_URL")
-    bot_username_from_env = os.environ.get("BOT_USERNAME")
-    
-    primary_url = None
-    
-    if app_url_from_env and "localhost" not in app_url_from_env and "0.0.0.0" not in app_url_from_env:
-        primary_url = app_url_from_env
-        log("KEEP_ALIVE", f"Конфигурация PRIMARY URL: {primary_url}")
-    else:
-        primary_url = FALLBACK_PRIMARY_URL
-        log("KEEP_ALIVE", f"WEB_APP_URL не найден. Используется запасной PRIMARY URL: {primary_url}", level=logging.WARNING)
-
-    # 2. Проверка интернета перед запуском воркеров
+    # Проверка интернета перед запуском воркеров
     if not await check_internet_connection():
         log("ERROR", "Нет интернета при старте. Воркеры запустятся в режиме восстановления.", level=logging.ERROR)
 
+    bot_username_from_env = os.environ.get("BOT_USERNAME", "Unknown")
     headers = {
-        "User-Agent": f"KeepAlive-Bot/{bot_username_from_env or 'Internal'}"
+        "User-Agent": f"KeepAlive-Bot/{bot_username_from_env}"
     }
 
-    # 3. Запуск независимых задач
-    # Создаем задачи с понятными именами для логов
-    task1 = asyncio.create_task(monitor_url(primary_url, "PRIMARY", headers))
-    task2 = asyncio.create_task(monitor_url(SECONDARY_URL, "SECONDARY", headers))
-    task3 = asyncio.create_task(monitor_url(T3_URL, "T3", headers))
+    # Динамическое создание задач на основе конфигурации
+    tasks =[]
+    for target in targets:
+        name = target.get("name", "UNKNOWN")
+        url = target.get("url")
+        env_override = target.get("env_override")
 
-    # Ожидаем выполнения задач
-    await asyncio.gather(task1, task2, task3)
+        # Проверяем, нужно ли переопределить URL из переменных окружения
+        if env_override:
+            env_url = os.environ.get(env_override)
+            if env_url and "localhost" not in env_url and "0.0.0.0" not in env_url:
+                url = env_url
+                log("KEEP_ALIVE", f"[{name}] Конфигурация URL взята из переменной {env_override}: {url}")
+            else:
+                log("KEEP_ALIVE", f"[{name}] Переменная {env_override} пуста или локальна. Используется запасной URL: {url}", level=logging.WARNING)
+
+        if url:
+            # Создаем независимую задачу для каждого валидного URL
+            task = asyncio.create_task(monitor_url(url, name, headers, settings))
+            tasks.append(task)
+        else:
+            log("ERROR", f"[{name}] Пропущен, так как URL не задан в конфигурации.", level=logging.ERROR)
+
+    # Ожидаем выполнения всех созданных задач
+    if tasks:
+        await asyncio.gather(*tasks)
+    else:
+        log("KEEP_ALIVE", "Нет валидных URL для мониторинга. Сервис остановлен.", level=logging.WARNING)
