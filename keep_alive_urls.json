@@ -1,6 +1,6 @@
 {
     "settings": {
-        "min_wait_minutes": 13,
+        "min_wait_minutes": 12,
         "max_wait_minutes": 14,
         "error_wait_seconds": 60,
         "initial_delay_seconds": 600
@@ -13,12 +13,12 @@
         },
         {
             "name": "SECONDARY",
-            "url": "https://google.com",
+            "url": "https://ai-web-1z20.onrender.com",
             "env_override": null
         },
         {
             "name": "T3",
-            "url": "https://ya.ru",
+            "url": "https://wbtg-001.onrender.com/ping",
             "env_override": null
         }
     ]
