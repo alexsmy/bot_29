@@ -1,6 +1,6 @@
 {
     "settings": {
-        "min_wait_minutes": 12,
+        "min_wait_minutes": 11,
         "max_wait_minutes": 14,
         "error_wait_seconds": 60,
         "initial_delay_seconds": 600
