@@ -1,122 +1,36 @@
 import os
-import logging
-from fastapi import FastAPI, Request, HTTPException, status
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.exception_handlers import http_exception_handler
-from fastapi.staticfiles import StaticFiles
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
+import asyncio
+import uvicorn
+from fastapi import FastAPI
+from services.keep_alive import start_keep_alive_task
+from utils.logger import log
 
-import ice_provider
-from configurable_logger import log
-from websocket_manager import manager
-from routes.websocket import router as websocket_router
-from routes.admin_router import router as admin_router
-from routes.api_router import router as api_router
-from core import CustomJSONResponse, templates
-
-limiter = Limiter(key_func=get_remote_address, default_limits=["100 per minute"])
-
+# Микро-приложение FastAPI необходимо для того, чтобы Render 
+# успешно привязал сервис к порту и не убил процесс.
 app = FastAPI()
 
-app.state.limiter = limiter
-app.add_middleware(SlowAPIMiddleware)
+@app.get("/")
+async def health_check():
+    return {"status": "Keep-Alive Microservice is running"}
 
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded):
-    log("AUTH_ATTEMPT", f"Rate limit exceeded for {request.client.host}: {exc.detail}", level=logging.WARNING)
-    return JSONResponse(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        content={"detail": f"Rate limit exceeded: {exc.detail}"},
-    )
+async def main():
+    log("APP_LIFECYCLE", "Запуск изолированного сервиса автоподдержки (Keep-Alive)...")
+    
+    # 1. Запускаем твою оригинальную задачу keep_alive в фоне
+    keep_alive_task = asyncio.create_task(start_keep_alive_task())
+    
+    # 2. Запускаем минимальный веб-сервер для удовлетворения требований Render
+    port = int(os.environ.get("PORT", 8000))
+    config = uvicorn.Config(app, host="0.0.0.0", port=port, log_config=None)
+    server = uvicorn.Server(config)
+    
+    server_task = asyncio.create_task(server.serve())
+    
+    # Ожидаем выполнения обеих задач
+    await asyncio.gather(server_task, keep_alive_task)
 
-
-app.include_router(websocket_router)
-app.include_router(admin_router)
-app.include_router(api_router)
-
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-@app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    if exc.status_code in[status.HTTP_404_NOT_FOUND, status.HTTP_403_FORBIDDEN]:
-        log("AUTH_ATTEMPT", f"Перехвачена ошибка {exc.status_code} для URL: {request.url}. Показываем invalid_link.html.", level=logging.WARNING)
-        bot_username = os.environ.get("BOT_USERNAME", "")
-        return templates.TemplateResponse(
-            request=request,
-            name="invalid_link.html",
-            context={"request": request, "bot_username": bot_username},
-            status_code=exc.status_code
-        )
-    return await http_exception_handler(request, exc)
-
-@app.get("/", response_class=HTMLResponse)
-async def get_welcome(request: Request):
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse(
-        request=request,
-        name="welcome.html", 
-        context={"request": request, "bot_username": bot_username}
-    )
-
-@app.get("/api/ice-servers", response_class=CustomJSONResponse)
-@limiter.limit("10/minute")
-async def get_ice_servers_endpoint(request: Request):
-    servers = ice_provider.get_ice_servers()
-    return servers
-
-@app.get("/call/{room_id}", response_class=HTMLResponse)
-@limiter.limit("15/minute")
-async def get_call_page(request: Request, room_id: str):
-    room = await manager.get_or_restore_room(room_id)
-    if not room:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Room not found")
-
-    if len(room.users) >= room.max_users:
-        log("AUTH_ATTEMPT", f"Попытка входа в заполненную комнату {room_id}. Показываем room_occupied.html.", level=logging.WARNING)
-        bot_username = os.environ.get("BOT_USERNAME", "")
-        return templates.TemplateResponse(
-            request=request,
-            name="room_occupied.html",
-            context={"request": request, "bot_username": bot_username},
-            status_code=status.HTTP_403_FORBIDDEN
-        )
-
-    role = "none"
-    if "roll_in" in request.query_params:
-        role = "roll_in"
-    elif "roll_out" in request.query_params:
-        role = "roll_out"
-
-    if room.room_type != 'special' and role != 'none':
-        log("AUTH_ATTEMPT", f"Попытка использовать роль '{role}' для обычной комнаты {room_id}.", level=logging.WARNING)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalid link parameters for this room type")
-
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse(
-        request=request,
-        name="call.html", 
-        context={"request": request, "bot_username": bot_username, "role": role}
-    )
-
-@app.post("/room/close/{room_id}", response_class=CustomJSONResponse)
-@limiter.limit("20/minute")
-async def close_room_endpoint(request: Request, room_id: str):
-    room = await manager.get_or_restore_room(room_id)
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
-    await manager.close_room(room_id, "Closed by user")
-    return {"status": "closing"}
-
-@app.get("/{full_path:path}", response_class=HTMLResponse, include_in_schema=False)
-async def catch_all_invalid_paths(request: Request, full_path: str):
-    log("AUTH_ATTEMPT", f"Обработан невалидный путь (catch-all): /{full_path}", level=logging.WARNING)
-    bot_username = os.environ.get("BOT_USERNAME", "")
-    return templates.TemplateResponse(
-        request=request,
-        name="invalid_link.html",
-        context={"request": request, "bot_username": bot_username},
-        status_code=status.HTTP_404_NOT_FOUND
-    )
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        log("APP_LIFECYCLE", "Сервис автоподдержки остановлен.")

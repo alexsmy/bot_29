@@ -1,17 +1,3 @@
-# bot_29-main/requirements.txt 79
-
-fastapi
-uvicorn[standard]
-jinja2
-python-telegram-bot
-websockets
-pydantic
-python-dotenv
-asyncpg
-psycopg2-binary
-user-agents
-httpx
-twilio
-python-multipart
-groq
-slowapi
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+httpx==0.27.0
