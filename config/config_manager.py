@@ -1,15 +1,14 @@
 import os
 import json
-import re
 from utils.logger import log
 
-CONFIG_FILE = "config/keep_alive_settings.jsonc"
+# Обрати внимание: расширение изменено на .json
+CONFIG_FILE = "config/keep_alive_settings.json"
 
 def load_advanced_config() -> dict:
     """
-    Загружает и парсит улучшенный конфигурационный файл JSONC.
-    Удаляет комментарии и фильтрует отключенные таргеты, передавая 
-    в основной алгоритм только чистые данные.
+    Загружает стандартный JSON файл конфигурации.
+    Фильтрует отключенные таргеты, передавая в основной алгоритм только активные.
     """
     default_config = {
         "settings": {
@@ -27,13 +26,8 @@ def load_advanced_config() -> dict:
 
     try:
         with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            content = f.read()
-
-        # Удаляем однострочные (//) и многострочные (/* */) комментарии
-        content = re.sub(r"//.*", "", content)
-        content = re.sub(r"/\*[\s\S]*?\*/", "", content)
-
-        parsed_config = json.loads(content)
+            # Используем стандартный безопасный парсер JSON
+            parsed_config = json.load(f)
 
         # Фильтруем таргеты: оставляем только те, где "enabled": true
         if "targets" in parsed_config:
@@ -43,7 +37,7 @@ def load_advanced_config() -> dict:
             ]
             parsed_config["targets"] = active_targets
 
-        log("CONFIG", "Улучшенная конфигурация успешно загружена.")
+        log("CONFIG", "Конфигурация успешно загружена.")
         return parsed_config
 
     except json.JSONDecodeError as e:
