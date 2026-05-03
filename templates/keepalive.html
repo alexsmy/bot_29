@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keep-Alive Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Подключаем изолированные стили -->
+    <link rel="stylesheet" href="/static/css/keepalive.css">
+</head>
+<body class="min-h-screen p-4 sm:p-6 font-sans">
+    <div class="max-w-6xl mx-auto">
+        
+        <!-- Кнопка возврата на Хаб -->
+        <a href="/" class="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-6 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700/50 w-fit">
+            <i class="fa-solid fa-arrow-left"></i> Назад в Хаб
+        </a>
+
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 border-b border-slate-700 pb-4 gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                    <i class="fa-solid fa-satellite-dish text-blue-500"></i>
+                    Мониторинг Сервисов
+                </h1>
+                <p class="text-slate-400 mt-1 text-xs sm:text-sm">Автоподдержка и отслеживание доступности URL</p>
+            </div>
+            <div class="text-left sm:text-right bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 w-full sm:w-auto">
+                <div class="text-xs sm:text-sm text-slate-400">Автообновление: <span class="text-blue-400 font-semibold">Вкл (60 сек)</span></div>
+                <div id="last-sync" class="text-[10px] sm:text-xs text-slate-500 mt-1">Синхронизация...</div>
+            </div>
+        </header>
+
+        <div id="stats-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <!-- Карточки генерируются через JS -->
+        </div>
+    </div>
+
+    <!-- Подключаем изолированный скрипт -->
+    <script src="/static/js/keepalive.js"></script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-// Функция для обрезки URL до первой точки
 function formatUrl(urlString) {
     try {
         const url = new URL(urlString);
@@ -8,11 +7,10 @@ function formatUrl(urlString) {
         }
         return urlString;
     } catch (e) {
-        return urlString; // Возвращаем как есть, если URL некорректный
+        return urlString;
     }
 }
 
-// Основная функция запроса данных
 async function fetchStats() {
     try {
         const response = await fetch('/api/stats');
@@ -25,7 +23,6 @@ async function fetchStats() {
     }
 }
 
-// Функция генерации HTML-скелета для новой карточки
 function generateCardHTML(stat, shortUrl) {
     return `
         <div class="flex justify-between items-start mb-3">
@@ -65,7 +62,6 @@ function generateCardHTML(stat, shortUrl) {
     `;
 }
 
-// Функция точечного обновления данных в DOM (без перезагрузки всей карточки)
 function updateCardDOM(card, stat) {
     const totalChecks = stat.success_count + stat.fail_count;
     const uptime = totalChecks > 0 ? ((stat.success_count / totalChecks) * 100).toFixed(1) : 0;
@@ -79,7 +75,6 @@ function updateCardDOM(card, stat) {
         statusColor = 'text-yellow-400'; pulseClass = 'pulse-yellow bg-yellow-500';
     }
 
-    // Обновляем статус только если он изменился
     const statusTextEl = card.querySelector('[data-target="status-text"]');
     if (statusTextEl.innerText !== stat.status) {
         statusTextEl.innerText = stat.status;
@@ -89,7 +84,6 @@ function updateCardDOM(card, stat) {
     const statusIndEl = card.querySelector('[data-target="status-indicator"]');
     statusIndEl.className = `w-2.5 h-2.5 rounded-full ${pulseClass}`;
 
-    // Обновляем метрики
     card.querySelector('[data-target="response-time"]').innerText = stat.response_time_ms;
     card.querySelector('[data-target="uptime"]').innerText = uptime;
     card.querySelector('[data-target="status-code"]').innerText = stat.status_code || '-';
@@ -97,7 +91,6 @@ function updateCardDOM(card, stat) {
     card.querySelector('[data-target="last-checked"]').innerText = stat.last_checked || 'Ожидание...';
 }
 
-// Главный рендер
 function renderStats(stats) {
     const container = document.getElementById('stats-container');
 
@@ -108,17 +101,14 @@ function renderStats(stats) {
         return;
     }
 
-    // Удаляем сообщение о пустоте, если появились данные
     const emptyMsg = document.getElementById('empty-msg');
     if (emptyMsg) emptyMsg.remove();
 
     stats.forEach(stat => {
-        // Создаем уникальный ID для карточки на основе имени таргета
         const safeId = 'stat-card-' + stat.name.replace(/[^a-zA-Z0-9]/g, '-');
         let card = document.getElementById(safeId);
 
         if (!card) {
-            // Если карточки нет — создаем её (выполняется 1 раз при загрузке)
             const shortUrl = formatUrl(stat.url);
             card = document.createElement('div');
             card.id = safeId;
@@ -126,12 +116,10 @@ function renderStats(stats) {
             card.innerHTML = generateCardHTML(stat, shortUrl);
             container.appendChild(card);
         }
-        
-        // Обновляем данные внутри карточки (выполняется каждые 60 сек)
+
         updateCardDOM(card, stat);
     });
 }
 
-// Инициализация
 fetchStats();
 setInterval(fetchStats, 60000);
