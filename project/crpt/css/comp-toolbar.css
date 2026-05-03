@@ -1,0 +1,54 @@
+/* Compact Toolbar & Gradient Buttons */
+
+.toolbar {
+    display: flex;
+    gap: 6px;
+    padding: 6px;
+    background-color: var(--toolbar-bg);
+    border-bottom: 1px solid var(--border-color);
+    flex-wrap: nowrap; /* Force single line */
+    overflow-x: auto; /* Safety scroll */
+}
+
+.toolbar-btn {
+    flex: 1; /* Distribute space evenly */
+    border: none;
+    border-radius: 6px;
+    padding: 8px 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.toolbar-btn .icon {
+    width: 14px;
+    height: 14px;
+}
+
+/* Gradient Buttons */
+.gradient-btn-blue {
+    background: linear-gradient(to bottom, var(--grad-blue-start), var(--grad-blue-end));
+    color: var(--grad-blue-text);
+    border: 1px solid rgba(59, 130, 246, 0.1);
+}
+.gradient-btn-blue:hover { filter: brightness(0.95); }
+
+.gradient-btn-orange {
+    background: linear-gradient(to bottom, var(--grad-orange-start), var(--grad-orange-end));
+    color: var(--grad-orange-text);
+    border: 1px solid rgba(249, 115, 22, 0.1);
+}
+.gradient-btn-orange:hover { filter: brightness(0.95); }
+
+.gradient-btn-red {
+    background: linear-gradient(to bottom, var(--grad-red-start), var(--grad-red-end));
+    color: var(--grad-red-text);
+    border: 1px solid rgba(239, 68, 68, 0.1);
+}
+.gradient-btn-red:hover { filter: brightness(0.95); }

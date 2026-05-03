@@ -1,0 +1,53 @@
+/* Tabs Component */
+
+.tabs {
+    display: flex;
+    gap: 4px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 12px; /* Reduced padding */
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.3s ease;
+}
+
+.tab-btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+.tab-btn.active {
+    background-color: var(--container-bg);
+    color: var(--primary-color);
+}
+
+[data-theme="dark"] .tab-btn.active {
+    color: var(--text-main);
+}
+
+.tab-content {
+    display: none;
+    flex-direction: column;
+    gap: 16px; /* Reduced gap */
+    animation: fadeIn 0.4s ease-out;
+}
+
+.tab-content.active {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}

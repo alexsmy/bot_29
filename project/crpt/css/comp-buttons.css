@@ -1,0 +1,79 @@
+/* Main Action Buttons */
+
+.actions-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    align-items: stretch;
+}
+
+.action-btn {
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    height: 44px; /* Reduced height */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: var(--shadow-sm);
+}
+
+.square-btn {
+    width: 44px;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.flex-grow-btn {
+    flex-grow: 1;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.primary-btn {
+    background-color: var(--primary-color);
+}
+.primary-btn:hover {
+    background-color: var(--primary-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.success-btn {
+    background-color: var(--success-color);
+}
+.success-btn:hover {
+    background-color: var(--success-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.secondary-btn {
+    background-color: var(--container-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+}
+.secondary-btn:hover {
+    background-color: var(--border-color);
+    transform: translateY(-1px);
+}
+
+.action-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+.action-btn:disabled {
+    background-color: var(--border-color);
+    color: var(--text-muted);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}

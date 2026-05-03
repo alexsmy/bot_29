@@ -1,0 +1,73 @@
+
+#app-root {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    /* align-items не обязателен, так как высота контента определяется содержимым */
+}
+
+.app-container {
+    background-color: var(--container-bg);
+    width: 100%;
+    max-width: 600px; /* Reduced max-width for better mobile feel on desktop too */
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: background-color 0.4s ease, box-shadow 0.4s ease;
+    /* Убедимся, что контейнер не сжимается меньше контента */
+    flex-shrink: 0; 
+}
+
+/* Header */
+header {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 16px 16px 0 16px; /* Reduced padding */
+    transition: background-color 0.4s ease;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px; /* Reduced margin */
+}
+
+h1 {
+    font-size: 1.3rem; /* Smaller font */
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+
+.theme-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    border-radius: 50%;
+    width: 36px; /* Smaller button */
+    height: 36px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    backdrop-filter: blur(4px);
+    transition: background 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+
+.theme-btn:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.theme-btn .icon {
+    width: 18px;
+    height: 18px;
+}
+
+/* Main Content Area */
+main {
+    padding: 16px; /* Reduced padding */
+}

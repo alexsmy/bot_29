@@ -1,0 +1,277 @@
+/* QR Code & PIN Module Styles */
+
+/* Глобальный класс для скрытия элементов */
+.hidden {
+    display: none !important;
+}
+
+/* Label with action button inside group header */
+.label-with-action {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.small-btn {
+    padding: 2px 6px;
+    font-size: 0.75rem;
+    border-radius: 4px;
+    background-color: rgba(59, 130, 246, 0.1);
+    color: var(--primary-color);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.small-btn:hover {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.small-btn .icon {
+    width: 12px;
+    height: 12px;
+}
+
+/* Share Modal Specifics */
+.qr-key-display-wrapper {
+    display: flex;
+    width: 100%;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.qr-canvas-container {
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 16px auto;
+    background-color: white;
+    border-radius: 16px;
+    padding: 10px;
+    box-shadow: var(--shadow-md);
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden; /* Чтобы углы не обрезались */
+}
+
+/* Контейнер для самой библиотеки QR */
+#qrcode-display {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#qrcode-display img, 
+#qrcode-display canvas {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Стили для HTML-логотипа удалены, так как он теперь рисуется на Canvas */
+
+.qr-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255,255,255,0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 12px;
+    z-index: 30;
+}
+
+.qr-overlay .icon {
+    width: 32px;
+    height: 32px;
+    color: var(--primary-color);
+}
+
+/* PIN Protection Box */
+.pin-protection-box {
+    background-color: var(--toolbar-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 12px;
+    width: 100%;
+    transition: all 0.3s ease;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    user-select: none;
+}
+
+.checkbox-label input[type="checkbox"] {
+    accent-color: var(--primary-color);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+}
+
+.pin-input-container {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border-color);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    animation: fadeIn 0.3s ease;
+}
+
+.pin-hint {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: center;
+    margin: 0;
+}
+
+.warning-text {
+    color: var(--warning-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+/* Стилизация поля ввода ПИН */
+.pin-input {
+    width: 140px;
+    text-align: center;
+    letter-spacing: 4px; /* Расстояние между точками/цифрами */
+    font-size: 1.4rem;
+    font-weight: bold;
+    padding: 8px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background-color: var(--input-bg);
+    color: var(--text-main);
+    transition: border-color 0.3s, box-shadow 0.3s;
+    font-family: monospace; /* Чтобы ширина символов была одинаковой */
+}
+
+.pin-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.pin-input::placeholder {
+    color: var(--text-muted);
+    opacity: 0.5;
+    letter-spacing: 2px;
+    font-size: 1.2rem;
+}
+
+/* Receive Modal Specifics */
+.receive-actions {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.file-upload-label {
+    margin: 0;
+    cursor: pointer;
+}
+
+/* Поле для отображения вставленного текста */
+.pasted-key-display {
+    width: 100%;
+    margin-bottom: 10px;
+    padding: 10px;
+    background-color: var(--input-readonly-bg);
+    border: 1px solid var(--success-color);
+    border-radius: var(--radius-md);
+    color: var(--text-main);
+    font-weight: 600;
+    text-align: center;
+    animation: highlightPulse 1s ease;
+}
+
+@keyframes highlightPulse {
+    0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+    70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+.scanner-container {
+    width: 100%;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background-color: #000;
+    position: relative;
+    min-height: 220px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+#qr-reader {
+    width: 100%;
+    height: 100%;
+    border: none !important;
+}
+
+#qr-reader__scan_region {
+    background-color: #000;
+}
+#qr-reader__dashboard {
+    background-color: var(--toolbar-bg);
+    padding: 8px !important;
+    z-index: 10;
+}
+
+.scanner-hint {
+    position: absolute;
+    bottom: 10px;
+    left: 0;
+    width: 100%;
+    text-align: center;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.8rem;
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    z-index: 5;
+}
+
+/* Обновленный дизайн строки ввода ПИН-кода и кнопки */
+.pin-input-row {
+    display: flex;
+    gap: 10px;
+    width: 100%;
+    justify-content: center;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.pin-input-row .pin-input {
+    width: 110px;
+    height: 44px;
+    font-size: 1.2rem;
+    letter-spacing: 4px;
+    padding: 4px;
+}
+
+.pin-input-row .action-btn {
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    flex-shrink: 0;
+    white-space: nowrap;
+}

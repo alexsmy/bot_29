@@ -1,0 +1,53 @@
+/* Responsive Design */
+@media (max-width: 768px) {
+    /* Tablet adjustments if needed */
+}
+
+@media (max-width: 480px) {
+    body {
+        padding: 0; /* Full width on mobile */
+        background-color: var(--container-bg); /* Blend body with container */
+    }
+    
+    .app-container {
+        border-radius: 0;
+        box-shadow: none;
+        min-height: 100vh;
+    }
+    
+    header {
+        padding: 12px 12px 0 12px;
+    }
+    
+    main {
+        padding: 12px;
+    }
+    
+    .toolbar-btn {
+        font-size: 0.75rem;
+        padding: 6px 2px;
+    }
+    
+    .toolbar-btn .icon {
+        width: 12px;
+        height: 12px;
+    }
+    
+    #toast-container {
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+    }
+    
+    .toast {
+        justify-content: center;
+        text-align: center;
+        padding: 12px;
+        font-size: 0.85rem;
+    }
+    
+    .matrix-container {
+        width: 260px;
+        height: 260px;
+    }
+}

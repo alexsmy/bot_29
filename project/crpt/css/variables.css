@@ -1,0 +1,91 @@
+/* CSS Variables & Theming */
+:root {
+    /* Light Theme (Modernized) */
+    --primary-color: #2563eb;
+    --primary-hover: #1d4ed8;
+    --success-color: #059669;
+    --success-hover: #047857;
+    --bg-color: #f1f5f9;
+    --container-bg: #ffffff;
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+    --border-color: #e2e8f0;
+    --input-bg: #ffffff;
+    --input-readonly-bg: #f8fafc;
+    --toolbar-bg: #f8fafc;
+    --error-color: #ef4444;
+    --warning-color: #f59e0b;
+    
+    /* Gradients for buttons */
+    --grad-blue-start: #eff6ff;
+    --grad-blue-end: #dbeafe;
+    --grad-blue-text: #1e40af;
+    
+    --grad-orange-start: #fff7ed;
+    --grad-orange-end: #ffedd5;
+    --grad-orange-text: #9a3412;
+    
+    --grad-red-start: #fef2f2;
+    --grad-red-end: #fee2e2;
+    --grad-red-text: #991b1b;
+
+    /* Modern Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
+    
+    --radius-md: 8px; /* Reduced radius */
+    --radius-lg: 14px;
+    
+    /* Key Strength Colors */
+    --str-default: #e2e8f0;
+    --str-simple: #fef08a;
+    --str-medium: #d9f99d;
+    --str-reliable: #4ade80;
+    --str-strong: #34d399;
+    --str-advanced: #60a5fa;
+    --str-absolute: #8b5cf6;
+    --str-max: #4c1d95;
+}
+
+[data-theme="dark"] {
+    /* Dark Theme (Modernized) */
+    --primary-color: #3b82f6;
+    --primary-hover: #60a5fa;
+    --success-color: #10b981;
+    --success-hover: #34d399;
+    --bg-color: #0f172a;
+    --container-bg: #1e293b;
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --border-color: #334155;
+    --input-bg: #0f172a;
+    --input-readonly-bg: #1e293b;
+    --toolbar-bg: #1e293b;
+    
+    /* Gradients for buttons (Dark) */
+    --grad-blue-start: #1e3a8a;
+    --grad-blue-end: #172554;
+    --grad-blue-text: #bfdbfe;
+    
+    --grad-orange-start: #7c2d12;
+    --grad-orange-end: #431407;
+    --grad-orange-text: #fed7aa;
+    
+    --grad-red-start: #7f1d1d;
+    --grad-red-end: #450a0a;
+    --grad-red-text: #fecaca;
+    
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 15px 30px -5px rgba(0, 0, 0, 0.5);
+    
+    /* Dark Theme Strength Adjustments */
+    --str-default: #334155;
+    --str-simple: #854d0e; 
+    --str-medium: #3f6212;
+    --str-reliable: #166534;
+    --str-strong: #065f46;
+    --str-advanced: #1e40af;
+    --str-absolute: #5b21b6;
+    --str-max: #2e1065;
+}

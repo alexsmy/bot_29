@@ -1,0 +1,11 @@
+/* 
+   Components Aggregator
+   Этот файл теперь служит точкой входа для всех компонентов UI.
+   Стили разбиты на отдельные модули для удобства поддержки.
+*/
+
+@import 'comp-tabs.css';
+@import 'comp-inputs.css';
+@import 'comp-toolbar.css';
+@import 'comp-forms.css';
+@import 'comp-buttons.css';

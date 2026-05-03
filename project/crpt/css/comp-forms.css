@@ -1,0 +1,62 @@
+/* Form Controls (Key Inputs, Password Toggles) */
+
+.controls {
+    display: flex;
+    flex-direction: column; /* Stack vertically */
+    gap: 10px;
+    background: var(--toolbar-bg);
+    padding: 12px; /* Reduced padding */
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.key-row {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.key-input {
+    width: 100%;
+    padding: 10px 40px 10px 12px; /* Adjusted padding */
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    background-color: var(--input-bg);
+    color: var(--text-main);
+    transition: all 0.3s;
+    height: 42px;
+}
+
+.key-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.toggle-password {
+    position: absolute;
+    right: 8px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    padding: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.toggle-password:hover {
+    color: var(--primary-color);
+    background-color: rgba(59, 130, 246, 0.1);
+}

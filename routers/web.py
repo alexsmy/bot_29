@@ -23,13 +23,14 @@ async def dashboard():
 
     return HTMLResponse(content=html_content)
 
-# --- НОВЫЙ МОДУЛЬНЫЙ БЛОК ---
 @router.get("/radio")
 async def radio_redirect():
-    """
-    Удобный эндпоинт для доступа к радио.
-    Делает редирект на фактическое расположение файла, 
-    сохраняя правильную работу всех относительных путей (CSS/JS) внутри HTML.
-    """
+  
     return RedirectResponse(url="/project/radio/radio_18.html")
+# ----------------------------
+
+@router.get("/crpt")
+async def radio_redirect():
+
+    return RedirectResponse(url="/project/crpt/crpt.html")
 # ----------------------------

@@ -1,0 +1,10 @@
+/* Password Strength Indicators Module */
+
+.strength-default { background-color: var(--str-default) !important; color: var(--text-muted) !important; }
+.strength-simple { background-color: var(--str-simple) !important; color: var(--text-main) !important; }
+.strength-medium { background-color: var(--str-medium) !important; color: var(--text-main) !important; }
+.strength-reliable { background-color: var(--str-reliable) !important; color: var(--text-main) !important; }
+.strength-strong { background-color: var(--str-strong) !important; color: white !important; }
+.strength-advanced { background-color: var(--str-advanced) !important; color: white !important; }
+.strength-absolute { background-color: var(--str-absolute) !important; color: white !important; }
+.strength-max { background-color: var(--str-max) !important; color: white !important; }

@@ -1,0 +1,50 @@
+/* Toast Notifications Module */
+
+#toast-container {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    /* Увеличен z-index, чтобы уведомления были поверх модальных окон (2000) */
+    z-index: 9999; 
+    pointer-events: none;
+}
+
+.toast {
+    background-color: var(--text-main);
+    color: var(--bg-color);
+    padding: 16px 24px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    font-size: 0.95rem;
+    font-weight: 600;
+    opacity: 0;
+    transform: translateX(120%);
+    transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.toast .icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.error {
+    background-color: var(--error-color);
+    color: white;
+}
+
+.toast.success {
+    background-color: var(--success-color);
+    color: white;
+}
