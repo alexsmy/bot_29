@@ -4,7 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель управления проектами</title>
+    
+    <!-- Подключение современного премиального шрифта Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Настройка Tailwind для использования нового шрифта по умолчанию -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans:['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-blue-500/30">
@@ -20,7 +40,7 @@
             <h1 class="text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-3">
                 Модульный <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-400">Хаб</span>
             </h1>
-            <p class="text-slate-400 text-lg max-w-2xl">Единая точка доступа ко всем внутренним сервисам и приложениям.</p>
+            <p class="text-slate-400 text-lg max-w-2xl font-medium">Единая точка доступа ко всем внутренним сервисам и приложениям.</p>
         </header>
 
         <!-- Сетка проектов -->
@@ -34,8 +54,8 @@
                     </div>
                     <div class="flex-1">
                         <h2 class="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">Автоподдержка (Keep-Alive)</h2>
-                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Мониторинг доступности сервисов, статистика аптайма и автоматическое поддержание активности URL.</p>
-                        <span class="inline-flex items-center text-sm font-medium text-blue-400">
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Мониторинг доступности сервисов, статистика аптайма и автоматическое поддержание активности URL.</p>
+                        <span class="inline-flex items-center text-sm font-bold text-blue-400">
                             Открыть статистику 
                             <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </span>
@@ -51,8 +71,8 @@
                     </div>
                     <div class="flex-1">
                         <h2 class="text-xl font-bold text-white mb-2 group-hover:text-purple-400 transition-colors">Vibe Radio</h2>
-                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Музыкальный плеер с эквалайзером, поиском станций и динамическим фоном. Слушай любимые волны.</p>
-                        <span class="inline-flex items-center text-sm font-medium text-purple-400">
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Музыкальный плеер с эквалайзером, поиском станций и динамическим фоном. Слушай любимые волны.</p>
+                        <span class="inline-flex items-center text-sm font-bold text-purple-400">
                             Слушать радио
                             <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </span>
@@ -68,8 +88,8 @@
                     </div>
                     <div class="flex-1">
                         <h2 class="text-xl font-bold text-white mb-2 group-hover:text-emerald-400 transition-colors">Шифратор (Crypto)</h2>
-                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Продвинутое AES-GCM шифрование текста и файлов. Генерация ключей, передача через QR и облако.</p>
-                        <span class="inline-flex items-center text-sm font-medium text-emerald-400">
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Продвинутое AES-GCM шифрование текста и файлов. Генерация ключей, передача через QR и облако.</p>
+                        <span class="inline-flex items-center text-sm font-bold text-emerald-400">
                             Зашифровать данные
                             <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </span>
@@ -85,8 +105,8 @@
                     </div>
                     <div class="flex-1">
                         <h2 class="text-xl font-bold text-white mb-2 group-hover:text-orange-400 transition-colors">Сборщик кода (Sbor)</h2>
-                        <p class="text-slate-400 text-sm leading-relaxed mb-4">Умный инструмент для подготовки кодовой базы к анализу ИИ. Фильтрация, скрытие секретов и Repo Map.</p>
-                        <span class="inline-flex items-center text-sm font-medium text-orange-400">
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Умный инструмент для подготовки кодовой базы к анализу ИИ. Фильтрация, скрытие секретов и Repo Map.</p>
+                        <span class="inline-flex items-center text-sm font-bold text-orange-400">
                             Собрать проект
                             <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </span>
