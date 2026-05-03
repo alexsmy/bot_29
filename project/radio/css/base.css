@@ -1,0 +1,109 @@
+:root {
+    --glass-bg: rgba(255, 255, 255, 0.1);
+    --glass-border: rgba(255, 255, 255, 0.2);
+    --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    --glass-blur: blur(12px);
+    --primary-color: #fff;
+    --accent-color: #a1c4fd;
+    --text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    
+    /* --- VIBE ANIMATION VARIABLES --- */
+    /* Плавная кривая: быстрое начало, очень мягкая остановка */
+    --vibe-ease: cubic-bezier(0.2, 0.8, 0.2, 1); 
+    /* Пружинистая кривая для акцентов */
+    --vibe-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+    /* Базовая длительность переходов */
+    --vibe-duration: 0.5s;
+    --vibe-duration-short: 0.3s;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    /* Используем dvh для корректной высоты на мобильных с адресной строкой */
+    min-height: 100dvh; 
+    /* Базовый темный фон, поверх которого будут пятна */
+    background-color: #050510;
+    color: var(--primary-color);
+    /* Разрешаем вертикальный скролл, если контент не влезает */
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+}
+
+/* --- DYNAMIC BACKGROUND SYSTEM --- */
+
+#dynamic-background {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    overflow: hidden;
+    background: #0a0a1a; /* Стартовый цвет, будет меняться JS */
+    transition: background-color 15s ease-in-out; /* Очень медленная смена основы */
+}
+
+.bg-blob {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px); /* Увеличено размытие для лучшего смешивания 4 цветов */
+    opacity: 0.65; /* Чуть прозрачнее, чтобы слои смешивались */
+    /* Transition теперь управляется через JS для каждого элемента индивидуально */
+    will-change: transform, background-color, width, height;
+    mix-blend-mode: screen; /* Режим наложения для красивого свечения */
+}
+
+.main-container {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 500px;
+    padding: 1rem;
+    /* Добавляем отступ снизу для мобильных, чтобы контент не прилипал к краю */
+    margin: auto 0; 
+}
+
+h1.glass-text {
+    font-size: 2.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    letter-spacing: 2px;
+    text-shadow: var(--text-shadow);
+    background: linear-gradient(to bottom, #fff, #e0e0e0);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+}
+
+/* Общие стили для скроллбара */
+::-webkit-scrollbar {
+    width: 6px;
+}
+::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.05);
+}
+::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.5);
+}

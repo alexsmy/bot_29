@@ -1,0 +1,261 @@
+/* --- GLASSMORPHISM COMPONENTS --- */
+
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--glass-shadow);
+    border-radius: 24px;
+    /* Плавное появление при загрузке */
+    transition: transform 0.5s var(--vibe-ease), opacity 0.5s ease;
+}
+
+.glass-button {
+    position: relative; 
+    overflow: hidden;   
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    border-radius: 16px;
+    cursor: pointer;
+    /* Используем Vibe-переменную для плавности */
+    transition: all 0.4s var(--vibe-ease);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.glass-button:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-3px);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+.glass-button:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+/* --- LOGO AREA --- */
+
+.station-info-container {
+    margin: 0; 
+    perspective: 1000px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+#radio-logo {
+    width: 220px;
+    height: 220px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 30px;
+    overflow: hidden;
+    position: relative;
+    /* Более медленная и плавная трансформация */
+    transition: transform 0.6s var(--vibe-ease), box-shadow 0.6s var(--vibe-ease), border-color 0.6s ease;
+    background: rgba(0, 0, 0, 0.2);
+    margin: 1.5rem 0; 
+    border: 1px solid transparent; /* Для плавного перехода границы */
+}
+
+/* --- НОВЫЙ ЭФФЕКТ СВЕЧЕНИЯ (Task 1) --- */
+#radio-logo.playing-glow {
+    /* Мягкое белое свечение + акцентное свечение */
+    box-shadow: 0 0 25px 5px rgba(255, 255, 255, 0.25),
+                0 0 60px 15px rgba(161, 196, 253, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+    transform: scale(1.02); /* Легкое приподнятие */
+}
+
+#radio-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.8s var(--vibe-ease);
+}
+
+.logo-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.logo-placeholder svg {
+    width: 80px;
+    height: 80px;
+}
+
+#radio-logo:hover {
+    /* Более выраженный 3D эффект */
+    transform: rotateY(12deg) rotateX(6deg) scale(1.05);
+    box-shadow: -10px 20px 40px rgba(0,0,0,0.5);
+}
+
+#radio-logo:hover img {
+    transform: scale(1.1);
+}
+
+#radio-logo::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 50%);
+    pointer-events: none;
+}
+
+/* --- PLAYER CONTROLS --- */
+
+.player-controls {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1rem;
+    gap: 1rem;
+    animation: fadeInUp 1s var(--vibe-ease) forwards;
+}
+
+.playback-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.control-btn {
+    position: relative; 
+    overflow: hidden;   
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.3s var(--vibe-ease);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.control-btn svg {
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    pointer-events: none; 
+}
+
+.main-btn {
+    width: 56px;
+    height: 56px;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+
+.main-btn:hover {
+    background: #fff;
+    color: #1a2980;
+    transform: scale(1.15);
+    box-shadow: 0 8px 20px rgba(255,255,255,0.3);
+}
+
+.main-btn:active {
+    transform: scale(0.95);
+}
+
+.main-btn svg {
+    width: 24px;
+    height: 24px;
+}
+
+.sub-btn {
+    width: 40px;
+    height: 40px;
+    opacity: 0.7;
+}
+
+.sub-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.1);
+}
+
+.sub-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Timer */
+.time-display {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(0, 0, 0, 0.2);
+    padding: 6px 12px;
+    border-radius: 12px;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.2);
+    min-width: 65px;
+    text-align: center;
+}
+
+/* Volume */
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.icon-only svg {
+    width: 20px;
+    height: 20px;
+}
+
+.slider-container {
+    width: 80px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+}
+
+input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+    transition: height 0.2s;
+}
+
+input[type="range"]:hover {
+    height: 6px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+    transition: transform 0.2s var(--vibe-bounce);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.5);
+}
