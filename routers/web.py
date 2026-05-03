@@ -34,3 +34,9 @@ async def radio_redirect():
 
     return RedirectResponse(url="/project/crpt/crpt.html")
 # ----------------------------
+
+@router.get("/sbor")
+async def radio_redirect():
+
+    return RedirectResponse(url="/project/sbor/sbor.html")
+# ----------------------------

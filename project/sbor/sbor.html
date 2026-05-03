@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Preparer Pro: Advanced Control v8.24</title>
+
+    <script>
+        window.addEventListener('error', function(e) {
+            const statusArea = document.getElementById('status-area');
+            if (!statusArea) return;
+
+            statusArea.style.display = 'block';
+            statusArea.style.color = '#dc2626';
+            statusArea.style.backgroundColor = '#fee2e2';
+            statusArea.style.borderColor = '#f87171';
+
+            if (e.target && e.target.tagName === 'SCRIPT') {
+                statusArea.innerHTML = `<strong>Ошибка загрузки JS:</strong> Не удалось найти файл модуля.<br>Убедитесь, что все папки созданы строго внутри папки <code>js/</code>!`;
+            } else {
+                statusArea.innerHTML = `<strong>Критическая ошибка:</strong> ${e.message}`;
+            }
+        }, true);
+
+        const APP_VERSION = Date.now();
+
+        const cssFiles =['base.css', 'layout.css', 'components.css', 'modals.css'];
+        cssFiles.forEach(file => {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = `css/${file}?v=${APP_VERSION}`;
+            document.head.appendChild(link);
+        });
+
+        const jsModules =[
+            'boot.js', 'template.js',
+            'templates/layout.js', 'templates/modals.js',
+            'app.js', 'config.js', 'state.js', 'utils.js',
+            'ui_core.js', 'ui_render.js',
+            'ui/render_exclusions.js', 'ui/render_smart.js', 'ui/render_review.js', 'ui/render_secrets.js', 'ui/render_settings.js', 'ui/render_analysis_package.js',
+            'events/setup_events.js', 'events/file_events.js', 'events/smart_events.js', 'events/nav_events.js', 'events/generate_events.js',
+            'ai_models.js', 'gitignore.js', 'file_processor.js', 'secrets.js',
+            'generator.js', 'generation/content_builder.js', 'generation/stats_builder.js', 'analyzer.js', 'optimizer.js', 'export_formatter.js',
+            'smart_filter.js', 'repo_map.js',
+            'smart_filter/constants.js', 'smart_filter/dependency_parser.js', 'smart_filter/path_utils.js', 'smart_filter/profile_inference.js', 'smart_filter/ui_generators.js',
+            'optimizers/c_style.js', 'optimizers/hash_style.js', 'optimizers/html_style.js',
+            'formatters/xml_formatter.js', 'formatters/md_formatter.js',
+            'analysis_package.js',
+            'analysis/constants.js', 'analysis/utils.js', 'analysis/graph.js', 'analysis/heuristics.js', 'analysis/formatters.js', 'analysis/builder.js'
+        ];
+
+        const imports = {};
+        jsModules.forEach(m => {
+            imports[`./js/${m}`] = `./js/${m}?v=${APP_VERSION}`;
+        });
+
+        const im = document.createElement('script');
+        im.type = 'importmap';
+        im.textContent = JSON.stringify({ imports });
+        document.head.appendChild(im);
+    </script>
+
+    <script type="module">
+        import './js/boot.js';
+    </script>
+</head>
+<body>
+    <div id="app-root"></div>
+</body>
+</html>

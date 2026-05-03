@@ -1,0 +1,186 @@
+
+
+.file-input-label {
+    display: inline-flex; align-items: center; gap: 0.75rem; padding: 16px 32px;
+    background-color: var(--primary); color: white; border-radius: 12px;
+    cursor: pointer; font-weight: 600; transition: all 0.2s ease;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+}
+.file-input-label:hover { background-color: var(--primary-hover); transform: translateY(-1px); }
+input[type="file"] { display: none; }
+
+.btn {
+    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-weight: 600; font-size: 0.95rem; transition: all 0.2s;
+    display: inline-flex; align-items: center; gap: 0.5rem;
+}
+.btn-secondary { background-color: white; border: 1px solid var(--border); color: var(--text); }
+.btn-secondary:hover { background-color: #f8fafc; border-color: #cbd5e1; }
+.btn-primary { background-color: var(--primary); color: white; }
+.btn-primary:hover { background-color: var(--primary-hover); }
+.btn-success { background-color: var(--success); color: white; }
+.btn-success:hover { background-color: #15803d; }
+.btn-text { background: none; border: none; color: var(--primary); padding: 0; font-size: 0.9rem; text-decoration: underline; cursor: pointer; }
+
+.search-box {
+    width: 100%; max-width: 300px; padding: 8px 12px; border: 1px solid var(--border);
+    border-radius: 8px; font-size: 0.9rem; outline: none; transition: border-color 0.2s;
+}
+.search-box:focus { border-color: var(--primary); }
+
+.ai-select {
+    padding: 8px; border-radius: 6px; border: 1px solid var(--border); font-family: inherit;
+    font-size: 0.9rem; background-color: white; color: var(--text); outline: none;
+}
+
+.stat-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 0.25rem; font-weight: 600; }
+.stat-value { font-size: 1.25rem; font-weight: 700; color: var(--text); }
+.stat-value.highlight { color: var(--primary); }
+.stat-value.danger { color: #dc2626; }
+
+.file-tag { font-size: 0.75rem; padding: 2px 6px; background: #eee; border-radius: 4px; color: #666; margin-left: 10px; display: inline-block; }
+.file-tag.danger { background: #fee2e2; color: #991b1b; }
+.file-tag.git { background: #e0e7ff; color: #3730a3; }
+.file-tag.warning { background: #fef3c7; color: #92400e; }
+.file-tag.smart { background: #dbeafe; color: #1d4ed8; }
+.file-tag.target { background: #dcfce7; color: #166534; }
+
+.info-box {
+    margin: 0 0 1.5rem 0;
+    padding: 1rem; background-color: #eff6ff; border: 1px solid #dbeafe;
+    border-radius: 8px; color: #1e40af; font-size: 0.9rem;
+}
+.info-box.warning { background-color: #fffbeb; border-color: #fef3c7; color: #b45309; }
+
+.ai-context-wrapper { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.ai-context-header { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 0.5rem; }
+.ai-progress-bar { width: 100%; height: 8px; background-color: var(--border); border-radius: 4px; overflow: hidden; }
+.ai-progress-fill { height: 100%; background-color: var(--success); transition: width 0.3s ease; }
+.ai-progress-fill.warning { background-color: var(--warning); }
+.ai-progress-fill.danger { background-color: #dc2626; }
+
+.file-row {
+    display: flex; align-items: center; padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border); transition: background 0.15s;
+}
+.file-row:last-child { border-bottom: none; }
+.file-row:hover { background-color: #f8fafc; }
+.file-row input[type="checkbox"] { width: 18px; height: 18px; margin-right: 12px; cursor: pointer; accent-color: var(--primary); }
+.file-row label { cursor: pointer; font-size: 0.9rem; word-break: break-all; flex-grow: 1; }
+
+.ext-item { display: flex; align-items: center; margin-bottom: 0.5rem; }
+.ext-item input { margin-right: 0.75rem; accent-color: var(--primary); width: 16px; height: 16px; }
+.ext-item label { font-size: 0.9rem; cursor: pointer; }
+
+.secret-preview {
+    font-size: 0.8rem; font-family: monospace; background-color: #f1f5f9;
+    padding: 6px 10px; border-radius: 6px; margin-top: 6px; margin-left: 30px;
+    color: #dc2626; border: 1px solid #e2e8f0; word-break: break-all;
+}
+
+.smart-filter-panel {
+    margin: 0 0 1.5rem 0;
+    padding: 1rem;
+    background: #f8fafc;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    text-align: left;
+}
+
+.smart-filter-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: end;
+}
+
+.smart-filter-field label,
+.smart-toggle label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 0.35rem;
+}
+
+.smart-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 1.2rem;
+}
+
+.smart-toggle input {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary);
+}
+
+.smart-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.smart-summary {
+    margin: 0 0 1.5rem 0;
+}
+
+.rule-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.rule-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+}
+
+.rule-row input {
+    margin-top: 0.25rem;
+    accent-color: var(--primary);
+}
+
+.rule-meta {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+    line-height: 1.4;
+}
+
+.smart-picker-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    padding: 0 0 1rem 0;
+}
+
+.smart-picker-col {
+    min-width: 0;
+}
+
+.smart-picker-col h3 {
+    font-size: 1rem;
+    margin: 0 0 0.75rem 0;
+    color: var(--text);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 0.4rem;
+}
+
+.smart-picker-list {
+    max-height: 30vh;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: #fff;
+}
+
+    
