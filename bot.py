@@ -9,9 +9,15 @@ from routers.web import router as web_router
 
 app = FastAPI()
 
-# Создаем папку static, если ее нет, и монтируем для раздачи статики (CSS/JS)
+# Подключаем папку со статикой дашборда
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# --- НОВЫЙ МОДУЛЬНЫЙ БЛОК ---
+# Подключаем папку project, чтобы сервер мог отдавать HTML, JS и CSS файлы радио
+os.makedirs("project", exist_ok=True)
+app.mount("/project", StaticFiles(directory="project"), name="project")
+# ----------------------------
 
 app.include_router(web_router)
 
