@@ -2,13 +2,17 @@ import os
 import asyncio
 import uvicorn
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 from routers.web import router as web_router
 
 app = FastAPI()
 
-# Подключаем модульный роутер с веб-интерфейсом
+# Создаем папку static, если ее нет, и монтируем для раздачи статики (CSS/JS)
+os.makedirs("static", exist_ok=True)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 app.include_router(web_router)
 
 async def main():
