@@ -3,10 +3,11 @@ import random
 import os
 import httpx
 import logging
+import time
 
-# Импортируем новые модули вместо старых
 from utils.logger import log
 from config.config_manager import load_advanced_config
+from services.stats_manager import init_stat, update_stat
 
 def load_config() -> dict:
     """
@@ -32,6 +33,9 @@ async def monitor_url(url: str, task_name: str, headers: dict, settings: dict):
     Универсальная функция для периодической проверки доступности URL.
     """
     log("KEEP_ALIVE", f"[{task_name}] 🚀 Запущен мониторинг для: {url}")
+    
+    # Инициализируем статистику для веб-интерфейса
+    init_stat(task_name, url)
 
     min_wait = settings.get("min_wait_minutes", 13)
     max_wait = settings.get("max_wait_minutes", 14)
@@ -40,11 +44,14 @@ async def monitor_url(url: str, task_name: str, headers: dict, settings: dict):
     while True:
         wait_seconds = 0
         is_success = False
+        status_code = 0
+        start_time = time.time()
 
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 log("KEEP_ALIVE", f"[{task_name}] 📡 Отправляю запрос на {url}...")
                 response = await client.get(url, headers=headers)
+                status_code = response.status_code
 
                 if 200 <= response.status_code < 300:
                     log("KEEP_ALIVE", f"[{task_name}] ✅ Сайт АКТИВЕН. Ответ: {response.status_code}.")
@@ -59,6 +66,10 @@ async def monitor_url(url: str, task_name: str, headers: dict, settings: dict):
         except Exception as e:
             log("CRITICAL", f"[{task_name}] ❌ Критическая ошибка в цикле: {e}", level=logging.CRITICAL)
             is_success = False
+
+        # Вычисляем время отклика и обновляем статистику
+        elapsed_time = time.time() - start_time
+        update_stat(task_name, is_success, status_code, elapsed_time)
 
         if is_success:
             wait_seconds = random.randint(min_wait * 60, max_wait * 60)
