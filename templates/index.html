@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель управления проектами</title>
-    
-    <!-- Подключение современного премиального шрифта Plus Jakarta Sans -->
+
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Настройка Tailwind для использования нового шрифта по умолчанию -->
+
+
     <script>
         tailwind.config = {
             theme: {
@@ -24,12 +24,12 @@
             }
         }
     </script>
-    
+
     <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body class="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-blue-500/30">
-    
-    <!-- Декоративный фон -->
+
+
     <div class="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-600/10 blur-[120px]"></div>
         <div class="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-600/10 blur-[120px]"></div>
@@ -43,10 +43,10 @@
             <p class="text-slate-400 text-lg max-w-2xl font-medium">Единая точка доступа ко всем внутренним сервисам и приложениям.</p>
         </header>
 
-        <!-- Сетка проектов -->
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            
-            <!-- Проект 1: Автоподдержка -->
+
+
             <a href="/keepalive" class="group block bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-blue-500/10 hover:border-blue-500/30 hover:bg-slate-800/60">
                 <div class="flex items-start gap-5">
                     <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform duration-300">
@@ -56,14 +56,14 @@
                         <h2 class="text-xl font-bold text-white mb-2 group-hover:text-blue-400 transition-colors">Автоподдержка (Keep-Alive)</h2>
                         <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Мониторинг доступности сервисов, статистика аптайма и автоматическое поддержание активности URL.</p>
                         <span class="inline-flex items-center text-sm font-bold text-blue-400">
-                            Открыть статистику 
+                            Открыть статистику
                             <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </span>
                     </div>
                 </div>
             </a>
 
-            <!-- Проект 2: Радио -->
+
             <a href="/radio" class="group block bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-purple-500/10 hover:border-purple-500/30 hover:bg-slate-800/60">
                 <div class="flex items-start gap-5">
                     <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-purple-500/10 flex items-center justify-center text-purple-400 group-hover:scale-110 transition-transform duration-300">
@@ -80,7 +80,7 @@
                 </div>
             </a>
 
-            <!-- Проект 3: Шифратор -->
+
             <a href="/crpt" class="group block bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-emerald-500/10 hover:border-emerald-500/30 hover:bg-slate-800/60">
                 <div class="flex items-start gap-5">
                     <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform duration-300">
@@ -97,7 +97,7 @@
                 </div>
             </a>
 
-            <!-- Проект 4: Сборщик -->
+
             <a href="/sbor" class="group block bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-orange-500/10 hover:border-orange-500/30 hover:bg-slate-800/60">
                 <div class="flex items-start gap-5">
                     <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-400 group-hover:scale-110 transition-transform duration-300">
@@ -108,6 +108,23 @@
                         <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Умный инструмент для подготовки кодовой базы к анализу ИИ. Фильтрация, скрытие секретов и Repo Map.</p>
                         <span class="inline-flex items-center text-sm font-bold text-orange-400">
                             Собрать проект
+                            <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                        </span>
+                    </div>
+                </div>
+            </a>
+
+            <!-- НОВАЯ КАРТОЧКА: Галактические 3D Часы -->
+            <a href="/time" class="group block bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-cyan-500/10 hover:border-cyan-500/30 hover:bg-slate-800/60">
+                <div class="flex items-start gap-5">
+                    <div class="flex-shrink-0 w-14 h-14 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform duration-300">
+                        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div class="flex-1">
+                        <h2 class="text-xl font-bold text-white mb-2 group-hover:text-cyan-400 transition-colors">Галактические 3D Часы</h2>
+                        <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">Интерактивные трехмерные часы с космическими частицами, неоновой подсветкой и настраиваемыми темами.</p>
+                        <span class="inline-flex items-center text-sm font-bold text-cyan-400">
+                            Открыть часы
                             <svg class="w-4 h-4 ml-1 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
                         </span>
                     </div>
