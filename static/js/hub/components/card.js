@@ -1,9 +1,11 @@
 export function createCardHTML(project, index) {
 
     const animationDelay = (index * 0.1 + 0.1).toFixed(1);
-    
+
     return `
-        <a href="${project.url}" 
+        <a href="${project.url}"
+           id="project-card-${project.id}"
+           data-id="${project.id}"
            class="group block bg-slate-800/40 backdrop-blur-md border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl ${project.theme.hoverShadow} ${project.theme.hoverBorder} hover:bg-slate-800/60"
            style="animation-delay: ${animationDelay}s;">
             <div class="flex items-start gap-5">
@@ -13,7 +15,11 @@ export function createCardHTML(project, index) {
                     </svg>
                 </div>
                 <div class="flex-1">
-                    <h2 class="text-xl font-bold text-white mb-2 ${project.theme.hoverText} transition-colors">${project.title}</h2>
+                    <div class="flex justify-between items-center mb-2">
+                        <h2 class="text-xl font-bold text-white ${project.theme.hoverText} transition-colors">${project.title}</h2>
+                        <!-- Контейнер для индикатора статуса -->
+                        <div class="status-indicator-container"></div>
+                    </div>
                     <p class="text-slate-400 text-sm leading-relaxed mb-4 font-medium">${project.description}</p>
                     <span class="inline-flex items-center text-sm font-bold ${project.theme.textAction}">
                         ${project.actionText}

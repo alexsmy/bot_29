@@ -6,13 +6,11 @@
     <title>Keep-Alive Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Подключаем изолированные стили -->
     <link rel="stylesheet" href="/static/css/keepalive.css">
 </head>
 <body class="min-h-screen p-4 sm:p-6 font-sans">
-    <div class="max-w-6xl mx-auto">
-        
-        <!-- Кнопка возврата на Хаб -->
+    <div class="max-w-7xl mx-auto">
+
         <a href="/" class="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-6 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700/50 w-fit">
             <i class="fa-solid fa-arrow-left"></i> Назад в Хаб
         </a>
@@ -31,12 +29,14 @@
             </div>
         </header>
 
-        <div id="stats-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <!-- Карточки генерируются через JS -->
+        <!-- Сводная панель -->
+        <div id="summary-panel" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"></div>
+
+        <!-- Контейнер для карточек -->
+        <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
         </div>
     </div>
 
-    <!-- Подключаем изолированный скрипт -->
     <script src="/static/js/keepalive.js"></script>
 </body>
 </html>
