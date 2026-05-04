@@ -47,3 +47,7 @@ async def crpt_redirect():
 @router.get("/sbor")
 async def sbor_redirect():
     return RedirectResponse(url="/project/sbor/sbor.html")
+
+@router.get("/time")
+async def sbor_redirect():
+    return RedirectResponse(url="/project/time/3dtime.html")
