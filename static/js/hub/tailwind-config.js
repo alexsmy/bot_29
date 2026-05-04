@@ -1,4 +1,3 @@
-// Конфигурация Tailwind CSS вынесена в отдельный файл для чистоты HTML
 tailwind.config = {
     theme: {
         extend: {

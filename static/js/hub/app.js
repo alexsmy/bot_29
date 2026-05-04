@@ -1,4 +1,4 @@
-// Главный модуль приложения Хаба: связывает данные и компоненты, рендерит интерфейс
+
 
 import { projects } from './data/projects.js';
 import { createCardHTML } from './components/card.js';
