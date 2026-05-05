@@ -6,20 +6,19 @@ from fastapi.staticfiles import StaticFiles
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 from routers.web import router as web_router
+from routers.crpt_api import router as crpt_router  # Импортируем новый модуль
 
 app = FastAPI()
 
-# Подключаем папку со статикой дашборда
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# --- НОВЫЙ МОДУЛЬНЫЙ БЛОК ---
-# Подключаем папку project, чтобы сервер мог отдавать HTML, JS и CSS файлы радио
 os.makedirs("project", exist_ok=True)
 app.mount("/project", StaticFiles(directory="project"), name="project")
-# ----------------------------
 
+# Подключаем роутеры
 app.include_router(web_router)
+app.include_router(crpt_router)  # Подключаем API шифратора
 
 async def main():
     log("APP_LIFECYCLE", "Запуск изолированного сервиса автоподдержки (Keep-Alive)...")
