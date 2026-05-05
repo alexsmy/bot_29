@@ -1,26 +1,3 @@
-import { applyAudioStreamSource } from "./proxy.js";
-
-async function playWithRetry(radioPlayer, resumeAudioContext) {
-    try {
-        await radioPlayer.play();
-    } catch (error) {
-        console.warn("Первичная попытка воспроизведения не удалась, пробуем восстановить AudioContext:", error);
-        if (typeof resumeAudioContext === "function") {
-            try {
-                await resumeAudioContext();
-            } catch (resumeError) {
-                console.warn("Не удалось возобновить AudioContext:", resumeError);
-            }
-        }
-
-        try {
-            await radioPlayer.play();
-        } catch (retryError) {
-            console.error("Ошибка воспроизведения аудио:", retryError);
-        }
-    }
-}
-
 export function initMenu({
     openMenu,
     radioMenu,
@@ -47,20 +24,28 @@ export function initMenu({
         }
     });
 
-    radioMenu.addEventListener("click", async (event) => {
+    radioMenu.addEventListener("click", (event) => {
         const button = event.target.closest("button");
         if (!button) {
             return;
         }
-
         const selectedStationUrl = button.value;
         if (!selectedStationUrl) {
             return;
         }
 
-        applyAudioStreamSource(radioPlayer, selectedStationUrl);
+        // 1. Сначала настраиваем аудио-контекст (важно для iOS сделать это в обработчике клика)
         setupAudioAnalyser();
-        await playWithRetry(radioPlayer, resumeAudioContext);
+        resumeAudioContext();
+
+        // 2. Затем запускаем воспроизведение
+        radioPlayer.src = selectedStationUrl;
+        radioPlayer.play().catch(error => {
+            console.error("Ошибка воспроизведения аудио:", error);
+            // alert("Не удалось воспроизвести станцию."); 
+        });
+
+        // 3. Запускаем визуализацию
         startEqualizer();
 
         if (setRandomTheme) {
@@ -86,10 +71,10 @@ export function initMenu({
         if (selectedStationLogo && selectedStationLogo.src) {
             logoImg.src = selectedStationLogo.src;
             logoImg.style.display = "block";
-            if (logoPlaceholder) logoPlaceholder.style.display = "none";
+            if(logoPlaceholder) logoPlaceholder.style.display = "none";
         } else {
             logoImg.style.display = "none";
-            if (logoPlaceholder) logoPlaceholder.style.display = "flex";
+            if(logoPlaceholder) logoPlaceholder.style.display = "flex";
         }
     });
 }

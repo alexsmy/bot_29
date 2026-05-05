@@ -9,24 +9,16 @@ const frequencyRanges = [
 const levelScaleFactor = 0.8;
 
 export function initEqualizer({ radioPlayer, columns, getAnalyser, getAudioContext }) {
-    let animationFrameId = null;
-    let isAnimating = false;
-
     function updateEqualizer() {
-        if (!isAnimating) {
-            animationFrameId = null;
-            return;
-        }
-
         if (radioPlayer.paused) {
             columns.forEach(column => {
-                column.style.height = "0%";
+                column.style.height = '0%';
             });
         } else {
             const analyser = getAnalyser();
             const audioContext = getAudioContext();
             if (!analyser || !audioContext) {
-                animationFrameId = requestAnimationFrame(updateEqualizer);
+                requestAnimationFrame(updateEqualizer);
                 return;
             }
 
@@ -45,36 +37,26 @@ export function initEqualizer({ radioPlayer, columns, getAnalyser, getAudioConte
                     const frequency = Math.floor((i * sampleRate) / fftSize);
                     if (frequency >= range.from && frequency < range.to) {
                         sum += dataArray[i];
-                        count += 1;
+                        count++;
                     }
                 }
 
-                const avg = count > 0 ? sum / count : 0;
+                let avg = 0;
+                if (count > 0) {
+                    avg = sum / count;
+                }
+
                 let percent = (avg / 255) * 100 * levelScaleFactor;
                 percent = Math.min(percent, 95);
                 column.style.height = `${percent}%`;
             });
         }
-
-        animationFrameId = requestAnimationFrame(updateEqualizer);
+        requestAnimationFrame(updateEqualizer);
     }
 
     function startEqualizer() {
-        if (isAnimating) return;
-        isAnimating = true;
         updateEqualizer();
     }
 
-    function stopEqualizer() {
-        isAnimating = false;
-        if (animationFrameId) {
-            cancelAnimationFrame(animationFrameId);
-            animationFrameId = null;
-        }
-        columns.forEach(column => {
-            column.style.height = "0%";
-        });
-    }
-
-    return { startEqualizer, stopEqualizer };
+    return { startEqualizer };
 }

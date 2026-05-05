@@ -6,8 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 from routers.web import router as web_router
-from routers.crpt_api import router as crpt_router
-from routers.radio_proxy import router as radio_proxy_router
+from routers.crpt_api import router as crpt_router  # Импортируем новый модуль
 
 app = FastAPI()
 
@@ -17,10 +16,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 os.makedirs("project", exist_ok=True)
 app.mount("/project", StaticFiles(directory="project"), name="project")
 
+# Подключаем роутеры
 app.include_router(web_router)
-app.include_router(crpt_router)
-app.include_router(radio_proxy_router)
-
+app.include_router(crpt_router)  # Подключаем API шифратора
 
 async def main():
     log("APP_LIFECYCLE", "Запуск изолированного сервиса автоподдержки (Keep-Alive)...")
@@ -34,7 +32,6 @@ async def main():
     server_task = asyncio.create_task(server.serve())
 
     await asyncio.gather(server_task, keep_alive_task)
-
 
 if __name__ == "__main__":
     try:
