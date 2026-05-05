@@ -24,29 +24,37 @@ export function initMenu({
         }
     });
 
-    radioMenu.addEventListener("click", (event) => {
+    radioMenu.addEventListener("click", async (event) => {
         const button = event.target.closest("button");
         if (!button) {
             return;
         }
+
         const selectedStationUrl = button.value;
         if (!selectedStationUrl) {
             return;
         }
 
-        // 1. Сначала настраиваем аудио-контекст (важно для iOS сделать это в обработчике клика)
-        setupAudioAnalyser();
-        resumeAudioContext();
-
-        // 2. Затем запускаем воспроизведение
+        radioPlayer.pause();
         radioPlayer.src = selectedStationUrl;
-        radioPlayer.play().catch(error => {
-            console.error("Ошибка воспроизведения аудио:", error);
-            // alert("Не удалось воспроизвести станцию."); 
-        });
+        radioPlayer.load();
 
-        // 3. Запускаем визуализацию
-        startEqualizer();
+        const analyserState = setupAudioAnalyser();
+        await resumeAudioContext();
+
+        try {
+            await radioPlayer.play();
+        } catch (error) {
+            console.error("Ошибка воспроизведения аудио:", error);
+            alert("Не удалось воспроизвести станцию. Попробуйте выбрать другую.");
+            return;
+        }
+
+        await analyserState.ready;
+
+        if (typeof startEqualizer === "function") {
+            startEqualizer();
+        }
 
         if (setRandomTheme) {
             setRandomTheme();
@@ -71,10 +79,10 @@ export function initMenu({
         if (selectedStationLogo && selectedStationLogo.src) {
             logoImg.src = selectedStationLogo.src;
             logoImg.style.display = "block";
-            if(logoPlaceholder) logoPlaceholder.style.display = "none";
+            if (logoPlaceholder) logoPlaceholder.style.display = "none";
         } else {
             logoImg.style.display = "none";
-            if(logoPlaceholder) logoPlaceholder.style.display = "flex";
+            if (logoPlaceholder) logoPlaceholder.style.display = "flex";
         }
     });
 }

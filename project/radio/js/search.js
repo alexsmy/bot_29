@@ -15,7 +15,7 @@ export function initSearch({
     removeFavorite,
     renderFavorites,
     resetFavorites,
-    // Новые зависимости для полноценного воспроизведения
+
     radioLogo,
     openMenu,
     startEqualizer,
@@ -40,14 +40,14 @@ export function initSearch({
     searchStart.addEventListener("click", async () => {
         const query = searchInput.value.trim();
         if (!query) return;
-        
+
         searchResults.innerHTML = '<p style="text-align:center; color:#666;">Поиск...</p>';
-        
+
         const url = `https://de1.api.radio-browser.info/json/stations/search?name=${encodeURIComponent(query)}`;
         try {
             const response = await fetch(url);
             const data = await response.json();
-            
+
             if (data.length === 0) {
                 searchResults.innerHTML = '<p style="text-align:center; color:#666;">Ничего не найдено</p>';
                 return;
@@ -55,24 +55,23 @@ export function initSearch({
 
             searchResults.innerHTML = `<p style="margin-bottom:10px; font-size:0.9rem; color:#666;">Найдено станций: ${data.length}</p>`;
             const favorites = loadFavorites();
-            
+
             data.forEach((station, index) => {
                 const isFavorite = favorites.some(fav => fav.name === station.name);
                 const resultItem = document.createElement("div");
                 resultItem.classList.add("search-result");
-                
-                // Добавляем анимацию появления
+
                 resultItem.classList.add("stagger-item");
-                resultItem.style.animationDelay = `${index * 0.03}s`; // Быстрый каскад
-                
+                resultItem.style.animationDelay = `${index * 0.03}s`;
+
                 resultItem.innerHTML = `
                     <img src="${station.favicon || 'https://via.placeholder.com/64'}" onerror="this.src='https://via.placeholder.com/64?text=Radio'" alt="${station.name}" />
                     <div class="info">
                         <span>${station.name}</span>
                         <div class="actions">
-                            <button class="action-btn play-btn" title="Прослушать" 
-                                data-url="${station.url_resolved}" 
-                                data-name="${station.name}" 
+                            <button class="action-btn play-btn" title="Прослушать"
+                                data-url="${station.url_resolved}"
+                                data-name="${station.name}"
                                 data-logo="${station.favicon || ''}">
                                 ${Icons.playCircle}
                             </button>
@@ -89,25 +88,33 @@ export function initSearch({
             const addButtons = searchResults.querySelectorAll(".add-btn");
             const delButtons = searchResults.querySelectorAll(".del-btn");
 
-            // --- ОБНОВЛЕННАЯ ЛОГИКА ВОСПРОИЗВЕДЕНИЯ (Task 3) ---
             playButtons.forEach(btn => {
-                btn.addEventListener("click", () => {
+                btn.addEventListener("click", async () => {
                     const stationUrl = btn.dataset.url;
                     const stationName = btn.dataset.name;
                     const stationLogo = btn.dataset.logo;
 
-                    // 1. Подготовка аудио контекста (важно для мобильных)
-                    if (setupAudioAnalyser) setupAudioAnalyser();
-                    if (resumeAudioContext) resumeAudioContext();
-
-                    // 2. Запуск воспроизведения
+                    radioPlayer.pause();
                     radioPlayer.src = stationUrl;
-                    radioPlayer.play().catch(error => {
+                    radioPlayer.load();
+
+                    const analyserState = setupAudioAnalyser();
+                    await resumeAudioContext();
+
+                    try {
+                        await radioPlayer.play();
+                    } catch (error) {
                         console.error("Ошибка:", error);
                         alert("Ошибка потока");
-                    });
+                        return;
+                    }
 
-                    // 3. Обновление UI (Логотип и Название)
+                    await analyserState.ready;
+
+                    if (typeof startEqualizer === "function") {
+                        startEqualizer();
+                    }
+
                     if (openMenu) {
                         const btnTextSpan = openMenu.querySelector(".btn-text");
                         if (btnTextSpan) btnTextSpan.textContent = stationName;
@@ -116,23 +123,19 @@ export function initSearch({
                     if (radioLogo) {
                         const logoImg = radioLogo.querySelector("img");
                         const logoPlaceholder = radioLogo.querySelector(".logo-placeholder");
-                        
-                        radioLogo.style.display = "flex"; // Показываем контейнер
+
+                        radioLogo.style.display = "flex";
 
                         if (stationLogo) {
                             logoImg.src = stationLogo;
                             logoImg.style.display = "block";
-                            if(logoPlaceholder) logoPlaceholder.style.display = "none";
+                            if (logoPlaceholder) logoPlaceholder.style.display = "none";
                         } else {
                             logoImg.style.display = "none";
-                            if(logoPlaceholder) logoPlaceholder.style.display = "flex";
+                            if (logoPlaceholder) logoPlaceholder.style.display = "flex";
                         }
                     }
 
-                    // 4. Запуск визуализатора
-                    if (startEqualizer) startEqualizer();
-
-                    // 5. Закрытие модального окна поиска
                     searchModal.classList.remove("show");
                 });
             });
@@ -144,12 +147,11 @@ export function initSearch({
                         url: btn.dataset.url,
                         logo: btn.dataset.logo
                     });
-                    
-                    // Вибрация успеха
+
                     Haptics.success();
-                    
+
                     renderFavorites();
-                    
+
                     const parent = btn.parentElement;
                     btn.remove();
                     const delBtn = document.createElement('button');
@@ -159,7 +161,7 @@ export function initSearch({
                     delBtn.addEventListener('click', () => {
                         removeFavorite(delBtn.dataset.name);
                         renderFavorites();
-                        searchStart.click(); 
+                        searchStart.click();
                     });
                     parent.appendChild(delBtn);
                 });
