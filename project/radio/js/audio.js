@@ -1,9 +1,8 @@
 let audioContext = null;
 let analyser = null;
 let audioSource = null;
+let attachedMediaElement = null;
 
-// Функция для создания или получения существующего контекста
-// Важно для iOS: использовать webkitAudioContext если AudioContext недоступен
 function getOrCreateContext() {
     if (!audioContext) {
         const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -14,12 +13,13 @@ function getOrCreateContext() {
     return audioContext;
 }
 
-export function setupAudioAnalyser(radioPlayer) {
+function connectGraph(radioPlayer) {
     const context = getOrCreateContext();
-    
-    if (!context) return { audioContext: null, analyser: null };
 
-    // Всегда пытаемся возобновить контекст, если он приостановлен (требование iOS)
+    if (!context || !radioPlayer) {
+        return { audioContext: null, analyser: null };
+    }
+
     if (context.state === "suspended") {
         context.resume().catch(e => console.warn("AudioContext resume failed:", e));
     }
@@ -27,11 +27,22 @@ export function setupAudioAnalyser(radioPlayer) {
     if (!analyser) {
         analyser = context.createAnalyser();
         analyser.fftSize = 256;
-        analyser.smoothingTimeConstant = 0.4;
+        analyser.smoothingTimeConstant = 0.42;
     }
 
-    // ВАЖНО: Создаем MediaElementSource только один раз для одного элемента audio.
-    // Повторное создание вызовет ошибку.
+    if (attachedMediaElement !== radioPlayer) {
+        if (audioSource) {
+            try {
+                audioSource.disconnect();
+            } catch (error) {
+                console.warn("Не удалось отключить старый audioSource:", error);
+            }
+            audioSource = null;
+        }
+
+        attachedMediaElement = radioPlayer;
+    }
+
     if (!audioSource && radioPlayer) {
         try {
             audioSource = context.createMediaElementSource(radioPlayer);
@@ -45,12 +56,15 @@ export function setupAudioAnalyser(radioPlayer) {
     return { audioContext: context, analyser };
 }
 
-// Функция "прогрева" для iOS. Вызывается при первом клике по странице.
+export function setupAudioAnalyser(radioPlayer) {
+    return connectGraph(radioPlayer);
+}
+
 export function unlockAudioContext() {
     const context = getOrCreateContext();
     if (context && context.state === "suspended") {
         context.resume().then(() => {
-            // console.log("AudioContext unlocked/resumed");
+            // intentionally empty
         }).catch(e => {
             console.warn("Unlock failed:", e);
         });
@@ -70,4 +84,47 @@ export function resumeAudioContext() {
         return audioContext.resume();
     }
     return Promise.resolve();
+}
+
+export function prepareAudioContextForElement(radioPlayer) {
+    if (!radioPlayer) return;
+    radioPlayer.crossOrigin = "anonymous";
+    radioPlayer.preload = "none";
+    radioPlayer.setAttribute("playsinline", "true");
+    radioPlayer.setAttribute("webkit-playsinline", "true");
+}
+
+export async function rebuildAudioAnalyser(radioPlayer) {
+    const previousContext = audioContext;
+
+    try {
+        if (audioSource) {
+            audioSource.disconnect();
+        }
+    } catch (error) {
+        console.warn("Не удалось отключить audioSource перед пересборкой:", error);
+    }
+
+    try {
+        if (analyser) {
+            analyser.disconnect();
+        }
+    } catch (error) {
+        console.warn("Не удалось отключить analyser перед пересборкой:", error);
+    }
+
+    audioSource = null;
+    analyser = null;
+    attachedMediaElement = null;
+
+    if (previousContext && previousContext.state !== "closed") {
+        try {
+            await previousContext.close();
+        } catch (error) {
+            console.warn("Не удалось закрыть старый AudioContext:", error);
+        }
+    }
+
+    audioContext = null;
+    return setupAudioAnalyser(radioPlayer);
 }
