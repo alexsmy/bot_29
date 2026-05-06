@@ -1,5 +1,6 @@
 import { Icons } from "./icons.js";
 import { Haptics } from "./interactions.js";
+import { startStationPlayback } from "./playback.js";
 
 export function initSearch({
     searchButton,
@@ -18,8 +19,7 @@ export function initSearch({
 
     radioLogo,
     openMenu,
-    startEqualizer,
-    startStationPlayback
+    startEqualizer
 }) {
     searchButton.addEventListener("click", () => {
         searchModal.classList.add("show");

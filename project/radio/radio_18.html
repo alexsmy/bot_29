@@ -9,22 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
-    <script>
-        (function () {
-            const version = String(Date.now());
-            window.__ASSET_VERSION__ = version;
-
-            const style = document.createElement('link');
-            style.rel = 'stylesheet';
-            style.href = `css/main.css?v=${version}`;
-            document.head.appendChild(style);
-
-            const script = document.createElement('script');
-            script.type = 'module';
-            script.src = `js/main.js?v=${version}`;
-            document.head.appendChild(script);
-        })();
-    </script>
+    <link rel="stylesheet" href="css/main.css">
 
 </head>
 <body>
@@ -113,5 +98,6 @@
         </div>
     </div>
 
+    <script type="module" src="js/main.js"></script>
 </body>
 </html>

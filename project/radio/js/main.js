@@ -1,5 +1,11 @@
-const assetVersion = new URL(import.meta.url).searchParams.get("v") || String(Date.now());
-const withVersion = (path) => `${path}${path.includes("?") ? "&" : "?"}v=${encodeURIComponent(assetVersion)}`;
+import { setupAudioAnalyser, getAudioContext, getAnalyser, resumeAudioContext, unlockAudioContext } from "./audio.js";
+import { initEqualizer } from "./equalizer.js";
+import { renderFavorites, loadFavorites, addFavorite, removeFavorite, resetFavorites } from "./favorites.js";
+import { initMenu } from "./menu.js";
+import { initSearch } from "./search.js";
+import { initDynamicBackground, setRandomTheme } from "./theme.js";
+import { initPlayer } from "./player.js";
+import { initInteractions } from "./interactions.js"; // Импорт нового модуля
 
 const openMenu = document.getElementById("open-menu");
 const radioMenu = document.getElementById("radio-menu");
@@ -15,131 +21,89 @@ const searchResults = document.getElementById("search-results");
 const closeModal = document.getElementById("close-modal");
 const resetDefault = document.getElementById("reset-default");
 
+// Элементы нового плеера
 const btnPlay = document.getElementById("btn-play");
 const btnStop = document.getElementById("btn-stop");
 const volumeSlider = document.getElementById("volume-slider");
 const volumeIcon = document.getElementById("volume-icon");
 const timerDisplay = document.getElementById("player-timer");
 
-async function bootstrap() {
-    const [
-        audioMod,
-        equalizerMod,
-        favoritesMod,
-        menuMod,
-        searchMod,
-        themeMod,
-        playerMod,
-        interactionsMod,
-        playbackMod
-    ] = await Promise.all([
-        import(withVersion("./audio.js")),
-        import(withVersion("./equalizer.js")),
-        import(withVersion("./favorites.js")),
-        import(withVersion("./menu.js")),
-        import(withVersion("./search.js")),
-        import(withVersion("./theme.js")),
-        import(withVersion("./player.js")),
-        import(withVersion("./interactions.js")),
-        import(withVersion("./playback.js"))
-    ]);
+// Инициализация динамического фона при загрузке
+initDynamicBackground();
 
-    const {
-        setupAudioAnalyser,
-        getAudioContext,
-        getAnalyser,
-        resumeAudioContext,
-        unlockAudioContext
-    } = audioMod;
+// Инициализация микровзаимодействий (вибрация, анимации)
+initInteractions();
 
-    const { initEqualizer } = equalizerMod;
-    const {
-        renderFavorites,
-        loadFavorites,
-        addFavorite,
-        removeFavorite,
-        resetFavorites
-    } = favoritesMod;
-    const { initMenu } = menuMod;
-    const { initSearch } = searchMod;
-    const { initDynamicBackground, setRandomTheme } = themeMod;
-    const { initPlayer } = playerMod;
-    const { initInteractions } = interactionsMod;
-    const { startStationPlayback } = playbackMod;
+const { startEqualizer } = initEqualizer({
+    radioPlayer,
+    columns,
+    getAnalyser,
+    getAudioContext
+});
 
-    initDynamicBackground();
-    initInteractions();
+// Инициализация кастомного плеера
+initPlayer({
+    radioPlayer,
+    btnPlay,
+    btnStop,
+    volumeSlider,
+    volumeIcon,
+    timerDisplay,
+    radioLogo // Передаем логотип для управления свечением
+});
 
-    const { startEqualizer } = initEqualizer({
-        radioPlayer,
-        columns,
-        getAnalyser,
-        getAudioContext
-    });
+initMenu({
+    openMenu,
+    radioMenu,
+    radioPlayer,
+    body,
+    radioLogo,
+    setRandomTheme,
+    setupAudioAnalyser: () => setupAudioAnalyser(radioPlayer),
+    resumeAudioContext,
+    startEqualizer,
+    renderFavorites: () => renderFavorites(radioMenu)
+});
 
-    initPlayer({
-        radioPlayer,
-        btnPlay,
-        btnStop,
-        volumeSlider,
-        volumeIcon,
-        timerDisplay,
-        radioLogo
-    });
+radioPlayer.addEventListener("error", () => {
+    console.error("Ошибка воспроизведения аудио");
+});
 
-    initMenu({
-        openMenu,
-        radioMenu,
-        radioPlayer,
-        body,
-        radioLogo,
-        setRandomTheme,
-        startEqualizer,
-        renderFavorites: () => renderFavorites(radioMenu),
-        startStationPlayback
-    });
+radioPlayer.addEventListener('play', () => {
+    resumeAudioContext();
+});
 
-    radioPlayer.addEventListener("error", () => {
-        console.error("Ошибка воспроизведения аудио");
-    });
-
-    radioPlayer.addEventListener('play', () => {
-        resumeAudioContext();
-    });
-
-    function handleFirstInteraction() {
-        unlockAudioContext();
-
-        document.removeEventListener('click', handleFirstInteraction);
-        document.removeEventListener('touchstart', handleFirstInteraction);
-    }
-
-    document.addEventListener('click', handleFirstInteraction);
-    document.addEventListener('touchstart', handleFirstInteraction);
-
-    initSearch({
-        searchButton,
-        searchModal,
-        searchInput,
-        searchStart,
-        searchResults,
-        closeModal,
-        resetDefault,
-        radioPlayer,
-        loadFavorites,
-        addFavorite,
-        removeFavorite,
-        renderFavorites: () => renderFavorites(radioMenu),
-        resetFavorites: () => resetFavorites(radioMenu),
-        radioLogo,
-        openMenu,
-        startEqualizer,
-        startStationPlayback
-    });
-
-    renderFavorites(radioMenu);
+// Глобальный обработчик для "разблокировки" AudioContext на iOS при первом взаимодействии
+function handleFirstInteraction() {
+    unlockAudioContext();
+    // Удаляем обработчики после первого срабатывания
+    document.removeEventListener('click', handleFirstInteraction);
+    document.removeEventListener('touchstart', handleFirstInteraction);
 }
 
-bootstrap().catch((error) => {
-    console.error("Radio bootstrap failed:", error);
+document.addEventListener('click', handleFirstInteraction);
+document.addEventListener('touchstart', handleFirstInteraction);
+
+initSearch({
+    searchButton,
+    searchModal,
+    searchInput,
+    searchStart,
+    searchResults,
+    closeModal,
+    resetDefault,
+    radioPlayer,
+    loadFavorites,
+    addFavorite,
+    removeFavorite,
+    renderFavorites: () => renderFavorites(radioMenu),
+    resetFavorites: () => resetFavorites(radioMenu),
+    // Новые зависимости для Task 3 (Воспроизведение из поиска)
+    radioLogo,
+    openMenu,
+    startEqualizer,
+    setupAudioAnalyser: () => setupAudioAnalyser(radioPlayer),
+    resumeAudioContext
 });
+
+renderFavorites(radioMenu);

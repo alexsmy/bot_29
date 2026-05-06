@@ -10,8 +10,9 @@
     height: 18px;
 }
 
+/* Modal Overlay */
 .glass-modal-overlay {
-
+    /* display: none; <- УБИРАЕМ */
     display: flex;
     visibility: hidden;
     position: fixed;
@@ -25,7 +26,7 @@
     align-items: center;
     justify-content: center;
     opacity: 0;
-
+    /* Плавное исчезновение */
     transition: opacity var(--vibe-duration) var(--vibe-ease), visibility var(--vibe-duration) step-end;
 }
 
@@ -35,8 +36,9 @@
     transition: opacity var(--vibe-duration) var(--vibe-ease), visibility 0s step-start;
 }
 
+/* Modal Content */
 .glass-modal-content {
-    background: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.85); 
     backdrop-filter: blur(20px);
     border-radius: 24px;
     padding: 2rem;
@@ -46,12 +48,13 @@
     overflow-y: auto;
     box-shadow: 0 20px 50px rgba(0,0,0,0.3);
     position: relative;
-
+    
+    /* Начальное состояние для анимации */
     transform: scale(0.9) translateY(20px);
     opacity: 0;
     transition: transform var(--vibe-duration) var(--vibe-ease), opacity var(--vibe-duration) var(--vibe-ease);
-
-    color: #333;
+    
+    color: #333; 
 }
 
 .glass-modal-overlay.show .glass-modal-content {
@@ -86,6 +89,7 @@
     height: 24px;
 }
 
+/* Search Inputs */
 .search-bar {
     display: flex;
     gap: 10px;
@@ -131,6 +135,7 @@
     display: inline-block;
 }
 
+/* Results */
 .results-container {
     margin-top: 1rem;
 }

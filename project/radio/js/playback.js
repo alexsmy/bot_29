@@ -58,18 +58,18 @@ export async function startStationPlayback({
     radioPlayer.src = stationUrl;
     radioPlayer.load();
 
+    await waitForMediaReady(radioPlayer);
+
     setupAudioAnalyser(radioPlayer);
-    void resumeAudioContext();
+    await resumeAudioContext();
     syncVolumeToGain(radioPlayer);
 
-    const playPromise = radioPlayer.play();
-    if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch((error) => {
-            console.error("Ошибка воспроизведения аудио:", error);
-        });
+    try {
+        await radioPlayer.play();
+    } catch (error) {
+        console.error("Ошибка воспроизведения аудио:", error);
+        throw error;
     }
-
-    void waitForMediaReady(radioPlayer).catch(() => {});
 
     if (typeof setRandomTheme === "function") {
         setRandomTheme();

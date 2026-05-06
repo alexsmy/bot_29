@@ -6,32 +6,9 @@ from fastapi.staticfiles import StaticFiles
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 from routers.web import router as web_router
-from routers.crpt_api import router as crpt_router
+from routers.crpt_api import router as crpt_router  # Импортируем новый модуль
 
 app = FastAPI()
-
-
-@app.middleware("http")
-async def add_no_cache_headers(request, call_next):
-    response = await call_next(request)
-    path = request.url.path.lower()
-    cacheable_extensions = (".js", ".css", ".html", ".mjs")
-    cacheable_paths = {
-        "/",
-        "/keepalive",
-        "/radio",
-        "/crpt",
-        "/sbor",
-        "/time",
-    }
-
-    if path.endswith(cacheable_extensions) or path in cacheable_paths:
-        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-
-    return response
-
 
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -39,9 +16,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 os.makedirs("project", exist_ok=True)
 app.mount("/project", StaticFiles(directory="project"), name="project")
 
-
+# Подключаем роутеры
 app.include_router(web_router)
-app.include_router(crpt_router)
+app.include_router(crpt_router)  # Подключаем API шифратора
 
 async def main():
     log("APP_LIFECYCLE", "Запуск изолированного сервиса автоподдержки (Keep-Alive)...")

@@ -1,3 +1,5 @@
+import { startStationPlayback } from "./playback.js";
+
 export function initMenu({
     openMenu,
     radioMenu,
@@ -6,8 +8,7 @@ export function initMenu({
     radioLogo,
     setRandomTheme,
     startEqualizer,
-    renderFavorites,
-    startStationPlayback
+    renderFavorites
 }) {
     openMenu.addEventListener("click", (e) => {
         e.stopPropagation();
