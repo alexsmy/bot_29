@@ -1,4 +1,3 @@
-import { startStationPlayback } from "./stationPlayer.js";
 import { Icons } from "./icons.js";
 import { Haptics } from "./interactions.js";
 
@@ -16,12 +15,11 @@ export function initSearch({
     removeFavorite,
     renderFavorites,
     resetFavorites,
-    // Новые зависимости для полноценного воспроизведения
+
     radioLogo,
     openMenu,
     startEqualizer,
-    setupAudioAnalyser,
-    resumeAudioContext
+    startStationPlayback
 }) {
     searchButton.addEventListener("click", () => {
         searchModal.classList.add("show");
@@ -62,18 +60,17 @@ export function initSearch({
                 const resultItem = document.createElement("div");
                 resultItem.classList.add("search-result");
 
-                // Добавляем анимацию появления
                 resultItem.classList.add("stagger-item");
-                resultItem.style.animationDelay = `${index * 0.03}s`; // Быстрый каскад
+                resultItem.style.animationDelay = `${index * 0.03}s`;
 
                 resultItem.innerHTML = `
                     <img src="${station.favicon || 'https://via.placeholder.com/64'}" onerror="this.src='https://via.placeholder.com/64?text=Radio'" alt="${station.name}" />
                     <div class="info">
                         <span>${station.name}</span>
                         <div class="actions">
-                            <button class="action-btn play-btn" title="Прослушать" 
-                                data-url="${station.url_resolved}" 
-                                data-name="${station.name}" 
+                            <button class="action-btn play-btn" title="Прослушать"
+                                data-url="${station.url_resolved}"
+                                data-name="${station.name}"
                                 data-logo="${station.favicon || ''}">
                                 ${Icons.playCircle}
                             </button>
@@ -90,50 +87,28 @@ export function initSearch({
             const addButtons = searchResults.querySelectorAll(".add-btn");
             const delButtons = searchResults.querySelectorAll(".del-btn");
 
-            // --- ОБНОВЛЕННАЯ ЛОГИКА ВОСПРОИЗВЕДЕНИЯ (Task 3) ---
             playButtons.forEach(btn => {
                 btn.addEventListener("click", async () => {
                     const stationUrl = btn.dataset.url;
                     const stationName = btn.dataset.name;
                     const stationLogo = btn.dataset.logo;
 
-                    const started = await startStationPlayback({
-                        radioPlayer,
-                        stationUrl,
-                        setupAudioAnalyser,
-                        resumeAudioContext,
-                        startEqualizer
-                    });
-
-                    if (!started) {
+                    try {
+                        await startStationPlayback({
+                            radioPlayer,
+                            stationUrl,
+                            stationName,
+                            stationLogo,
+                            radioLogo,
+                            openMenu,
+                            startEqualizer
+                        });
+                    } catch (error) {
+                        console.error("Ошибка:", error);
                         alert("Ошибка потока");
                         return;
                     }
 
-
-                    // 4. Обновление UI (Логотип и Название)
-                    if (openMenu) {
-                        const btnTextSpan = openMenu.querySelector(".btn-text");
-                        if (btnTextSpan) btnTextSpan.textContent = stationName;
-                    }
-
-                    if (radioLogo) {
-                        const logoImg = radioLogo.querySelector("img");
-                        const logoPlaceholder = radioLogo.querySelector(".logo-placeholder");
-
-                        radioLogo.style.display = "flex"; // Показываем контейнер
-
-                        if (stationLogo) {
-                            logoImg.src = stationLogo;
-                            logoImg.style.display = "block";
-                            if (logoPlaceholder) logoPlaceholder.style.display = "none";
-                        } else {
-                            logoImg.style.display = "none";
-                            if (logoPlaceholder) logoPlaceholder.style.display = "flex";
-                        }
-                    }
-
-                    // 5. Закрытие модального окна поиска
                     searchModal.classList.remove("show");
                 });
             });
@@ -146,7 +121,6 @@ export function initSearch({
                         logo: btn.dataset.logo
                     });
 
-                    // Вибрация успеха
                     Haptics.success();
 
                     renderFavorites();
@@ -181,7 +155,7 @@ export function initSearch({
     });
 
     resetDefault.addEventListener("click", () => {
-        if (confirm("Сбросить список станций к стандартному?")) {
+        if(confirm("Сбросить список станций к стандартному?")) {
             resetFavorites();
         }
     });

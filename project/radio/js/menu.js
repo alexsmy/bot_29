@@ -1,4 +1,3 @@
-import { startStationPlayback } from "./stationPlayer.js";
 export function initMenu({
     openMenu,
     radioMenu,
@@ -6,10 +5,9 @@ export function initMenu({
     body,
     radioLogo,
     setRandomTheme,
-    setupAudioAnalyser,
-    resumeAudioContext,
     startEqualizer,
-    renderFavorites
+    renderFavorites,
+    startStationPlayback
 }) {
     openMenu.addEventListener("click", (e) => {
         e.stopPropagation();
@@ -36,46 +34,27 @@ export function initMenu({
             return;
         }
 
-        const started = await startStationPlayback({
-            radioPlayer,
-            stationUrl: selectedStationUrl,
-            setupAudioAnalyser,
-            resumeAudioContext,
-            startEqualizer
-        });
+        const stationName = button.querySelector("span")?.textContent || "";
+        const selectedStationLogo = button.querySelector("img")?.src || "";
 
-        if (!started) {
+        try {
+            await startStationPlayback({
+                radioPlayer,
+                stationUrl: selectedStationUrl,
+                stationName,
+                stationLogo: selectedStationLogo,
+                radioLogo,
+                openMenu,
+                setRandomTheme,
+                startEqualizer
+            });
+        } catch (error) {
+            alert("Не удалось запустить поток станции.");
             return;
-        }
-
-
-        if (setRandomTheme) {
-            setRandomTheme();
-        }
-
-        const stationName = button.querySelector("span");
-        if (stationName) {
-            const btnTextSpan = openMenu.querySelector(".btn-text");
-            if (btnTextSpan) btnTextSpan.textContent = stationName.textContent;
         }
 
         setTimeout(() => {
             radioMenu.classList.remove("show");
         }, 300);
-
-        const selectedStationLogo = button.querySelector("img");
-        const logoImg = radioLogo.querySelector("img");
-        const logoPlaceholder = radioLogo.querySelector(".logo-placeholder");
-
-        radioLogo.style.display = "flex";
-
-        if (selectedStationLogo && selectedStationLogo.src) {
-            logoImg.src = selectedStationLogo.src;
-            logoImg.style.display = "block";
-            if (logoPlaceholder) logoPlaceholder.style.display = "none";
-        } else {
-            logoImg.style.display = "none";
-            if (logoPlaceholder) logoPlaceholder.style.display = "flex";
-        }
     });
 }

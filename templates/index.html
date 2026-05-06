@@ -5,36 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Панель управления проектами</title>
 
-    <!-- Шрифты -->
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Конфигурация Tailwind вынесена в отдельный модуль -->
-    <script src="/static/js/hub/tailwind-config.js"></script>
 
-    <!-- Основные стили -->
-    <link rel="stylesheet" href="/static/css/main.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+
+    <script src="/static/js/hub/tailwind-config.js?v=__ASSET_VERSION__"></script>
+
+
+    <link rel="stylesheet" href="/static/css/main.css?v=__ASSET_VERSION__">
 </head>
 <body class="min-h-screen bg-slate-900 text-slate-200 font-sans selection:bg-blue-500/30">
 
-    <!-- Слой заднего фона (рендерится через JS) -->
+
     <div id="background-layer"></div>
 
     <div class="relative z-10 max-w-6xl mx-auto p-6 sm:p-8 lg:p-12">
-        <!-- Шапка страницы (рендерится через JS) -->
+
         <header class="mb-12 text-center sm:text-left" id="header-container"></header>
 
-        <!-- Сетка проектов (контейнер, куда JS вставит карточки) -->
+
         <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
-            <!-- Карточки будут динамически загружены модулем app.js -->
+
         </div>
     </div>
 
-    <!-- Точка входа приложения Хаба (ES Module) -->
-    <script type="module" src="/static/js/hub/app.js"></script>
+
+    <script type="module" src="/static/js/hub/app.js?v=__ASSET_VERSION__"></script>
 </body>
 </html>

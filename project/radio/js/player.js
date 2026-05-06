@@ -1,8 +1,9 @@
 import { Icons } from "./icons.js";
-import { Haptics } from "./interactions.js"; // Импортируем для использования в слайдере
+import { Haptics } from "./interactions.js";
+import { setPlaybackVolume } from "./audio.js";
 
 export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volumeIcon, timerDisplay, radioLogo }) {
-    
+
     function formatTime(seconds) {
         const m = Math.floor(seconds / 60);
         const s = Math.floor(seconds % 60);
@@ -12,13 +13,13 @@ export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volume
     function updatePlayButton() {
         if (radioPlayer.paused) {
             btnPlay.innerHTML = Icons.play;
-            btnPlay.style.paddingLeft = "4px"; 
-            // Убираем свечение при паузе
+            btnPlay.style.paddingLeft = "4px";
+
             if (radioLogo) radioLogo.classList.remove("playing-glow");
         } else {
             btnPlay.innerHTML = Icons.pause;
             btnPlay.style.paddingLeft = "0";
-            // Добавляем свечение при воспроизведении
+
             if (radioLogo) radioLogo.classList.add("playing-glow");
         }
     }
@@ -34,16 +35,14 @@ export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volume
         } else {
             volumeIcon.innerHTML = Icons.volumeHigh;
         }
-        
-        // Добавляем анимацию пульсации при обновлении иконки
+
         volumeIcon.classList.remove('pulse-anim');
-        void volumeIcon.offsetWidth; // Триггер reflow для перезапуска анимации
+        void volumeIcon.offsetWidth;
         volumeIcon.classList.add('pulse-anim');
     }
 
     btnPlay.addEventListener("click", () => {
         if (!radioPlayer.src) {
-            // Haptics.heavy() уже сработает через interactions.js, но можно добавить alert
             alert("Сначала выберите радиостанцию из меню!");
             return;
         }
@@ -59,7 +58,7 @@ export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volume
 
     btnStop.addEventListener("click", () => {
         radioPlayer.pause();
-        radioPlayer.currentTime = 0; 
+        radioPlayer.currentTime = 0;
         timerDisplay.textContent = "00:00";
         updatePlayButton();
     });
@@ -67,11 +66,10 @@ export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volume
     volumeSlider.addEventListener("input", (e) => {
         radioPlayer.volume = e.target.value;
         radioPlayer.muted = false;
-        
-        // Легкая вибрация при движении слайдера (если поддерживается)
-        // Делаем это редко, чтобы не "жужжало" постоянно
+        setPlaybackVolume(radioPlayer.volume, radioPlayer.muted);
+
         if (Math.random() > 0.7) Haptics.light();
-        
+
         updateVolumeIcon();
     });
 
@@ -87,6 +85,7 @@ export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volume
             radioPlayer.volume = 0;
             volumeSlider.value = 0;
         }
+        setPlaybackVolume(radioPlayer.volume, radioPlayer.muted);
         updateVolumeIcon();
     });
 
@@ -94,8 +93,7 @@ export function initPlayer({ radioPlayer, btnPlay, btnStop, volumeSlider, volume
     radioPlayer.addEventListener("pause", updatePlayButton);
     radioPlayer.addEventListener("volumechange", () => {
         volumeSlider.value = radioPlayer.volume;
-        // updateVolumeIcon вызывается здесь, но мы его уже вызываем в input, 
-        // чтобы анимация была отзывчивее
+        setPlaybackVolume(radioPlayer.volume, radioPlayer.muted);
     });
 
     radioPlayer.addEventListener("timeupdate", () => {
