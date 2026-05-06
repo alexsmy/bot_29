@@ -9,7 +9,13 @@ const frequencyRanges = [
 const levelScaleFactor = 0.8;
 
 export function initEqualizer({ radioPlayer, columns, getAnalyser, getAudioContext }) {
+    let isRunning = false;
+
     function updateEqualizer() {
+        if (!isRunning) {
+            return;
+        }
+
         if (radioPlayer.paused) {
             columns.forEach(column => {
                 column.style.height = '0%';
@@ -51,11 +57,16 @@ export function initEqualizer({ radioPlayer, columns, getAnalyser, getAudioConte
                 column.style.height = `${percent}%`;
             });
         }
+
         requestAnimationFrame(updateEqualizer);
     }
 
     function startEqualizer() {
-        updateEqualizer();
+        if (isRunning) {
+            return;
+        }
+        isRunning = true;
+        requestAnimationFrame(updateEqualizer);
     }
 
     return { startEqualizer };

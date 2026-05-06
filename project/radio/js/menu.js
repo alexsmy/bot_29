@@ -1,3 +1,4 @@
+import { startStationPlayback } from "./stationPlayer.js";
 export function initMenu({
     openMenu,
     radioMenu,
@@ -35,26 +36,18 @@ export function initMenu({
             return;
         }
 
-        radioPlayer.pause();
-        radioPlayer.src = selectedStationUrl;
-        radioPlayer.load();
+        const started = await startStationPlayback({
+            radioPlayer,
+            stationUrl: selectedStationUrl,
+            setupAudioAnalyser,
+            resumeAudioContext,
+            startEqualizer
+        });
 
-        const analyserState = setupAudioAnalyser();
-        await resumeAudioContext();
-
-        try {
-            await radioPlayer.play();
-        } catch (error) {
-            console.error("Ошибка воспроизведения аудио:", error);
-            alert("Не удалось воспроизвести станцию. Попробуйте выбрать другую.");
+        if (!started) {
             return;
         }
 
-        await analyserState.ready;
-
-        if (typeof startEqualizer === "function") {
-            startEqualizer();
-        }
 
         if (setRandomTheme) {
             setRandomTheme();

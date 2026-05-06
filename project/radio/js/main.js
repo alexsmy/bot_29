@@ -5,7 +5,7 @@ import { initMenu } from "./menu.js";
 import { initSearch } from "./search.js";
 import { initDynamicBackground, setRandomTheme } from "./theme.js";
 import { initPlayer } from "./player.js";
-import { initInteractions } from "./interactions.js"; // Импорт нового модуля
+import { initInteractions } from "./interactions.js";
 
 const openMenu = document.getElementById("open-menu");
 const radioMenu = document.getElementById("radio-menu");
@@ -27,6 +27,9 @@ const btnStop = document.getElementById("btn-stop");
 const volumeSlider = document.getElementById("volume-slider");
 const volumeIcon = document.getElementById("volume-icon");
 const timerDisplay = document.getElementById("player-timer");
+
+// Явно включаем CORS на старте, чтобы Web Audio корректно видел поток и на iPhone тоже.
+radioPlayer.crossOrigin = "anonymous";
 
 // Инициализация динамического фона при загрузке
 initDynamicBackground();
@@ -69,8 +72,12 @@ radioPlayer.addEventListener("error", () => {
     console.error("Ошибка воспроизведения аудио");
 });
 
-radioPlayer.addEventListener('play', () => {
+// На iOS и в некоторых мобильных браузерах безопаснее стартовать/обновлять граф аудио
+// в момент фактического перехода плеера в состояние playing.
+radioPlayer.addEventListener("playing", () => {
+    setupAudioAnalyser(radioPlayer);
     resumeAudioContext();
+    startEqualizer();
 });
 
 // Глобальный обработчик для "разблокировки" AudioContext на iOS при первом взаимодействии

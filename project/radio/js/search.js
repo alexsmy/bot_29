@@ -1,3 +1,4 @@
+import { startStationPlayback } from "./stationPlayer.js";
 import { Icons } from "./icons.js";
 import { Haptics } from "./interactions.js";
 
@@ -15,7 +16,7 @@ export function initSearch({
     removeFavorite,
     renderFavorites,
     resetFavorites,
-
+    // Новые зависимости для полноценного воспроизведения
     radioLogo,
     openMenu,
     startEqualizer,
@@ -61,17 +62,18 @@ export function initSearch({
                 const resultItem = document.createElement("div");
                 resultItem.classList.add("search-result");
 
+                // Добавляем анимацию появления
                 resultItem.classList.add("stagger-item");
-                resultItem.style.animationDelay = `${index * 0.03}s`;
+                resultItem.style.animationDelay = `${index * 0.03}s`; // Быстрый каскад
 
                 resultItem.innerHTML = `
                     <img src="${station.favicon || 'https://via.placeholder.com/64'}" onerror="this.src='https://via.placeholder.com/64?text=Radio'" alt="${station.name}" />
                     <div class="info">
                         <span>${station.name}</span>
                         <div class="actions">
-                            <button class="action-btn play-btn" title="Прослушать"
-                                data-url="${station.url_resolved}"
-                                data-name="${station.name}"
+                            <button class="action-btn play-btn" title="Прослушать" 
+                                data-url="${station.url_resolved}" 
+                                data-name="${station.name}" 
                                 data-logo="${station.favicon || ''}">
                                 ${Icons.playCircle}
                             </button>
@@ -88,33 +90,28 @@ export function initSearch({
             const addButtons = searchResults.querySelectorAll(".add-btn");
             const delButtons = searchResults.querySelectorAll(".del-btn");
 
+            // --- ОБНОВЛЕННАЯ ЛОГИКА ВОСПРОИЗВЕДЕНИЯ (Task 3) ---
             playButtons.forEach(btn => {
                 btn.addEventListener("click", async () => {
                     const stationUrl = btn.dataset.url;
                     const stationName = btn.dataset.name;
                     const stationLogo = btn.dataset.logo;
 
-                    radioPlayer.pause();
-                    radioPlayer.src = stationUrl;
-                    radioPlayer.load();
+                    const started = await startStationPlayback({
+                        radioPlayer,
+                        stationUrl,
+                        setupAudioAnalyser,
+                        resumeAudioContext,
+                        startEqualizer
+                    });
 
-                    const analyserState = setupAudioAnalyser();
-                    await resumeAudioContext();
-
-                    try {
-                        await radioPlayer.play();
-                    } catch (error) {
-                        console.error("Ошибка:", error);
+                    if (!started) {
                         alert("Ошибка потока");
                         return;
                     }
 
-                    await analyserState.ready;
 
-                    if (typeof startEqualizer === "function") {
-                        startEqualizer();
-                    }
-
+                    // 4. Обновление UI (Логотип и Название)
                     if (openMenu) {
                         const btnTextSpan = openMenu.querySelector(".btn-text");
                         if (btnTextSpan) btnTextSpan.textContent = stationName;
@@ -124,7 +121,7 @@ export function initSearch({
                         const logoImg = radioLogo.querySelector("img");
                         const logoPlaceholder = radioLogo.querySelector(".logo-placeholder");
 
-                        radioLogo.style.display = "flex";
+                        radioLogo.style.display = "flex"; // Показываем контейнер
 
                         if (stationLogo) {
                             logoImg.src = stationLogo;
@@ -136,6 +133,7 @@ export function initSearch({
                         }
                     }
 
+                    // 5. Закрытие модального окна поиска
                     searchModal.classList.remove("show");
                 });
             });
@@ -148,6 +146,7 @@ export function initSearch({
                         logo: btn.dataset.logo
                     });
 
+                    // Вибрация успеха
                     Haptics.success();
 
                     renderFavorites();
@@ -182,7 +181,7 @@ export function initSearch({
     });
 
     resetDefault.addEventListener("click", () => {
-        if(confirm("Сбросить список станций к стандартному?")) {
+        if (confirm("Сбросить список станций к стандартному?")) {
             resetFavorites();
         }
     });
