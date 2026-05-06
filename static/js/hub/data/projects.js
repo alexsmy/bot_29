@@ -9,16 +9,39 @@ export const projects =[
         actionText: 'Открыть статистику',
         theme: themes.blue,
         iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>`,
-        hasStatus: true // <-- Новое свойство
+        hasStatus: true
     },
     {
         id: 'radio',
         title: 'Vibe Radio',
-        description: 'Музыкальный плеер с эквалайзером, поиском станций и динамическим фоном. Слушай любимые волны.',
-        url: '/radio',
-        actionText: 'Слушать радио',
+        description: 'Выбор между несколькими версиями радио-приложения. Сюда позже можно добавлять новые сборки и интерфейсы.',
+        actionText: 'Выбрать версию',
         theme: themes.purple,
-        iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>`
+        iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-2 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>`,
+        selectorTitle: 'Выберите версию Vibe Radio',
+        selectorDescription: 'Модульная карточка-меню. Новые версии радио-приложений можно добавлять сюда без изменения главной сетки хаба.',
+        variants: [
+            {
+                id: 'radio-18',
+                title: 'Vibe Radio 18',
+                description: 'Текущая модульная версия с эквалайзером, поиском и улучшенным аудиографом для iPhone.',
+                url: '/project/radio/radio_18.html',
+                actionText: 'Открыть Vibe Radio 18',
+                badge: 'Рекомендуемая',
+                theme: themes.purple,
+                iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-2 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>`
+            },
+            {
+                id: 'radio-online-3',
+                title: 'Online Radio 3',
+                description: 'Предыдущий однофайловый вариант. Полезен для сравнения поведения и старого сценария запуска.',
+                url: '/project/radio/radio_online_3.html',
+                actionText: 'Открыть Online 3',
+                badge: 'Legacy',
+                theme: themes.cyan,
+                iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-2 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"></path>`
+            }
+        ]
     },
     {
         id: 'crypto',

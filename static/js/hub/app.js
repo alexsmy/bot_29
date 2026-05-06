@@ -1,5 +1,6 @@
 import { projects } from './data/projects.js';
 import { createCardHTML } from './components/card.js';
+import { createProjectVariantCardHTML, renderProjectSelectorModal } from './components/projectSelector.js';
 import { renderBackground, renderHeader } from './components/layout.js';
 import { statusService } from './services/status.js';
 
@@ -47,6 +48,67 @@ async function updateProjectStatuses() {
     });
 }
 
+function initProjectSelector() {
+    const modal = document.getElementById('project-selector-modal');
+    const closeButton = document.getElementById('project-selector-close');
+    const backButton = document.getElementById('project-selector-back');
+    const titleEl = document.getElementById('project-selector-title');
+    const descriptionEl = document.getElementById('project-selector-description');
+    const listEl = document.getElementById('project-selector-list');
+    const gridContainer = document.getElementById('projects-grid');
+
+    if (!modal || !closeButton || !backButton || !titleEl || !descriptionEl || !listEl || !gridContainer) {
+        return;
+    }
+
+    const closeModal = () => {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('overflow-hidden');
+        listEl.innerHTML = '';
+    };
+
+    const openModalForProject = (projectId) => {
+        const project = projects.find(item => item.id === projectId);
+        if (!project || !project.variants || project.variants.length === 0) {
+            return;
+        }
+
+        titleEl.textContent = project.selectorTitle || `Выберите версию ${project.title}`;
+        descriptionEl.textContent = project.selectorDescription || project.description || '';
+        listEl.innerHTML = project.variants.map((variant, index) => createProjectVariantCardHTML(variant, index)).join('');
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('overflow-hidden');
+    };
+
+    gridContainer.addEventListener('click', (event) => {
+        const selectorCard = event.target.closest('[data-selector-id]');
+        if (!selectorCard) {
+            return;
+        }
+
+        event.preventDefault();
+        openModalForProject(selectorCard.dataset.selectorId);
+    });
+
+    closeButton.addEventListener('click', closeModal);
+    backButton.addEventListener('click', closeModal);
+
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', () => {
     const bgContainer = document.getElementById('background-layer');
@@ -67,4 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // После рендеринга карточек, запрашиваем и отображаем их статусы.
         updateProjectStatuses();
     }
+
+    const modalHTML = renderProjectSelectorModal();
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    initProjectSelector();
 });
