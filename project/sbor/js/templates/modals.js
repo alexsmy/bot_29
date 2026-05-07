@@ -130,7 +130,6 @@ export const modalsTemplate = `
             <h3 style="margin:0 0 1rem 0; color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Анализ секретов</h3>
             <div class="info-box warning">
                 Алгоритм показывает только реальные или почти реальные секреты: ключи с известными префиксами, длинные токены, JWT, private key блоки и похожие сигналы.
-                Строки-плейсхолдеры или обычные имена, вроде <code>tokenKey: 'pvz_auth_token'</code>, не должны попадать в список.
                 Для каждого файла можно отдельно решить: оставить его в сборке с маскированием или исключить целиком.
             </div>
 
