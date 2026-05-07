@@ -1,39 +1,37 @@
-
-
 export const modalsTemplate = `
     <div class="modal-overlay" id="modal-overlay"></div>
 
-    <div class="modal" id="modal-exclusions">
+    <div class="modal" id="modal-exclusions" role="dialog" aria-modal="true" aria-labelledby="exclusions-title">
         <div class="modal-header">
             <div class="modal-header-content">
-                <h2>Шаг 1: Исключенные файлы</h2>
+                <h2 id="exclusions-title">Шаг 1: Исключенные файлы</h2>
                 <div class="step-indicator">Проверьте, что мы не потеряли важное</div>
             </div>
-            <input type="text" id="search-exc" class="search-box" placeholder="Поиск файлов...">
+            <input type="text" id="search-exc" class="search-box" placeholder="Поиск файлов..." autocomplete="off">
         </div>
         <div class="modal-body">
             <div class="info-box">
-                Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, .gitignore, тяжелые файлы).<br>
+                Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, .gitignore, тяжёлые файлы).
                 Поставьте галочку, если хотите <strong>вернуть</strong> файл в сборку.
             </div>
             <div class="file-list-container" id="list-exclusions"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" id="btn-settings-exc">⚙️ Настройка фильтров</button>
+            <button class="btn btn-secondary" id="btn-settings-exc" type="button">⚙️ Настройки</button>
             <div class="footer-right">
-                <button class="btn btn-secondary" id="btn-cancel-exc">Отмена</button>
-                <button class="btn btn-primary" id="btn-next-exc">Далее: Умный фильтр &rarr;</button>
+                <button class="btn btn-secondary" id="btn-cancel-exc" type="button">Отмена</button>
+                <button class="btn btn-primary" id="btn-next-exc" type="button">Далее: Умный фильтр →</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modal-final">
+    <div class="modal" id="modal-final" role="dialog" aria-modal="true" aria-labelledby="smart-title">
         <div class="modal-header">
             <div class="modal-header-content">
-                <h2>Шаг 2: Умный фильтр</h2>
+                <h2 id="smart-title">Шаг 2: Умный фильтр</h2>
                 <div class="step-indicator">Выберите файлы или папки-цели</div>
             </div>
-            <input type="text" id="search-fin" class="search-box" placeholder="Поиск целей...">
+            <input type="text" id="search-fin" class="search-box" placeholder="Поиск целей..." autocomplete="off">
         </div>
         <div class="modal-body">
             <div class="info-box">
@@ -59,8 +57,8 @@ export const modalsTemplate = `
                     </div>
 
                     <div class="smart-actions">
-                        <button class="btn btn-secondary" id="btn-reset-smart">Сбросить</button>
-                        <button class="btn btn-primary" id="btn-apply-smart">Применить умный фильтр</button>
+                        <button class="btn btn-secondary" id="btn-reset-smart" type="button">Сбросить</button>
+                        <button class="btn btn-primary" id="btn-apply-smart" type="button">Применить умный фильтр</button>
                     </div>
                 </div>
                 <div id="smart-seed-hint" style="margin-top:0.85rem;"></div>
@@ -68,19 +66,19 @@ export const modalsTemplate = `
 
             <div class="smart-picker-grid">
                 <div class="smart-picker-col">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 0.75rem;">
-                        <h3 style="margin:0; border:none; padding:0;">Файлы-цели</h3>
-                        <label style="font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; color: var(--text-muted);">
-                            <input type="checkbox" id="cb-select-all-files" style="accent-color: var(--primary); cursor:pointer;"> Выбрать все
+                    <div class="picker-header">
+                        <h3>Файлы-цели</h3>
+                        <label class="mini-check">
+                            <input type="checkbox" id="cb-select-all-files"> Выбрать все
                         </label>
                     </div>
                     <div class="smart-picker-list" id="smart-seed-files-list"></div>
                 </div>
                 <div class="smart-picker-col">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 2px solid var(--border); padding-bottom: 0.4rem; margin-bottom: 0.75rem;">
-                        <h3 style="margin:0; border:none; padding:0;">Папки-цели</h3>
-                        <label style="font-size:0.85rem; cursor:pointer; display:flex; align-items:center; gap:0.4rem; color: var(--text-muted);">
-                            <input type="checkbox" id="cb-select-all-folders" style="accent-color: var(--primary); cursor:pointer;"> Выбрать все
+                    <div class="picker-header">
+                        <h3>Папки-цели</h3>
+                        <label class="mini-check">
+                            <input type="checkbox" id="cb-select-all-folders"> Выбрать все
                         </label>
                     </div>
                     <div class="smart-picker-list" id="smart-seed-folders-list"></div>
@@ -90,122 +88,134 @@ export const modalsTemplate = `
             <div id="smart-filter-summary" class="smart-summary"></div>
         </div>
         <div class="modal-footer">
-            <button class="btn btn-secondary" id="btn-settings-final">⚙️ Настройка фильтров</button>
-            <div class="footer-right">
-                <button class="btn btn-secondary" id="btn-back-final">&larr; Назад</button>
-                <span style="font-size:0.9rem; color:var(--text-muted);">Выберите цели выше и примените фильтр.</span>
+            <div class="footer-right" style="width:100%; justify-content: space-between; align-items:center;">
+                <button class="btn btn-secondary" id="btn-settings-final" type="button">⚙️ Настройки</button>
+                <div class="footer-right">
+                    <button class="btn btn-secondary" id="btn-back-final" type="button">← Назад</button>
+                    <button class="btn btn-primary" id="btn-prepare-gen" type="button">Далее: Финализация →</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modal-review">
+    <div class="modal" id="modal-review" role="dialog" aria-modal="true" aria-labelledby="review-title">
         <div class="modal-header">
             <div class="modal-header-content">
-                <h2>Шаг 3: Коррекция сборки</h2>
-                <div class="step-indicator">Проверьте и подправьте итоговый набор файлов</div>
+                <h2 id="review-title">Шаг 3: Ручная коррекция</h2>
+                <div class="step-indicator">Проверьте финальный состав сборки</div>
             </div>
-            <input type="text" id="search-review" class="search-box" placeholder="Поиск в итоговом наборе...">
+            <input type="text" id="search-review" class="search-box" placeholder="Поиск по итогам..." autocomplete="off">
         </div>
         <div class="modal-body">
-            <div class="info-box">
-                Это уже <strong>готовый кандидатный набор</strong> после анализа зависимостей. Здесь можно вручную добавить или убрать любой файл перед финализацией.
-            </div>
             <div id="review-summary" class="smart-summary"></div>
             <div class="file-list-container" id="list-review"></div>
         </div>
         <div class="modal-footer">
             <div class="footer-right" style="width:100%; justify-content: space-between; align-items:center;">
-                <button class="btn btn-secondary" id="btn-back-review">&larr; Назад к фильтру</button>
-                <button class="btn btn-primary" id="btn-prepare-gen">Далее: Финализация &rarr;</button>
+                <button class="btn btn-secondary" id="btn-back-review" type="button">← Назад к фильтру</button>
+                <button class="btn btn-primary" id="btn-prepare-gen" type="button">Далее: Финализация →</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modal-secrets">
+    <div class="modal" id="modal-secrets" role="dialog" aria-modal="true" aria-labelledby="secrets-title">
         <div class="modal-header">
             <div class="modal-header-content">
-                <h2>Шаг 4: Финализация</h2>
+                <h2 id="secrets-title">Шаг 4: Финализация</h2>
                 <div class="step-indicator">Анализ секретов и оптимизация</div>
             </div>
         </div>
         <div class="modal-body">
-            <h3 style="margin:0 0 1rem 0; color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Анализ секретов</h3>
             <div class="info-box">
-                Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, .gitignore, тяжелые файлы).<br>
+                Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, .gitignore, тяжёлые файлы).
                 Поставьте галочку, если хотите <strong>вернуть</strong> файл в сборку.
             </div>
 
-            <div class="settings-extra" style="margin-top: 1rem;">
+            <div class="settings-extra">
                 <h3>🧠 Пакет для анализа</h3>
                 <div class="rule-list" id="secrets-analysis-package-list"></div>
             </div>
 
-            <div class="file-list-container" id="list-secrets" style="margin-top: 1rem;"></div>
+            <div class="file-list-container" id="list-secrets"></div>
         </div>
         <div class="modal-footer">
-            <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                <button class="btn btn-secondary" id="btn-back-secrets">&larr; Назад</button>
+            <div class="secret-controls">
+                <button class="btn btn-secondary" id="btn-back-secrets" type="button">← Назад</button>
 
-                <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="checkbox" id="cb-repo-map" checked style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
-                        <label for="cb-repo-map" style="font-size: 0.9rem; cursor: pointer; color: var(--text); font-weight: 500;">Добавить Repo Map</label>
-                    </div>
+                <label class="mini-check">
+                    <input type="checkbox" id="cb-repo-map" checked>
+                    <span>Добавить Repo Map</span>
+                </label>
 
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="checkbox" id="cb-optimize" style="width: 18px; height: 18px; accent-color: var(--primary); cursor: pointer;">
-                        <label for="cb-optimize" style="font-size: 0.9rem; cursor: pointer; color: var(--text); font-weight: 500;">Оптимизировать код (сжать)</label>
-                    </div>
+                <label class="mini-check">
+                    <input type="checkbox" id="cb-optimize">
+                    <span>Оптимизировать код (сжать)</span>
+                </label>
 
-                    <select id="export-format-select" class="ai-select">
-                        <option value="markdown">Формат: Markdown (.txt)</option>
-                        <option value="xml">Формат: XML (.xml)</option>
-                    </select>
+                <select id="export-format-select" class="ai-select">
+                    <option value="markdown">Формат: Markdown (.txt)</option>
+                    <option value="xml">Формат: XML (.xml)</option>
+                </select>
 
-                    <select id="ai-model-select" class="ai-select"></select>
-                    <button class="btn btn-success" id="btn-execute-gen">Сгенерировать сборку</button>
-                </div>
+                <select id="ai-model-select" class="ai-select"></select>
+                <button class="btn btn-success" id="btn-execute-gen" type="button">Сгенерировать сборку</button>
             </div>
         </div>
     </div>
 
-    <div class="modal" id="modal-settings">
+    <div class="modal" id="modal-settings" role="dialog" aria-modal="true" aria-labelledby="settings-title">
         <div class="modal-header">
-            <h2>Настройка фильтров</h2>
-            <button class="btn-text" id="btn-close-settings" style="font-size: 1.5rem; line-height: 1;">&times;</button>
+            <div class="modal-header-content">
+                <h2 id="settings-title">Настройки</h2>
+                <div class="step-indicator">Тема, лимиты и качество поиска секретов</div>
+            </div>
+            <button class="btn btn-ghost modal-close" id="btn-close-settings" type="button" aria-label="Закрыть настройки">×</button>
         </div>
         <div class="modal-body">
-            <div class="settings-extra">
+            <section class="settings-extra">
+                <h3>🎨 Внешний вид</h3>
+                <div id="settings-appearance-list" class="rule-list"></div>
+            </section>
+
+            <section class="settings-extra">
                 <h3>⚙️ Общие фильтры</h3>
                 <div id="settings-general-list" class="rule-list"></div>
-            </div>
+            </section>
 
-            <div class="settings-grid">
-                <div class="settings-col">
-                    <h3>✅ Включены</h3>
-                    <div id="settings-included-list"></div>
-                </div>
-                <div class="settings-col">
-                    <h3>❌ Исключены</h3>
-                    <div id="settings-excluded-list"></div>
-                </div>
-            </div>
+            <section class="settings-extra">
+                <h3>📏 Лимиты файлов</h3>
+                <div id="settings-limits-list" class="rule-list"></div>
+            </section>
 
-            <div class="settings-extra">
+            <section class="settings-extra">
                 <h3>🧩 Хард-правила по расширениям и папкам</h3>
+                <div class="settings-grid">
+                    <div class="settings-col">
+                        <h3>✅ Включены</h3>
+                        <div id="settings-included-list"></div>
+                    </div>
+                    <div class="settings-col">
+                        <h3>❌ Исключены</h3>
+                        <div id="settings-excluded-list"></div>
+                    </div>
+                </div>
                 <div id="settings-rules-list" class="rule-list"></div>
-            </div>
+            </section>
 
+            <section class="settings-extra">
+                <h3>🔐 Поиск секретов</h3>
+                <div id="settings-secret-list" class="rule-list"></div>
+            </section>
 
-            <div class="settings-extra">
+            <section class="settings-extra">
                 <h3>🧠 Пакет для анализа</h3>
                 <div class="rule-list" id="settings-analysis-package-list"></div>
-            </div>
+            </section>
         </div>
-        <div class="modal-footer" style="justify-content: flex-end;">
-            <button class="btn btn-primary" id="btn-apply-settings">Применить настройки</button>
+        <div class="modal-footer">
+            <div class="footer-right" style="width:100%; justify-content:flex-end;">
+                <button class="btn btn-primary" id="btn-apply-settings" type="button">Применить настройки</button>
+            </div>
         </div>
     </div>
 `;
-
-    

@@ -1,26 +1,25 @@
-
-
 import { els, state } from '../state.js';
 import { resetUI, switchStep } from '../ui_core.js';
 import { processFolder, applyExclusions } from '../file_processor.js';
 
 export function resetApp() {
-    els.modalExclusions.style.display = 'none';
-    els.modalFinal.style.display = 'none';
+    if (els.modalExclusions) els.modalExclusions.style.display = 'none';
+    if (els.modalFinal) els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
-    els.modalSecrets.style.display = 'none';
-    els.modalSettings.style.display = 'none';
-    els.overlay.style.display = 'none';
+    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
+    if (els.modalSettings) els.modalSettings.style.display = 'none';
+    if (els.overlay) els.overlay.style.display = 'none';
+
     resetUI();
     els.folderInput.value = '';
-    state.allFiles =[];
+    state.allFiles = [];
     state.structureString = '';
-    state.excludedFiles =[];
-    state.acceptedFiles =[];
+    state.excludedFiles = [];
+    state.acceptedFiles = [];
     state.allExtensions.clear();
-    state.fileContents =[];
-    state.detectedSecrets =[];
-    state.gitIgnoreRules =[];
+    state.fileContents = [];
+    state.detectedSecrets = [];
+    state.gitIgnoreRules = [];
     state.gitIgnoreSource = '';
     state.finalSelectedPaths = new Set();
     state.exclusionSelectedPaths = new Set();
@@ -47,5 +46,3 @@ export function setupFileEvents() {
         switchStep(2);
     });
 }
-
-    

@@ -1,5 +1,3 @@
-
-
 import { appTemplate } from './template.js';
 
 function bootstrapApplication() {
@@ -13,13 +11,10 @@ function bootstrapApplication() {
         document.body.insertAdjacentHTML('afterbegin', appTemplate);
     }
 
-
-
     import('./app.js').then(() => {
         console.log('[Bootstrapper] Интерфейс загружен, приложение успешно инициализировано.');
     }).catch(error => {
         console.error('[Bootstrapper] Ошибка при загрузке app.js:', error);
-
 
         const statusArea = document.getElementById('status-area');
         if (statusArea) {
@@ -32,11 +27,8 @@ function bootstrapApplication() {
     });
 }
 
-
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bootstrapApplication);
 } else {
     bootstrapApplication();
 }
-
-    

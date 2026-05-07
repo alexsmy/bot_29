@@ -1,13 +1,22 @@
-
-
-import { DEFAULT_ALLOWED, EXCLUSION_RULES } from './config.js';
+import { DEFAULT_ALLOWED, EXCLUSION_RULES, DEFAULT_UI_SETTINGS } from './config.js';
 import { AI_MODELS } from './ai_models.js';
+
+const defaultAppSettings = {
+    theme: DEFAULT_UI_SETTINGS.theme,
+    useGitignore: DEFAULT_UI_SETTINGS.useGitignore,
+    excludeLargeFiles: DEFAULT_UI_SETTINGS.excludeLargeFiles,
+    maxFileSizeMb: DEFAULT_UI_SETTINGS.maxFileSizeMb,
+    secretDetection: {
+        ...DEFAULT_UI_SETTINGS.secretDetection
+    }
+};
 
 export const els = {
     folderInput: document.getElementById('folder-input'),
     statusArea: document.getElementById('status-area'),
     loader: document.getElementById('loader'),
     downloadBtn: document.getElementById('final-download-btn'),
+    btnOpenSettings: document.getElementById('btn-open-settings'),
     overlay: document.getElementById('modal-overlay'),
 
     modalExclusions: document.getElementById('modal-exclusions'),
@@ -53,10 +62,13 @@ export const els = {
     modalSettings: document.getElementById('modal-settings'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
     btnApplySettings: document.getElementById('btn-apply-settings'),
+    settingsAppearanceList: document.getElementById('settings-appearance-list'),
     settingsGeneralList: document.getElementById('settings-general-list'),
+    settingsLimitsList: document.getElementById('settings-limits-list'),
     settingsIncluded: document.getElementById('settings-included-list'),
     settingsExcluded: document.getElementById('settings-excluded-list'),
     settingsRulesList: document.getElementById('settings-rules-list'),
+    settingsSecretList: document.getElementById('settings-secret-list'),
     settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list'),
     secretsAnalysisPackageList: document.getElementById('secrets-analysis-package-list'),
 };
@@ -64,21 +76,21 @@ export const els = {
 export const state = {
     allFiles: [],
     structureString: '',
-    excludedFiles:[],
-    acceptedFiles:[],
+    excludedFiles: [],
+    acceptedFiles: [],
     allExtensions: new Set(),
     allowedExtensions: new Set(DEFAULT_ALLOWED),
     enabledExclusionRules: new Set(
         EXCLUSION_RULES.filter(rule => rule.enabled !== false).map(rule => rule.id)
     ),
-    useGitignore: true,
-    excludeLargeFiles: true,
+    useGitignore: defaultAppSettings.useGitignore,
+    excludeLargeFiles: defaultAppSettings.excludeLargeFiles,
     gitIgnoreSource: '',
     currentStep: 0,
     outputContent: '',
     fileContents: [],
     detectedSecrets: [],
-    gitIgnoreRules:[],
+    gitIgnoreRules: [],
     searchQueryExc: '',
     searchQueryFin: '',
     searchQueryReview: '',
@@ -87,6 +99,12 @@ export const state = {
     optimizeCode: false,
     includeRepoMap: true,
     exportFormat: 'markdown',
+    appSettings: {
+        ...defaultAppSettings,
+        secretDetection: {
+            ...defaultAppSettings.secretDetection
+        }
+    },
     analysisPackage: {
         taskContext: true,
         entrypoints: true,
@@ -104,5 +122,3 @@ export const state = {
         seedFolders: new Set()
     }
 };
-
-    
