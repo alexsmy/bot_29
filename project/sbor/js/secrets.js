@@ -1,9 +1,8 @@
-
-
 import { els, state } from './state.js';
 import { readFile } from './utils.js';
 import { switchStep } from './ui_core.js';
 import { buildSmartSelection } from './smart_filter.js';
+import { detectSecretsFromFiles } from './secret_detector.js';
 
 export async function prepareGeneration(selectedPaths) {
     if (selectedPaths && selectedPaths instanceof Set) {
@@ -21,7 +20,6 @@ export async function prepareGeneration(selectedPaths) {
     els.loader.style.display = 'block';
     els.statusArea.style.display = 'block';
     els.statusArea.innerHTML = 'Чтение файлов, анализ связей и поиск секретов...';
-
 
     try {
         state.smartFilter.lastResult = await buildSmartSelection({
@@ -42,32 +40,15 @@ export async function prepareGeneration(selectedPaths) {
     state.fileContents = await Promise.all(filePromises);
     state.fileContents.sort((a, b) => a.path.localeCompare(b.path));
 
-    state.detectedSecrets = [];
-    const sensitiveRegex = /((?:["']\s*)?\b[\w-]*?(?:api[_\-]?key|token|secret|password|auth|sid|signature|private)[\w-]*?\b(?:\s*["'])?\s*[:=]\s*)(["'`])([^\n\r"'` ]{10,})\2/gi;
-
-    let secretIdCounter = 0;
-
-    state.fileContents.forEach((file, fileIndex) => {
-        let match;
-        sensitiveRegex.lastIndex = 0;
-
-        while ((match = sensitiveRegex.exec(file.content)) !== null) {
-            state.detectedSecrets.push({
-                id: `sec-${secretIdCounter++}`,
-                fileIndex: fileIndex,
-                filePath: file.path,
-                matchIndex: match.index,
-                fullMatch: match[0],
-                prefix: match[1],
-                quote: match[2],
-                secretValue: match[3]
-            });
-        }
-    });
+    const scanResult = detectSecretsFromFiles(state.fileContents);
+    state.detectedSecrets = scanResult.findings;
+    state.secretReview = {
+        excludedFiles: new Set(),
+        filesWithFindings: scanResult.filesWithFindings,
+        summary: scanResult.summary
+    };
 
     els.loader.style.display = 'none';
 
     switchStep(4);
 }
-
-    

@@ -128,6 +128,9 @@ export function resetUI() {
     if (els.reviewSummary) {
         els.reviewSummary.innerHTML = '';
     }
+    if (els.secretScanSummary) {
+        els.secretScanSummary.innerHTML = '';
+    }
 }
 
 export function switchStep(step) {

@@ -1,5 +1,3 @@
-
-
 export const modalsTemplate = `
     <div class="modal-overlay" id="modal-overlay"></div>
 
@@ -125,15 +123,18 @@ export const modalsTemplate = `
         <div class="modal-header">
             <div class="modal-header-content">
                 <h2>Шаг 4: Финализация</h2>
-                <div class="step-indicator">Анализ секретов и оптимизация</div>
+                <div class="step-indicator">Проверка реальных секретов и подготовка итоговой сборки</div>
             </div>
         </div>
         <div class="modal-body">
             <h3 style="margin:0 0 1rem 0; color: var(--text); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem;">Анализ секретов</h3>
-            <div class="info-box">
-                Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, .gitignore, тяжелые файлы).<br>
-                Поставьте галочку, если хотите <strong>вернуть</strong> файл в сборку.
+            <div class="info-box warning">
+                Алгоритм показывает только реальные или почти реальные секреты: ключи с известными префиксами, длинные токены, JWT, private key блоки и похожие сигналы.
+                Строки-плейсхолдеры или обычные имена, вроде <code>tokenKey: 'pvz_auth_token'</code>, не должны попадать в список.
+                Для каждого файла можно отдельно решить: оставить его в сборке с маскированием или исключить целиком.
             </div>
+
+            <div id="secret-scan-summary" class="smart-summary"></div>
 
             <div class="settings-extra" style="margin-top: 1rem;">
                 <h3>🧠 Пакет для анализа</h3>
@@ -207,5 +208,3 @@ export const modalsTemplate = `
         </div>
     </div>
 `;
-
-    

@@ -1,5 +1,3 @@
-
-
 import { els, state } from './state.js';
 import { downloadFile } from './utils.js';
 import { analyzeProject } from './analyzer.js';
@@ -17,6 +15,11 @@ export async function executeGeneration() {
     els.statusArea.innerHTML = 'Формирование итогового файла...';
 
     const selectedPaths = new Set(state.finalSelectedPaths);
+    const excludedSecretFiles = state.secretReview?.excludedFiles || new Set();
+
+    for (const path of excludedSecretFiles) {
+        selectedPaths.delete(path);
+    }
 
     if (selectedPaths.size === 0) {
         els.loader.style.display = 'none';
@@ -24,10 +27,12 @@ export async function executeGeneration() {
         return;
     }
 
+    state.finalSelectedPaths = new Set(selectedPaths);
+
     if (state.detectedSecrets.length > 0) {
         state.detectedSecrets.forEach(sec => {
-            const cb = document.getElementById(sec.id);
-            sec.selected = cb ? cb.checked : false;
+            sec.selected = !excludedSecretFiles.has(sec.filePath);
+            sec.shouldExcludeFile = excludedSecretFiles.has(sec.filePath);
         });
     }
 
@@ -42,7 +47,7 @@ export async function executeGeneration() {
         repoMapText = generateRepoMap(buildResult.processedFiles);
     }
 
-    let smartResult = state.smartFilter.lastResult;
+    const smartResult = state.smartFilter.lastResult;
 
     state.outputContent = formatOutput(state, analysis, buildResult.processedFiles, buildResult.redactedCount, repoMapText);
 
@@ -71,5 +76,3 @@ export async function executeGeneration() {
     const ext = state.exportFormat === 'xml' ? 'xml' : 'txt';
     els.downloadBtn.onclick = () => downloadFile(state.outputContent, ext);
 }
-
-    

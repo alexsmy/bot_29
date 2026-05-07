@@ -27,6 +27,7 @@ export function resetApp() {
     state.smartFilter.lastResult = null;
     state.smartFilter.seedFiles.clear();
     state.smartFilter.seedFolders.clear();
+    state.secretReview = { excludedFiles: new Set(), filesWithFindings: new Map(), summary: null };
     els.statusArea.textContent = 'Отменено.';
     els.statusArea.style.display = 'block';
     state.currentStep = 0;

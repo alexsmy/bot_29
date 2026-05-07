@@ -1,5 +1,3 @@
-
-
 import { DEFAULT_ALLOWED, EXCLUSION_RULES } from './config.js';
 import { AI_MODELS } from './ai_models.js';
 
@@ -49,6 +47,7 @@ export const els = {
     cbOptimize: document.getElementById('cb-optimize'),
     cbRepoMap: document.getElementById('cb-repo-map'),
     exportFormatSelect: document.getElementById('export-format-select'),
+    secretScanSummary: document.getElementById('secret-scan-summary'),
 
     modalSettings: document.getElementById('modal-settings'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
@@ -64,8 +63,8 @@ export const els = {
 export const state = {
     allFiles: [],
     structureString: '',
-    excludedFiles:[],
-    acceptedFiles:[],
+    excludedFiles: [],
+    acceptedFiles: [],
     allExtensions: new Set(),
     allowedExtensions: new Set(DEFAULT_ALLOWED),
     enabledExclusionRules: new Set(
@@ -78,7 +77,12 @@ export const state = {
     outputContent: '',
     fileContents: [],
     detectedSecrets: [],
-    gitIgnoreRules:[],
+    secretReview: {
+        excludedFiles: new Set(),
+        filesWithFindings: new Map(),
+        summary: null
+    },
+    gitIgnoreRules: [],
     searchQueryExc: '',
     searchQueryFin: '',
     searchQueryReview: '',
@@ -104,5 +108,3 @@ export const state = {
         seedFolders: new Set()
     }
 };
-
-    

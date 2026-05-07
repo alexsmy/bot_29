@@ -64,6 +64,8 @@ export function categorizeFiles() {
     state.excludedFiles = [];
     state.finalSelectedPaths = new Set();
     state.exclusionSelectedPaths = new Set();
+    state.detectedSecrets = [];
+    state.secretReview = { excludedFiles: new Set(), filesWithFindings: new Map(), summary: null };
     state.smartFilter.lastResult = null;
     state.smartFilter.seedFiles.clear();
     state.smartFilter.seedFolders.clear();
