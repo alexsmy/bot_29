@@ -1,9 +1,10 @@
+
+
 import { EXCLUSION_RULES, MAX_FILE_SIZE_MB } from './config.js';
 import { els, state } from './state.js';
 import { getExtension, readFile, buildFileTree, generateStructureString } from './utils.js';
 import { parseGitignore, isIgnoredByGit } from './gitignore.js';
 import { resetUI, switchStep } from './ui_core.js';
-import { saveAppSettings, applyTheme } from './settings_store.js';
 
 export async function processFolder(files) {
     state.allFiles = files;
@@ -67,8 +68,7 @@ export function categorizeFiles() {
     state.smartFilter.seedFiles.clear();
     state.smartFilter.seedFolders.clear();
 
-    const maxSizeMb = Number(state.appSettings.maxFileSizeMb || MAX_FILE_SIZE_MB);
-    const maxSizeBytes = maxSizeMb * 1024 * 1024;
+    const maxSizeBytes = MAX_FILE_SIZE_MB * 1024 * 1024;
 
     for (let file of state.allFiles) {
         const ext = getExtension(file.name);
@@ -82,7 +82,7 @@ export function categorizeFiles() {
 
         if (state.excludeLargeFiles && file.size > maxSizeBytes) {
             fileInfo.reason = 'size';
-            fileInfo.reasonLabel = `> ${maxSizeMb}MB`;
+            fileInfo.reasonLabel = `> ${MAX_FILE_SIZE_MB}MB`;
             state.excludedFiles.push(fileInfo);
             continue;
         }
@@ -107,98 +107,62 @@ export function categorizeFiles() {
     }
 }
 
-export function applyExclusions(rescuedPaths = new Set()) {
-    const rescued = rescuedPaths instanceof Set ? rescuedPaths : new Set(rescuedPaths);
-    state.finalSelectedPaths = new Set(state.acceptedFiles.map(f => f.path));
+export function applyExclusions(rescuedPaths) {
+    const rescuedSet = rescuedPaths instanceof Set ? rescuedPaths : new Set(rescuedPaths);
+    const newExcluded = [];
+    const acceptedPaths = new Set(state.acceptedFiles.map(f => f.path));
 
-    state.excludedFiles.forEach(file => {
-        if (rescued.has(file.path)) {
-            state.finalSelectedPaths.add(file.path);
+    state.excludedFiles.forEach(f => {
+        if (rescuedSet.has(f.path)) {
+            if (!acceptedPaths.has(f.path)) {
+                state.acceptedFiles.push(f);
+                acceptedPaths.add(f.path);
+            }
+            state.exclusionSelectedPaths.add(f.path);
+        } else {
+            newExcluded.push(f);
         }
     });
 
+    state.excludedFiles = newExcluded;
     state.smartFilter.lastResult = null;
 }
 
-export function applySettings(controls) {
-    const nextAllowed = new Set(state.allowedExtensions);
-    const nextRules = new Set(state.enabledExclusionRules);
+export function applySettings(checkboxes) {
+    const nextAllowed = new Set();
+    const nextRules = new Set();
 
     let nextUseGitignore = state.useGitignore;
     let nextExcludeLargeFiles = state.excludeLargeFiles;
-    const nextAppSettings = {
-        ...state.appSettings,
-        secretDetection: {
-            ...state.appSettings.secretDetection
-        }
-    };
 
-    controls.forEach(control => {
-        const kind = control.dataset?.kind;
-        const setting = control.dataset?.setting;
-
-        if (kind === 'extension') {
-            if (control.checked) nextAllowed.add(control.value);
-            return;
-        }
-
-        if (kind === 'rule') {
-            if (control.checked) nextRules.add(control.value);
-            return;
-        }
-
-        if (kind === 'general') {
-            if (control.value === 'use-gitignore') {
-                nextUseGitignore = control.checked;
-            }
-            if (control.value === 'exclude-large-files') {
-                nextExcludeLargeFiles = control.checked;
+    checkboxes.forEach(cb => {
+        if (cb.dataset.kind === 'extension') {
+            if (cb.checked) {
+                nextAllowed.add(cb.value);
             }
             return;
         }
 
-        if (kind === 'appearance') {
-            if (setting === 'theme') {
-                nextAppSettings.theme = control.checked ? 'dark' : 'light';
+        if (cb.dataset.kind === 'rule') {
+            if (cb.checked) {
+                nextRules.add(cb.value);
             }
             return;
         }
 
-        if (kind === 'limit') {
-            if (setting === 'maxFileSizeMb') {
-                const parsed = Number(control.value);
-                if (Number.isFinite(parsed) && parsed > 0) {
-                    nextAppSettings.maxFileSizeMb = parsed;
-                }
+        if (cb.dataset.kind === 'general') {
+            if (cb.value === 'use-gitignore') {
+                nextUseGitignore = cb.checked;
+            }
+            if (cb.value === 'exclude-large-files') {
+                nextExcludeLargeFiles = cb.checked;
             }
             return;
         }
 
-        if (kind === 'secret') {
-            if (setting === 'minLength') {
-                const parsed = Number(control.value);
-                if (Number.isFinite(parsed) && parsed >= 8) {
-                    nextAppSettings.secretDetection.minLength = parsed;
-                }
-            } else if (setting === 'minScore') {
-                const parsed = Number(control.value);
-                if (Number.isFinite(parsed) && parsed >= 1) {
-                    nextAppSettings.secretDetection.minScore = parsed;
-                }
-            } else if (setting === 'minEntropy') {
-                const parsed = Number(control.value);
-                if (Number.isFinite(parsed) && parsed >= 0) {
-                    nextAppSettings.secretDetection.minEntropy = parsed;
-                }
-            } else if (setting === 'requireNameHint') {
-                nextAppSettings.secretDetection.requireNameHint = control.checked;
-            }
-            return;
-        }
-
-        if (kind === 'analysis-package') {
-            if (Object.prototype.hasOwnProperty.call(state.analysisPackage, control.value)) {
-                state.analysisPackage[control.value] = control.checked;
+        if (cb.dataset.kind === 'analysis-package') {
+            if (Object.prototype.hasOwnProperty.call(state.analysisPackage, cb.value)) {
+                state.analysisPackage[cb.value] = cb.checked;
             }
         }
     });
@@ -207,14 +171,6 @@ export function applySettings(controls) {
     state.enabledExclusionRules = nextRules;
     state.useGitignore = nextUseGitignore;
     state.excludeLargeFiles = nextExcludeLargeFiles;
-    state.appSettings = nextAppSettings;
-
-    applyTheme(nextAppSettings.theme);
-    saveAppSettings({
-        ...nextAppSettings,
-        useGitignore: state.useGitignore,
-        excludeLargeFiles: state.excludeLargeFiles
-    });
 
     if (state.useGitignore && !state.gitIgnoreRules.length && state.gitIgnoreSource) {
         state.gitIgnoreRules = parseGitignore(state.gitIgnoreSource);
@@ -224,6 +180,7 @@ export function applySettings(controls) {
     state.smartFilter.lastResult = null;
 
     els.modalSettings.style.display = 'none';
-    if (els.overlay) els.overlay.style.display = 'none';
     switchStep(state.currentStep);
 }
+
+    

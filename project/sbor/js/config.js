@@ -1,3 +1,5 @@
+
+
 export const DEFAULT_ALLOWED = [
     '.py', '.js', '.mjs', '.cjs', '.jsx', '.ts', '.tsx',
     '.css', '.scss', '.less',
@@ -8,19 +10,6 @@ export const DEFAULT_ALLOWED = [
 ];
 
 export const MAX_FILE_SIZE_MB = 5;
-
-export const DEFAULT_UI_SETTINGS = {
-    theme: 'light',
-    useGitignore: true,
-    excludeLargeFiles: true,
-    maxFileSizeMb: MAX_FILE_SIZE_MB,
-    secretDetection: {
-        minLength: 20,
-        minScore: 4,
-        minEntropy: 3.0,
-        requireNameHint: true
-    }
-};
 
 export const EXCLUSION_RULES = [
     {
@@ -122,3 +111,5 @@ export const EXCLUSION_RULES = [
         match: (file) => file.name.startsWith('.') && file.name !== '.env'
     }
 ];
+
+    

@@ -1,25 +1,19 @@
+
+
 import { els, state } from './state.js';
 import { AI_MODELS } from './ai_models.js';
 import { SMART_PROFILES } from './smart_filter.js';
 import { renderExclusionsList, renderSmartStep, renderReviewList, renderSecretsList } from './ui_render.js';
-import { applyTheme, loadAppSettings, readStoredFlag, readStoredTheme, saveStoredFlag } from './settings_store.js';
-
-function loadSetting(key, el, type = 'checkbox') {
-    const val = localStorage.getItem(key);
-    if (val !== null) {
-        if (type === 'checkbox') el.checked = val === 'true';
-        else el.value = val;
-    }
-}
 
 export function initUI() {
-    const storedTheme = readStoredTheme();
-    state.appSettings = loadAppSettings(state.appSettings);
-    state.appSettings.theme = state.appSettings.theme || storedTheme;
-    state.useGitignore = Boolean(state.appSettings.useGitignore);
-    state.excludeLargeFiles = Boolean(state.appSettings.excludeLargeFiles);
 
-    applyTheme(state.appSettings.theme);
+    const loadSetting = (key, el, type = 'checkbox') => {
+        const val = localStorage.getItem(key);
+        if (val !== null) {
+            if (type === 'checkbox') el.checked = val === 'true';
+            else el.value = val;
+        }
+    };
 
     els.aiModelSelect.innerHTML = '';
     AI_MODELS.forEach(model => {
@@ -138,31 +132,26 @@ export function resetUI() {
 
 export function switchStep(step) {
     state.currentStep = step;
-    if (els.modalExclusions) els.modalExclusions.style.display = 'none';
-    if (els.modalFinal) els.modalFinal.style.display = 'none';
+    els.modalExclusions.style.display = 'none';
+    els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
-    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
-    if (els.modalSettings) els.modalSettings.style.display = 'none';
-
-    if (step > 0) {
-        if (els.overlay) els.overlay.style.display = 'block';
-    } else if (els.overlay) {
-        els.overlay.style.display = 'none';
-    }
+    els.modalSecrets.style.display = 'none';
+    els.modalSettings.style.display = 'none';
+    els.overlay.style.display = 'block';
 
     if (step === 1) {
         renderExclusionsList();
-        if (els.modalExclusions) els.modalExclusions.style.display = 'flex';
+        els.modalExclusions.style.display = 'flex';
     } else if (step === 2) {
         renderSmartStep();
-        if (els.modalFinal) els.modalFinal.style.display = 'flex';
+        els.modalFinal.style.display = 'flex';
     } else if (step === 3) {
         renderReviewList();
         if (els.modalReview) els.modalReview.style.display = 'flex';
     } else if (step === 4) {
         renderSecretsList();
-        if (els.modalSecrets) els.modalSecrets.style.display = 'flex';
-    } else if (step === 0) {
-        if (els.overlay) els.overlay.style.display = 'none';
+        els.modalSecrets.style.display = 'flex';
     }
 }
+
+    

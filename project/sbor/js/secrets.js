@@ -2,7 +2,7 @@ import { els, state } from './state.js';
 import { readFile } from './utils.js';
 import { switchStep } from './ui_core.js';
 import { buildSmartSelection } from './smart_filter.js';
-import { detectSecretsInFiles } from './secret_detector.js';
+import { scanForSecrets } from './secret_detector.js';
 
 export async function prepareGeneration(selectedPaths) {
     if (selectedPaths && selectedPaths instanceof Set) {
@@ -19,7 +19,7 @@ export async function prepareGeneration(selectedPaths) {
     els.overlay.style.display = 'none';
     els.loader.style.display = 'block';
     els.statusArea.style.display = 'block';
-    els.statusArea.innerHTML = 'Чтение файлов, анализ связей и поиск секретов...';
+    els.statusArea.innerHTML = 'Чтение файлов, анализ связей и поиск реальных секретов...';
 
     try {
         state.smartFilter.lastResult = await buildSmartSelection({
@@ -40,8 +40,9 @@ export async function prepareGeneration(selectedPaths) {
     state.fileContents = await Promise.all(filePromises);
     state.fileContents.sort((a, b) => a.path.localeCompare(b.path));
 
-    state.detectedSecrets = detectSecretsInFiles(state.fileContents, state.appSettings.secretDetection);
+    state.detectedSecrets = scanForSecrets(state.fileContents);
 
     els.loader.style.display = 'none';
+
     switchStep(4);
 }

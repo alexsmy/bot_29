@@ -1,10 +1,8 @@
-
-
 import { readFile } from '../utils.js';
 import { optimizeCode } from '../optimizer.js';
 
 export async function buildProcessedFiles(selectedFilesMeta, detectedSecrets, optimizeCodeFlag) {
-    let processedFiles =[];
+    let processedFiles = [];
     let redactedCount = 0;
     let totalCommentsRemoved = 0;
     let totalEmptyLinesRemoved = 0;
@@ -19,11 +17,11 @@ export async function buildProcessedFiles(selectedFilesMeta, detectedSecrets, op
         originalSize += new Blob([content]).size;
         const lang = file.path.split('.').pop().toLowerCase();
 
-        const fileSecrets = detectedSecrets.filter(s => s.filePath === file.path && s.selected);
+        const fileSecrets = detectedSecrets.filter(s => s.filePath === file.path && s.selected !== false);
         fileSecrets.sort((a, b) => b.matchIndex - a.matchIndex);
 
         fileSecrets.forEach(sec => {
-            const redacted = `${sec.prefix}${sec.quote}*****${sec.quote}`;
+            const redacted = sec.redaction || `${sec.prefix || ''}${sec.quote || ''}*****${sec.quote || ''}`;
             content = content.substring(0, sec.matchIndex) + redacted + content.substring(sec.matchIndex + sec.fullMatch.length);
             redactedCount++;
         });
@@ -51,5 +49,3 @@ export async function buildProcessedFiles(selectedFilesMeta, detectedSecrets, op
         originalSize
     };
 }
-
-    
