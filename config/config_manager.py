@@ -1,48 +1,54 @@
-import os
+
 import json
+import os
+
 from utils.logger import log
 
-# Обрати внимание: расширение изменено на .json
 CONFIG_FILE = "config/keep_alive_settings.json"
 
-def load_advanced_config() -> dict:
-    """
-    Загружает стандартный JSON файл конфигурации.
-    Фильтрует отключенные таргеты, передавая в основной алгоритм только активные.
-    """
-    default_config = {
-        "settings": {
-            "min_wait_minutes": 13,
-            "max_wait_minutes": 14,
-            "error_wait_seconds": 60,
-            "initial_delay_seconds": 10
-        },
-        "targets":[]
-    }
+DEFAULT_CONFIG = {
+    "settings": {
+        "min_wait_minutes": 13,
+        "max_wait_minutes": 14,
+        "error_wait_seconds": 60,
+        "initial_delay_seconds": 10
+    },
+    "targets": []
+}
+
+def ensure_config_exists():
+    os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
 
     if not os.path.exists(CONFIG_FILE):
-        log("CONFIG", f"Файл {CONFIG_FILE} не найден. Используются настройки по умолчанию.")
-        return default_config
+        save_advanced_config(DEFAULT_CONFIG)
+
+def load_raw_config() -> dict:
+    ensure_config_exists()
 
     try:
-        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
-            # Используем стандартный безопасный парсер JSON
-            parsed_config = json.load(f)
+        with open(CONFIG_FILE, "r", encoding="utf-8") as file:
+            return json.load(file)
+    except Exception as error:
+        log("ERROR", f"Ошибка чтения конфигурации: {error}")
+        return DEFAULT_CONFIG
 
-        # Фильтруем таргеты: оставляем только те, где "enabled": true
-        if "targets" in parsed_config:
-            active_targets = [
-                t for t in parsed_config["targets"]
-                if t.get("enabled", True)
-            ]
-            parsed_config["targets"] = active_targets
+def load_advanced_config() -> dict:
+    parsed_config = load_raw_config()
 
-        log("CONFIG", "Конфигурация успешно загружена.")
-        return parsed_config
+    if "targets" in parsed_config:
+        parsed_config["targets"] = [
+            target for target in parsed_config["targets"]
+            if target.get("enabled", True)
+        ]
 
-    except json.JSONDecodeError as e:
-        log("ERROR", f"Ошибка парсинга {CONFIG_FILE}: {e}. Проверьте синтаксис JSON.")
-        return default_config
-    except Exception as e:
-        log("ERROR", f"Непредвиденная ошибка при чтении конфига: {e}")
-        return default_config
+    return parsed_config
+
+def save_advanced_config(config: dict) -> dict:
+    ensure_config_exists()
+
+    with open(CONFIG_FILE, "w", encoding="utf-8") as file:
+        json.dump(config, file, ensure_ascii=False, indent=4)
+
+    log("CONFIG", "Конфигурация keep-alive обновлена через веб-интерфейс.")
+
+    return config

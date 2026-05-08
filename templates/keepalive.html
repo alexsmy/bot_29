@@ -9,34 +9,118 @@
     <link rel="stylesheet" href="/static/css/keepalive.css">
 </head>
 <body class="min-h-screen p-4 sm:p-6 font-sans">
-    <div class="max-w-7xl mx-auto">
+    <div class="background-glow background-glow-left"></div>
+    <div class="background-glow background-glow-right"></div>
 
-        <a href="/" class="inline-flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm mb-6 bg-slate-800/50 px-4 py-2 rounded-lg border border-slate-700/50 w-fit">
-            <i class="fa-solid fa-arrow-left"></i> Назад в Хаб
-        </a>
+    <div class="max-w-7xl mx-auto relative z-10">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+            <a href="/" class="top-action-button">
+                <i class="fa-solid fa-arrow-left"></i>
+                Назад в Хаб
+            </a>
 
-        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 border-b border-slate-700 pb-4 gap-4">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-                    <i class="fa-solid fa-satellite-dish text-blue-500"></i>
-                    Мониторинг Сервисов
-                </h1>
-                <p class="text-slate-400 mt-1 text-xs sm:text-sm">Автоподдержка и отслеживание доступности URL</p>
-            </div>
-            <div class="text-left sm:text-right bg-slate-800/50 p-3 rounded-lg border border-slate-700/50 w-full sm:w-auto">
-                <div class="text-xs sm:text-sm text-slate-400">Автообновление: <span class="text-blue-400 font-semibold">Вкл (60 сек)</span></div>
-                <div id="last-sync" class="text-[10px] sm:text-xs text-slate-500 mt-1">Синхронизация...</div>
+            <button id="open-settings-btn" class="top-action-button primary">
+                <i class="fa-solid fa-sliders"></i>
+                Настройки мониторинга
+            </button>
+        </div>
+
+        <header class="dashboard-panel mb-8">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div>
+                    <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
+                        <i class="fa-solid fa-satellite-dish text-cyan-400"></i>
+                        Мониторинг Сервисов
+                    </h1>
+                    <p class="text-slate-300 mt-2 text-xs sm:text-sm">
+                        Автоподдержка, контроль доступности URL и управление конфигурацией.
+                    </p>
+                </div>
+
+                <div class="status-panel">
+                    <div class="text-xs sm:text-sm text-slate-300">
+                        Автообновление:
+                        <span class="text-cyan-300 font-semibold">Вкл (60 сек)</span>
+                    </div>
+
+                    <div id="last-sync" class="text-[11px] text-slate-400 mt-2">
+                        Синхронизация...
+                    </div>
+                </div>
             </div>
         </header>
 
-        <!-- Сводная панель -->
         <div id="summary-panel" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"></div>
 
-        <!-- Контейнер для карточек -->
-        <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
+        <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5"></div>
+    </div>
+
+    <div id="settings-modal" class="modal-overlay hidden">
+        <div class="modal-window">
+            <div class="modal-header">
+                <div>
+                    <h2 class="text-xl font-bold text-white">Настройки Keep-Alive</h2>
+                    <p class="text-sm text-slate-400 mt-1">
+                        Управление URL, интервалами проверок и параметрами мониторинга.
+                    </p>
+                </div>
+
+                <button id="close-settings-btn" class="icon-button">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="modal-content">
+                <section class="settings-section">
+                    <div class="settings-grid">
+                        <label class="settings-field">
+                            <span>Мин. ожидание (мин)</span>
+                            <input id="min-wait" type="number" min="1">
+                        </label>
+
+                        <label class="settings-field">
+                            <span>Макс. ожидание (мин)</span>
+                            <input id="max-wait" type="number" min="1">
+                        </label>
+
+                        <label class="settings-field">
+                            <span>Повтор при ошибке (сек)</span>
+                            <input id="error-wait" type="number" min="5">
+                        </label>
+
+                        <label class="settings-field">
+                            <span>Стартовая задержка (сек)</span>
+                            <input id="initial-delay" type="number" min="0">
+                        </label>
+                    </div>
+                </section>
+
+                <section class="settings-section">
+                    <div class="flex items-center justify-between gap-3 mb-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-white">Список сервисов</h3>
+                            <p class="text-xs text-slate-400">Редактирование выполняется без ручного изменения JSON.</p>
+                        </div>
+
+                        <button id="add-target-btn" class="primary-small-button">
+                            <i class="fa-solid fa-plus"></i>
+                            Добавить URL
+                        </button>
+                    </div>
+
+                    <div id="targets-list" class="targets-list"></div>
+                </section>
+            </div>
+
+            <div class="modal-footer">
+                <button id="save-settings-btn" class="primary-save-button">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    Сохранить настройки
+                </button>
+            </div>
         </div>
     </div>
 
-    <script src="/static/js/keepalive.js"></script>
+    <script type="module" src="/static/js/keepalive.js"></script>
 </body>
 </html>
