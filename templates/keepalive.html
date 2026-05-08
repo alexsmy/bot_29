@@ -8,115 +8,131 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/keepalive.css">
 </head>
-<body class="min-h-screen p-4 sm:p-6 font-sans">
-    <div class="background-glow background-glow-left"></div>
-    <div class="background-glow background-glow-right"></div>
+<body class="keepalive-page">
+    <div class="page-surface">
+        <div class="ambient ambient-a"></div>
+        <div class="ambient ambient-b"></div>
+        <div class="ambient ambient-c"></div>
 
-    <div class="max-w-7xl mx-auto relative z-10">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
-            <a href="/" class="top-action-button">
+        <main class="dashboard-shell">
+            <a href="/" class="back-link">
                 <i class="fa-solid fa-arrow-left"></i>
-                Назад в Хаб
+                <span>Назад в Хаб</span>
             </a>
 
-            <button id="open-settings-btn" class="top-action-button primary">
-                <i class="fa-solid fa-sliders"></i>
-                Настройки мониторинга
-            </button>
-        </div>
-
-        <header class="dashboard-panel mb-8">
-            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
-                <div>
-                    <h1 class="text-2xl sm:text-3xl font-bold text-white flex items-center gap-3">
-                        <i class="fa-solid fa-satellite-dish text-cyan-400"></i>
+            <header class="hero-panel glass-card">
+                <div class="hero-copy">
+                    <div class="hero-kicker">Keep-Alive</div>
+                    <h1>
+                        <i class="fa-solid fa-satellite-dish hero-icon"></i>
                         Мониторинг Сервисов
                     </h1>
-                    <p class="text-slate-300 mt-2 text-xs sm:text-sm">
-                        Автоподдержка, контроль доступности URL и управление конфигурацией.
-                    </p>
+                    <p>Автоподдержка и отслеживание доступности URL с удобной настройкой прямо из интерфейса.</p>
                 </div>
 
-                <div class="status-panel">
-                    <div class="text-xs sm:text-sm text-slate-300">
-                        Автообновление:
-                        <span class="text-cyan-300 font-semibold">Вкл (60 сек)</span>
+                <div class="hero-actions">
+                    <div class="hero-status-card">
+                        <div class="hero-status-row">
+                            <span>Автообновление</span>
+                            <strong>60 сек</strong>
+                        </div>
+                        <div id="last-sync" class="hero-status-subline">Синхронизация...</div>
                     </div>
 
-                    <div id="last-sync" class="text-[11px] text-slate-400 mt-2">
-                        Синхронизация...
-                    </div>
+                    <button id="open-settings-btn" class="action-btn action-btn--primary" type="button">
+                        <i class="fa-solid fa-gear"></i>
+                        <span>Настройки</span>
+                    </button>
                 </div>
-            </div>
-        </header>
+            </header>
 
-        <div id="summary-panel" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8"></div>
+            <div id="connection-hint" class="connection-hint glass-card">Ожидание данных...</div>
 
-        <div id="stats-container" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5"></div>
+            <section id="summary-panel" class="summary-grid"></section>
+
+            <section id="stats-container" class="cards-grid"></section>
+        </main>
     </div>
 
-    <div id="settings-modal" class="modal-overlay hidden">
-        <div class="modal-window">
+    <div id="settings-modal" class="modal-overlay is-hidden" aria-hidden="true">
+        <div class="modal-window glass-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
             <div class="modal-header">
                 <div>
-                    <h2 class="text-xl font-bold text-white">Настройки Keep-Alive</h2>
-                    <p class="text-sm text-slate-400 mt-1">
-                        Управление URL, интервалами проверок и параметрами мониторинга.
-                    </p>
+                    <div class="modal-kicker">Настройки самоподдержки</div>
+                    <h2 id="settings-title">Параметры и URL</h2>
                 </div>
-
-                <button id="close-settings-btn" class="icon-button">
+                <button id="settings-close-btn" class="modal-close-btn" type="button" aria-label="Закрыть окно настроек">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <div class="modal-content">
+            <div id="settings-message" class="settings-message" data-tone="info"></div>
+
+            <form id="settings-form" class="settings-form" autocomplete="off">
                 <section class="settings-section">
+                    <div class="section-head">
+                        <h3>Общие таймеры</h3>
+                        <p>Мин/макс ожидание, таймауты и стартовая задержка.</p>
+                    </div>
+
                     <div class="settings-grid">
-                        <label class="settings-field">
+                        <label class="field-group">
                             <span>Мин. ожидание (мин)</span>
-                            <input id="min-wait" type="number" min="1">
+                            <input name="min_wait_minutes" type="number" min="1" step="1" value="13">
                         </label>
 
-                        <label class="settings-field">
+                        <label class="field-group">
                             <span>Макс. ожидание (мин)</span>
-                            <input id="max-wait" type="number" min="1">
+                            <input name="max_wait_minutes" type="number" min="1" step="1" value="14">
                         </label>
 
-                        <label class="settings-field">
+                        <label class="field-group">
                             <span>Повтор при ошибке (сек)</span>
-                            <input id="error-wait" type="number" min="5">
+                            <input name="error_wait_seconds" type="number" min="1" step="1" value="60">
                         </label>
 
-                        <label class="settings-field">
+                        <label class="field-group">
                             <span>Стартовая задержка (сек)</span>
-                            <input id="initial-delay" type="number" min="0">
+                            <input name="initial_delay_seconds" type="number" min="0" step="1" value="10">
+                        </label>
+
+                        <label class="field-group">
+                            <span>Таймаут запроса (сек)</span>
+                            <input name="request_timeout_seconds" type="number" min="1" step="1" value="30">
+                        </label>
+
+                        <label class="field-group">
+                            <span>Проверка интернета (сек)</span>
+                            <input name="internet_check_timeout_seconds" type="number" min="1" step="1" value="10">
                         </label>
                     </div>
                 </section>
 
-                <section class="settings-section">
-                    <div class="flex items-center justify-between gap-3 mb-4">
+                <section class="settings-section settings-section--targets">
+                    <div class="section-head section-head--inline">
                         <div>
-                            <h3 class="text-lg font-semibold text-white">Список сервисов</h3>
-                            <p class="text-xs text-slate-400">Редактирование выполняется без ручного изменения JSON.</p>
+                            <h3>Список URL</h3>
+                            <p>Можно добавлять, удалять и редактировать адреса без правки файлов.</p>
                         </div>
-
-                        <button id="add-target-btn" class="primary-small-button">
+                        <button id="settings-add-target-btn" class="action-btn action-btn--ghost" type="button">
                             <i class="fa-solid fa-plus"></i>
-                            Добавить URL
+                            <span>Добавить URL</span>
                         </button>
                     </div>
 
-                    <div id="targets-list" class="targets-list"></div>
+                    <div id="settings-target-list" class="target-list"></div>
                 </section>
-            </div>
+            </form>
 
             <div class="modal-footer">
-                <button id="save-settings-btn" class="primary-save-button">
-                    <i class="fa-solid fa-floppy-disk"></i>
-                    Сохранить настройки
+                <button id="settings-download-btn" class="action-btn action-btn--ghost" type="button">
+                    <i class="fa-solid fa-download"></i>
+                    <span>Скачать JSON</span>
                 </button>
+                <div class="footer-actions">
+                    <button id="settings-cancel-btn" class="action-btn action-btn--secondary" type="button">Отмена</button>
+                    <button id="settings-apply-btn" class="action-btn action-btn--primary" type="button">Применить настройки</button>
+                </div>
             </div>
         </div>
     </div>

@@ -1,52 +1,62 @@
-
 import os
 
 from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-from config.config_manager import load_raw_config, save_advanced_config
 from services.stats_manager import get_all_stats
 
 router = APIRouter()
 
+
 @router.get("/api/stats")
 async def api_stats():
+    """API эндпоинт, возвращающий текущую статистику в формате JSON."""
     return {"stats": get_all_stats()}
 
-@router.get("/api/keepalive/config")
-async def get_keepalive_config():
-    return load_raw_config()
-
-@router.post("/api/keepalive/config")
-async def update_keepalive_config(payload: dict):
-    return save_advanced_config(payload)
 
 @router.get("/")
 async def dashboard():
+    """Отдает главную страницу (Хаб проектов)."""
     template_path = os.path.join("templates", "index.html")
 
+    if not os.path.exists(template_path):
+        return HTMLResponse(content="<h1>Ошибка: Файл шаблона templates/index.html не найден.</h1>", status_code=404)
+
     with open(template_path, "r", encoding="utf-8") as file:
-        return HTMLResponse(content=file.read())
+        html_content = file.read()
+
+    return HTMLResponse(content=html_content)
+
 
 @router.get("/keepalive")
 async def keepalive_page():
+    """Отдает страницу статистики автоподдержки."""
     template_path = os.path.join("templates", "keepalive.html")
 
+    if not os.path.exists(template_path):
+        return HTMLResponse(content="<h1>Ошибка: Файл шаблона templates/keepalive.html не найден.</h1>", status_code=404)
+
     with open(template_path, "r", encoding="utf-8") as file:
-        return HTMLResponse(content=file.read())
+        html_content = file.read()
+
+    return HTMLResponse(content=html_content)
+
 
 @router.get("/radio")
 async def radio_redirect():
     return RedirectResponse(url="/project/radio/radio_18.html")
 
+
 @router.get("/crpt")
 async def crpt_redirect():
     return RedirectResponse(url="/project/crpt/crpt.html")
+
 
 @router.get("/sbor")
 async def sbor_redirect():
     return RedirectResponse(url="/project/sbor/sbor.html")
 
+
 @router.get("/time")
-async def time_redirect():
+async def sbor_redirect():
     return RedirectResponse(url="/project/time/3dtime.html")

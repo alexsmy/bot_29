@@ -3,9 +3,11 @@
         "min_wait_minutes": 11,
         "max_wait_minutes": 14,
         "error_wait_seconds": 60,
-        "initial_delay_seconds": 600
+        "initial_delay_seconds": 60,
+        "request_timeout_seconds": 30,
+        "internet_check_timeout_seconds": 10
     },
-    "targets":[
+    "targets": [
         {
             "name": "PRIMARY",
             "url": "https://bot-29-nx0w.onrender.com",
@@ -19,7 +21,7 @@
             "enabled": false
         },
         {
-            "name": "T3",
+            "name": "ПВЗ",
             "url": "https://wbtg-001.onrender.com/ping",
             "env_override": null,
             "enabled": true
