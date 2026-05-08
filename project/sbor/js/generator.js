@@ -4,13 +4,16 @@ import { analyzeProject } from './analyzer.js';
 import { formatOutput } from './export_formatter.js';
 import { generateRepoMap } from './repo_map.js';
 import { buildProcessedFiles } from './generation/content_builder.js';
-import { renderGenerationResult } from './ui/render_generation_result.js';
+import { buildStatsHtml } from './generation/stats_builder.js';
 
 export async function executeGeneration() {
-    if (els.modalFinalize) els.modalFinalize.style.display = 'none';
+    els.modalSecrets.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
-    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
-    if (els.overlay) els.overlay.style.display = 'none';
+    if (els.modalFinalize) els.modalFinalize.style.display = 'none';
+    els.overlay.style.display = 'none';
+    if (els.resultActions) els.resultActions.style.display = 'none';
+    els.downloadBtn.style.display = 'none';
+    if (els.newBuildBtn) els.newBuildBtn.style.display = 'none';
     els.loader.style.display = 'block';
     els.statusArea.style.display = 'block';
     els.statusArea.innerHTML = 'Формирование итогового файла...';
@@ -57,7 +60,7 @@ export async function executeGeneration() {
 
     els.loader.style.display = 'none';
 
-    const generationStats = {
+    els.statusArea.innerHTML = buildStatsHtml({
         selectedFilesCount: selectedFilesMeta.length,
         redactedCount: buildResult.redactedCount,
         originalSize: buildResult.originalSize,
@@ -70,22 +73,13 @@ export async function executeGeneration() {
         seedFoldersCount: state.smartFilter.seedFolders.size,
         outputContentLength: state.outputContent.length,
         selectedAiModel: state.selectedAiModel
-    };
+    });
 
-    state.generationResult = generationStats;
-    renderGenerationResult(generationStats);
-
+    if (els.resultActions) els.resultActions.style.display = 'flex';
     els.downloadBtn.style.display = 'inline-flex';
-    els.downloadBtn.__downloadHandler = () => downloadFile(state.outputContent, state.exportFormat === 'xml' ? 'xml' : 'txt');
+    if (els.newBuildBtn) els.newBuildBtn.style.display = 'inline-flex';
 
-    if (els.statusArea) {
-        els.statusArea.innerHTML = 'Сборка готова. Откройте шаг 6 для скачивания результата.';
-    }
-
-    if (els.modalResult) {
-        els.modalResult.style.display = 'flex';
-    }
-    if (els.overlay) {
-        els.overlay.style.display = 'block';
-    }
+    const ext = state.exportFormat === 'xml' ? 'xml' : 'txt';
+    els.downloadBtn.onclick = () => downloadFile(state.outputContent, ext);
+    if (els.newBuildBtn) els.newBuildBtn.onclick = () => window.location.reload();
 }

@@ -22,6 +22,7 @@ export function setupNavEvents() {
         els.btnBackFinalize.addEventListener('click', () => switchStep(4));
     }
 
+
     els.btnSettingsExc.addEventListener('click', openSettings);
     els.btnSettingsFinal.addEventListener('click', openSettings);
 

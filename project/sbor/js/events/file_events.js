@@ -3,14 +3,13 @@ import { resetUI, switchStep } from '../ui_core.js';
 import { processFolder, applyExclusions } from '../file_processor.js';
 
 export function resetApp() {
-    if (els.modalExclusions) els.modalExclusions.style.display = 'none';
-    if (els.modalFinal) els.modalFinal.style.display = 'none';
+    els.modalExclusions.style.display = 'none';
+    els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
-    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
+    els.modalSecrets.style.display = 'none';
     if (els.modalFinalize) els.modalFinalize.style.display = 'none';
-    if (els.modalResult) els.modalResult.style.display = 'none';
-    if (els.modalSettings) els.modalSettings.style.display = 'none';
-    if (els.overlay) els.overlay.style.display = 'none';
+    els.modalSettings.style.display = 'none';
+    els.overlay.style.display = 'none';
     resetUI();
     els.folderInput.value = '';
     state.allFiles = [];
@@ -28,7 +27,7 @@ export function resetApp() {
     state.smartFilter.seedFiles.clear();
     state.smartFilter.seedFolders.clear();
     state.secretReview = { excludedFiles: new Set(), filesWithFindings: new Map(), summary: null };
-    state.generationResult = null;
+    state.outputContent = '';
     els.statusArea.textContent = 'Отменено.';
     els.statusArea.style.display = 'block';
     state.currentStep = 0;

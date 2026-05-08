@@ -1,4 +1,5 @@
 import { els, state } from '../state.js';
+import { maskSecretValue } from '../secret_detector.js';
 
 function escapeHtml(value) {
     return String(value)
@@ -9,15 +10,8 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-function maskSecretValue(value) {
-    const str = String(value || '');
-    if (!str) return '*****';
-    if (str.length <= 6) return `${str[0]}*****${str[str.length - 1] || ''}`;
-    return `${str.slice(0, 2)}*****${str.slice(-2)}`;
-}
-
 function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\]/g, '\$&');
+    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function buildMaskedPreview(finding) {
@@ -50,7 +44,7 @@ function buildSummaryHtml() {
     };
 
     return `
-        <div class="stats-grid stats-grid--four" style="margin-bottom: 1rem;">
+        <div class="stats-grid" style="margin-bottom: 1rem;">
             <div class="stat-card">
                 <div class="stat-label">Проверено файлов</div>
                 <div class="stat-value highlight">${safeSummary.scannedFiles}</div>
@@ -67,6 +61,10 @@ function buildSummaryHtml() {
                 <div class="stat-label">Исключено файлов</div>
                 <div class="stat-value">${excludedCount}</div>
             </div>
+        </div>
+        <div class="info-box warning" style="margin-bottom: 1.25rem;">
+            Обнаруживаются только высоковероятные секреты.
+            Файлы можно оставить в сборке с маскированием или исключить целиком вручную.
         </div>
     `;
 }
@@ -153,7 +151,7 @@ export function renderSecretsList() {
     if (state.detectedSecrets.length === 0) {
         const noSecDiv = document.createElement('div');
         noSecDiv.className = 'info-box success-box';
-        noSecDiv.innerHTML = '✅ Высоковероятные секреты не обнаружены. Можно переходить к финализации.';
+        noSecDiv.innerHTML = '✅ Высоковероятные секреты не обнаружены. Можно переходить к генерации.';
         els.listSecrets.appendChild(noSecDiv);
         return;
     }

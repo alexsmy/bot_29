@@ -10,12 +10,13 @@ export const modalsTemplate = `
         </div>
         <div class="modal-body">
             <div class="step-intro-grid">
-                <div class="info-box step-copy-box">
-                    Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, .gitignore, тяжелые файлы).<br>
+                <div class="info-box step-intro-copy">
+                    Ниже список файлов, которые <strong>НЕ будут включены</strong> в сборку (системные файлы, <code>.gitignore</code>, тяжелые файлы).<br>
                     Поставьте галочку, если хотите <strong>вернуть</strong> файл в сборку.
                 </div>
-                <div class="step-search-box">
-                    <input type="text" id="search-exc" class="search-box step-search" placeholder="Поиск файлов...">
+                <div class="step-intro-search">
+                    <label for="search-exc" class="step-search-label">Поиск</label>
+                    <input type="text" id="search-exc" class="search-box search-box--compact" placeholder="Поиск файлов...">
                 </div>
             </div>
             <div class="file-list-container" id="list-exclusions"></div>
@@ -24,7 +25,7 @@ export const modalsTemplate = `
             <button class="btn btn-secondary" id="btn-settings-exc">⚙️ Настройка фильтров</button>
             <div class="footer-right">
                 <button class="btn btn-secondary" id="btn-cancel-exc">Отмена</button>
-                <button class="btn btn-primary" id="btn-next-exc">Далее: Умный фильтр →</button>
+                <button class="btn btn-primary" id="btn-next-exc">Далее: Умный фильтр &rarr;</button>
             </div>
         </div>
     </div>
@@ -38,42 +39,44 @@ export const modalsTemplate = `
         </div>
         <div class="modal-body">
             <div class="step-intro-grid">
-                <div class="info-box step-copy-box">
+                <div class="info-box step-intro-copy">
                     Отметьте один или несколько <strong>исходных файлов</strong> или <strong>папок</strong>, выберите профиль задачи и примените умную выборку.
                     После этого откроется отдельный шаг ручной коррекции итогового набора.
                 </div>
-                <div class="step-search-box">
-                    <input type="text" id="search-fin" class="search-box step-search" placeholder="Поиск целей...">
+                <div class="step-intro-search">
+                    <label for="search-fin" class="step-search-label">Поиск</label>
+                    <input type="text" id="search-fin" class="search-box search-box--compact" placeholder="Поиск целей...">
                 </div>
             </div>
 
             <div class="smart-filter-panel">
-                <div class="smart-filter-grid smart-filter-grid--finalize">
-                    <div class="smart-filter-field smart-filter-field--profile">
+                <div class="smart-filter-grid smart-filter-grid--three">
+                    <div class="smart-filter-field">
                         <label for="smart-profile-select">Профиль задачи</label>
                         <select id="smart-profile-select" class="ai-select"></select>
-                        <div id="smart-seed-hint" class="smart-seed-hint"></div>
+                        <div id="smart-seed-hint" class="rule-meta" style="margin-top:0.45rem;"></div>
                     </div>
 
-                    <div class="smart-toggle smart-toggle--inline">
+                    <label class="smart-toggle">
                         <input type="checkbox" id="cb-smart-deps" checked>
-                        <label for="cb-smart-deps">Автодобавлять зависимости</label>
-                    </div>
+                        <span>Автодобавлять зависимости</span>
+                    </label>
 
-                    <div class="smart-toggle smart-toggle--inline">
+                    <label class="smart-toggle">
                         <input type="checkbox" id="cb-smart-folders" checked>
-                        <label for="cb-smart-folders">Расширять по папке</label>
+                        <span>Расширять по папке</span>
+                    </label>
+
+                    <div class="smart-actions">
+                        <button class="btn btn-secondary" id="btn-reset-smart">Сбросить</button>
+                        <button class="btn btn-primary" id="btn-apply-smart">Применить умный фильтр</button>
                     </div>
-                </div>
-                <div class="smart-actions smart-actions--compact">
-                    <button class="btn btn-secondary" id="btn-reset-smart">Сбросить</button>
-                    <button class="btn btn-primary" id="btn-apply-smart">Применить умный фильтр</button>
                 </div>
             </div>
 
             <div class="smart-picker-grid">
                 <div class="smart-picker-col">
-                    <div class="smart-picker-head">
+                    <div class="smart-picker-title">
                         <h3>Файлы-цели</h3>
                         <label class="smart-select-all">
                             <input type="checkbox" id="cb-select-all-files"> Выбрать все
@@ -82,7 +85,7 @@ export const modalsTemplate = `
                     <div class="smart-picker-list" id="smart-seed-files-list"></div>
                 </div>
                 <div class="smart-picker-col">
-                    <div class="smart-picker-head">
+                    <div class="smart-picker-title">
                         <h3>Папки-цели</h3>
                         <label class="smart-select-all">
                             <input type="checkbox" id="cb-select-all-folders"> Выбрать все
@@ -97,7 +100,8 @@ export const modalsTemplate = `
         <div class="modal-footer">
             <button class="btn btn-secondary" id="btn-settings-final">⚙️ Настройка фильтров</button>
             <div class="footer-right">
-                <button class="btn btn-secondary" id="btn-back-final">← Назад</button>
+                <button class="btn btn-secondary" id="btn-back-final">&larr; Назад к исключениям</button>
+                <span class="footer-hint">Выберите цели выше и примените фильтр.</span>
             </div>
         </div>
     </div>
@@ -111,20 +115,22 @@ export const modalsTemplate = `
         </div>
         <div class="modal-body">
             <div class="step-intro-grid">
-                <div class="info-box step-copy-box">
-                    Это уже <strong>готовый кандидатный набор</strong> после анализа зависимостей. Здесь можно вручную добавить или убрать любой файл перед финализацией.
+                <div class="info-box step-intro-copy">
+                    Это уже <strong>готовый кандидатный набор</strong> после анализа зависимостей.
+                    Здесь можно вручную добавить или убрать любой файл перед финализацией.
                 </div>
-                <div class="step-search-box">
-                    <input type="text" id="search-review" class="search-box step-search" placeholder="Поиск в итоговом наборе...">
+                <div class="step-intro-search">
+                    <label for="search-review" class="step-search-label">Поиск</label>
+                    <input type="text" id="search-review" class="search-box search-box--compact" placeholder="Поиск в итоговом наборе...">
                 </div>
             </div>
             <div id="review-summary" class="smart-summary"></div>
             <div class="file-list-container" id="list-review"></div>
         </div>
         <div class="modal-footer">
-            <div class="footer-right footer-right--spread">
-                <button class="btn btn-secondary" id="btn-back-review">← Назад к фильтру</button>
-                <button class="btn btn-primary" id="btn-prepare-gen">Далее: Проверка секретов →</button>
+            <div class="footer-right footer-right--spaced">
+                <button class="btn btn-secondary" id="btn-back-review">&larr; Назад к фильтру</button>
+                <button class="btn btn-primary" id="btn-prepare-gen">Далее: Проверка секретов &rarr;</button>
             </div>
         </div>
     </div>
@@ -133,7 +139,7 @@ export const modalsTemplate = `
         <div class="modal-header">
             <div class="modal-header-content">
                 <h2>Шаг 4: Проверка секретов</h2>
-                <div class="step-indicator">Проверка реальных секретов перед финализацией</div>
+                <div class="step-indicator">Проверьте находки и решите, что оставить в сборке</div>
             </div>
         </div>
         <div class="modal-body">
@@ -146,9 +152,9 @@ export const modalsTemplate = `
             <div class="file-list-container" id="list-secrets"></div>
         </div>
         <div class="modal-footer">
-            <div class="footer-right footer-right--spread">
-                <button class="btn btn-secondary" id="btn-back-secrets">← Назад</button>
-                <button class="btn btn-primary" id="btn-next-secrets">Далее: Финализация →</button>
+            <div class="footer-right footer-right--spaced">
+                <button class="btn btn-secondary" id="btn-back-secrets">&larr; Назад к коррекции</button>
+                <button class="btn btn-primary" id="btn-next-secrets">Далее: Финализация &rarr;</button>
             </div>
         </div>
     </div>
@@ -156,72 +162,63 @@ export const modalsTemplate = `
     <div class="modal" id="modal-finalize">
         <div class="modal-header">
             <div class="modal-header-content">
-                <h2>Шаг 5: Финализация</h2>
-                <div class="step-indicator">Пакет для анализа и параметры итоговой сборки</div>
+                <h2>Шаг 5: Финализация и подготовка итоговой сборки</h2>
+                <div class="step-indicator">Проверьте пакет для анализа, формат и провайдера перед сохранением</div>
             </div>
         </div>
         <div class="modal-body">
-            <div class="settings-extra settings-extra--tight">
-                <h3>🧠 Пакет для анализа</h3>
-                <div class="rule-grid rule-grid--analysis" id="final-analysis-package-list"></div>
+            <div class="info-box">
+                🧠 Пакет для анализа, дополнительные флаги и формат итогового файла. После этого шага останется только собрать и скачать готовый файл.
             </div>
 
-            <div class="finalize-options-grid">
-                <div class="finalize-option-card">
-                    <label class="finalize-check">
-                        <input type="checkbox" id="cb-repo-map" checked>
-                        <span>Добавить Repo Map</span>
-                    </label>
-                </div>
-                <div class="finalize-option-card">
-                    <label class="finalize-check">
-                        <input type="checkbox" id="cb-optimize">
-                        <span>Оптимизировать код (сжать)</span>
-                    </label>
-                </div>
-                <div class="finalize-option-card">
+            <div class="settings-extra">
+                <h3>🧠 Пакет для анализа</h3>
+                <div id="final-analysis-package-list" class="rule-list analysis-package-grid"></div>
+            </div>
+
+            <div class="final-options-grid">
+                <label class="final-option-card">
+                    <input type="checkbox" id="cb-repo-map" checked>
+                    <span>
+                        <strong>Добавить Repo Map</strong>
+                        <em>Краткая карта структуры и точек входа</em>
+                    </span>
+                </label>
+
+                <label class="final-option-card">
+                    <input type="checkbox" id="cb-optimize">
+                    <span>
+                        <strong>Оптимизировать код (сжать)</strong>
+                        <em>Убрать комментарии и лишние пустые строки</em>
+                    </span>
+                </label>
+
+                <div class="final-option-field">
                     <label for="export-format-select">Формат</label>
                     <select id="export-format-select" class="ai-select">
-                        <option value="markdown">Markdown (.txt)</option>
+                        <option value="markdown">TXT (.txt)</option>
                         <option value="xml">XML (.xml)</option>
                     </select>
                 </div>
-                <div class="finalize-option-card">
+
+                <div class="final-option-field">
                     <label for="ai-model-select">Провайдер</label>
                     <select id="ai-model-select" class="ai-select"></select>
                 </div>
             </div>
         </div>
         <div class="modal-footer">
-            <div class="footer-right footer-right--spread">
-                <button class="btn btn-secondary" id="btn-back-finalize">← Назад</button>
-                <button class="btn btn-success" id="btn-execute-gen">Сгенерировать сборку</button>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal" id="modal-result">
-        <div class="modal-header">
-            <div class="modal-header-content">
-                <h2>Шаг 6: Сохранение</h2>
-                <div class="step-indicator">Итоговая сборка готова к скачиванию</div>
-            </div>
-        </div>
-        <div class="modal-body">
-            <div id="generation-summary"></div>
-            <div id="generation-details" class="generation-insights-grid"></div>
-        </div>
-        <div class="modal-footer modal-footer--result">
-            <div class="footer-right footer-right--spread">
-                <button class="btn btn-secondary" id="btn-new-file">Собрать новый файл</button>
-                <button id="final-download-btn" class="btn btn-success btn-download-inline">Скачать готовый файл</button>
-            </div>
+            <button class="btn btn-secondary" id="btn-back-finalize">&larr; Назад</button>
+            <button class="btn btn-success" id="btn-execute-gen">Сгенерировать сборку</button>
         </div>
     </div>
 
     <div class="modal" id="modal-settings">
         <div class="modal-header">
-            <h2>Настройка фильтров</h2>
+            <div class="modal-header-content">
+                <h2>Настройка фильтров</h2>
+                <div class="step-indicator">Общие правила отбора и пакеты анализа</div>
+            </div>
             <button class="btn-text" id="btn-close-settings" style="font-size: 1.5rem; line-height: 1;">&times;</button>
         </div>
         <div class="modal-body">

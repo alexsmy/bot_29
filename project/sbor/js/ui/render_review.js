@@ -1,3 +1,5 @@
+
+
 import { els, state } from '../state.js';
 import { createCheckboxRow } from '../utils.js';
 
@@ -57,3 +59,5 @@ export function renderReviewList() {
         els.reviewSummary.innerHTML = state.smartFilter.lastResult.summaryHtml;
     }
 }
+
+    

@@ -1,3 +1,5 @@
+
+
 import { els, state } from '../state.js';
 import { createCheckboxRow } from '../utils.js';
 import { getProjectSeedSuggestions, getSmartProfileById, getSmartSeedMode } from '../smart_filter.js';
@@ -18,6 +20,7 @@ function syncSmartCheckboxState(type, path, checked) {
 
     state.smartFilter.lastResult = null;
     renderSelectionSummary();
+
 
     const profileId = els.smartProfileSelect?.value || state.smartFilter.profileId;
     const { fileOptions, folderOptions } = getProjectSeedSuggestions(state.acceptedFiles, profileId);
@@ -83,6 +86,7 @@ function renderSeedFiles(profileMode, fileOptions) {
 
     const filtered = fileOptions.filter(item => item.path.toLowerCase().includes(state.searchQuerySmart));
 
+
     if (els.cbSelectAllFiles) {
         els.cbSelectAllFiles.checked = filtered.length > 0 && filtered.every(item => state.smartFilter.seedFiles.has(item.path));
     }
@@ -115,6 +119,7 @@ function renderSeedFolders(profileMode, folderOptions) {
 
     const filtered = folderOptions.filter(item => item.path.toLowerCase().includes(state.searchQuerySmart));
 
+
     if (els.cbSelectAllFolders) {
         els.cbSelectAllFolders.checked = filtered.length > 0 && filtered.every(item => state.smartFilter.seedFolders.has(item.path));
     }
@@ -144,3 +149,5 @@ export function renderSmartStep() {
     renderSeedFolders(seedMode, folderOptions);
     renderSelectionSummary();
 }
+
+    

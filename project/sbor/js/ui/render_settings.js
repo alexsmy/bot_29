@@ -1,3 +1,5 @@
+
+
 import { els, state } from '../state.js';
 import { EXCLUSION_RULES, MAX_FILE_SIZE_MB } from '../config.js';
 import { renderAnalysisPackageSettings } from './render_analysis_package.js';
@@ -117,3 +119,5 @@ export function openSettings() {
 
     els.modalSettings.style.display = 'flex';
 }
+
+    

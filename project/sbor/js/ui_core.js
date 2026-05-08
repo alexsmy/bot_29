@@ -1,10 +1,9 @@
 import { els, state } from './state.js';
 import { AI_MODELS } from './ai_models.js';
 import { SMART_PROFILES } from './smart_filter.js';
-import { renderExclusionsList, renderSmartStep, renderReviewList, renderSecretsList, renderAnalysisPackageSettings } from './ui_render.js';
+import { renderExclusionsList, renderSmartStep, renderReviewList, renderSecretsList, renderFinalizationStep } from './ui_render.js';
 
 export function initUI() {
-
     const loadSetting = (key, el, type = 'checkbox') => {
         const val = localStorage.getItem(key);
         if (val !== null) {
@@ -111,11 +110,14 @@ export function initUI() {
 
 export function resetUI() {
     els.downloadBtn.style.display = 'none';
+    els.downloadBtn.onclick = null;
+    if (els.newBuildBtn) {
+        els.newBuildBtn.style.display = 'none';
+        els.newBuildBtn.onclick = null;
+    }
+    if (els.resultActions) els.resultActions.style.display = 'none';
     els.statusArea.style.display = 'none';
     els.loader.style.display = 'none';
-    if (els.generationSummary) els.generationSummary.innerHTML = '';
-    if (els.generationDetails) els.generationDetails.innerHTML = '';
-    if (els.downloadBtn) els.downloadBtn.__downloadHandler = null;
     els.searchExc.value = '';
     els.searchFin.value = '';
     if (els.searchReview) els.searchReview.value = '';
@@ -139,9 +141,8 @@ export function switchStep(step) {
     els.modalExclusions.style.display = 'none';
     els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
-    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
+    els.modalSecrets.style.display = 'none';
     if (els.modalFinalize) els.modalFinalize.style.display = 'none';
-    if (els.modalResult) els.modalResult.style.display = 'none';
     els.modalSettings.style.display = 'none';
     els.overlay.style.display = 'block';
 
@@ -156,11 +157,9 @@ export function switchStep(step) {
         if (els.modalReview) els.modalReview.style.display = 'flex';
     } else if (step === 4) {
         renderSecretsList();
-        if (els.modalSecrets) els.modalSecrets.style.display = 'flex';
+        els.modalSecrets.style.display = 'flex';
     } else if (step === 5) {
-        renderAnalysisPackageSettings();
+        renderFinalizationStep();
         if (els.modalFinalize) els.modalFinalize.style.display = 'flex';
-    } else if (step === 6) {
-        if (els.modalResult) els.modalResult.style.display = 'flex';
     }
 }

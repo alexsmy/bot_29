@@ -133,8 +133,3 @@ code {
     animation: spin 1s linear infinite;
     box-shadow: 0 0 0 6px rgba(109, 139, 255, 0.08);
 }
-
-
-body {
-    padding: 18px;
-}

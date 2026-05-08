@@ -6,6 +6,8 @@ export const els = {
     statusArea: document.getElementById('status-area'),
     loader: document.getElementById('loader'),
     downloadBtn: document.getElementById('final-download-btn'),
+    newBuildBtn: document.getElementById('btn-new-build'),
+    resultActions: document.getElementById('result-actions'),
     overlay: document.getElementById('modal-overlay'),
 
     modalExclusions: document.getElementById('modal-exclusions'),
@@ -43,21 +45,16 @@ export const els = {
     listSecrets: document.getElementById('list-secrets'),
     btnBackSecrets: document.getElementById('btn-back-secrets'),
     btnNextSecrets: document.getElementById('btn-next-secrets'),
+    aiModelSelect: document.getElementById('ai-model-select'),
+    cbOptimize: document.getElementById('cb-optimize'),
+    cbRepoMap: document.getElementById('cb-repo-map'),
+    exportFormatSelect: document.getElementById('export-format-select'),
     secretScanSummary: document.getElementById('secret-scan-summary'),
 
     modalFinalize: document.getElementById('modal-finalize'),
     btnBackFinalize: document.getElementById('btn-back-finalize'),
     btnExecuteGen: document.getElementById('btn-execute-gen'),
-    aiModelSelect: document.getElementById('ai-model-select'),
-    cbOptimize: document.getElementById('cb-optimize'),
-    cbRepoMap: document.getElementById('cb-repo-map'),
-    exportFormatSelect: document.getElementById('export-format-select'),
     finalAnalysisPackageList: document.getElementById('final-analysis-package-list'),
-
-    modalResult: document.getElementById('modal-result'),
-    generationSummary: document.getElementById('generation-summary'),
-    generationDetails: document.getElementById('generation-details'),
-    btnNewFile: document.getElementById('btn-new-file'),
 
     modalSettings: document.getElementById('modal-settings'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
@@ -66,7 +63,7 @@ export const els = {
     settingsIncluded: document.getElementById('settings-included-list'),
     settingsExcluded: document.getElementById('settings-excluded-list'),
     settingsRulesList: document.getElementById('settings-rules-list'),
-    settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list'),
+    settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list')
 };
 
 export const state = {
@@ -115,6 +112,5 @@ export const state = {
         lastResult: null,
         seedFiles: new Set(),
         seedFolders: new Set()
-    },
-    generationResult: null
+    }
 };

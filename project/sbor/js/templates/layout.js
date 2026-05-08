@@ -1,10 +1,12 @@
 export const layoutTemplate = `
     <div class="container app-shell">
-        <a href="/" class="hub-back-link">← Назад в Хаб</a>
+        <div class="app-topbar">
+            <a href="/" class="hub-back-btn" aria-label="Назад в Хаб">← Назад в Хаб</a>
+        </div>
 
         <div class="hero-panel">
             <h1>Сборка кода для ИИ</h1>
-            <p>Выберите папку проекта. Инструмент построит карту структуры, применит фильтры, проверит секреты и сохранит всё в один файл.</p>
+            <p>Выберите папку проекта. Инструмент построит карту структуры, применит .gitignore, поможет с исключениями, проверит секреты по реальным паттернам и сохранит всё в один файл.</p>
         </div>
 
         <label for="folder-input" class="file-input-label">
@@ -15,5 +17,10 @@ export const layoutTemplate = `
 
         <div class="loader" id="loader"></div>
         <div id="status-area"></div>
+
+        <div class="result-actions" id="result-actions" style="display:none;">
+            <button id="final-download-btn" class="btn btn-success btn-fit" style="display:none;">Скачать готовый файл</button>
+            <button id="btn-new-build" class="btn btn-secondary btn-fit" style="display:none;">Собрать новый файл</button>
+        </div>
     </div>
 `;

@@ -1,3 +1,5 @@
+
+
 import { appTemplate } from './template.js';
 
 function bootstrapApplication() {
@@ -36,3 +38,5 @@ if (document.readyState === 'loading') {
 } else {
     bootstrapApplication();
 }
+
+    

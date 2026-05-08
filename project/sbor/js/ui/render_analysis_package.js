@@ -2,33 +2,33 @@ import { els, state } from '../state.js';
 
 const ANALYSIS_PACKAGE_OPTIONS = [
     {
-        id: 'setting-package-task-context',
+        id: 'analysis-task-context',
+        key: 'taskContext',
         label: 'Включать TASK_CONTEXT',
-        description: 'Добавляет в начало файла краткий блок с типом проекта, объёмом сборки и полезными сигналами.',
-        key: 'taskContext'
+        description: 'Добавляет сводный контекст задачи и приоритеты отбора.'
     },
     {
-        id: 'setting-package-entrypoints',
-        label: 'Включать ENTRYPOINTS',
-        description: 'Показывает точки входа по именам файлов, корневым HTML и стартовым модулям.',
-        key: 'entrypoints'
+        id: 'analysis-entrypoints',
+        key: 'entrypoints',
+        label: 'Включать entrypoints',
+        description: 'Подсвечивает точки входа и основные запускаемые файлы.'
     },
     {
-        id: 'setting-package-module-graph',
-        label: 'Включать MODULE_GRAPH',
-        description: 'Строит карту связей между файлами по import / require / script / link / @import.',
-        key: 'moduleGraph'
+        id: 'analysis-module-graph',
+        key: 'moduleGraph',
+        label: 'Включать module graph',
+        description: 'Собирает краткую карту зависимостей между файлами.'
     },
     {
-        id: 'setting-package-change-scope',
-        label: 'Включать CHANGE_SCOPE',
-        description: 'Показывает, где вероятнее всего придётся работать: по папкам, расширениям и типу проекта.',
-        key: 'changeScope'
+        id: 'analysis-change-scope',
+        key: 'changeScope',
+        label: 'Включать change scope',
+        description: 'Фиксирует, что именно изменяется в текущей задаче.'
     }
 ];
 
 function createToggleRow({ id, label, description, checked, value }) {
-    const row = document.createElement('div');
+    const row = document.createElement('label');
     row.className = 'rule-row';
 
     const cb = document.createElement('input');
@@ -41,10 +41,11 @@ function createToggleRow({ id, label, description, checked, value }) {
     const body = document.createElement('div');
     body.style.flex = '1';
 
-    const labelEl = document.createElement('label');
-    labelEl.htmlFor = id;
+    const labelEl = document.createElement('span');
     labelEl.textContent = label;
     labelEl.style.cursor = 'pointer';
+    labelEl.style.display = 'block';
+    labelEl.style.fontWeight = '600';
 
     body.appendChild(labelEl);
 
@@ -72,16 +73,15 @@ function createToggleRow({ id, label, description, checked, value }) {
     return row;
 }
 
-function renderContainer(container, withHint = false) {
+function renderContainer(container, withHint = false, idPrefix = 'package') {
     if (!container) return;
 
     container.innerHTML = '';
-    container.classList.add('analysis-package-grid');
 
     ANALYSIS_PACKAGE_OPTIONS.forEach(item => {
         container.appendChild(
             createToggleRow({
-                id: item.id,
+                id: `${idPrefix}-${item.id}`,
                 label: item.label,
                 description: item.description,
                 checked: state.analysisPackage[item.key] !== false,
@@ -103,6 +103,6 @@ function renderContainer(container, withHint = false) {
 }
 
 export function renderAnalysisPackageSettings() {
-    renderContainer(els.settingsAnalysisPackageList, true);
-    renderContainer(els.finalAnalysisPackageList, false);
+    renderContainer(els.settingsAnalysisPackageList, true, 'settings');
+    renderContainer(els.finalAnalysisPackageList, false, 'finalize');
 }
