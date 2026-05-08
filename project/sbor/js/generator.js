@@ -68,6 +68,8 @@ export async function executeGeneration() {
         optimizeCode: state.optimizeCode,
         totalCommentsRemoved: buildResult.totalCommentsRemoved,
         totalEmptyLinesRemoved: buildResult.totalEmptyLinesRemoved,
+        optimizationSourceSize: buildResult.optimizationSourceSize,
+        optimizationResultSize: buildResult.optimizationResultSize,
         smartResult: smartResult,
         seedFilesCount: state.smartFilter.seedFiles.size,
         seedFoldersCount: state.smartFilter.seedFolders.size,

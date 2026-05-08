@@ -4,11 +4,13 @@ import { readFile } from '../utils.js';
 import { optimizeCode } from '../optimizer.js';
 
 export async function buildProcessedFiles(selectedFilesMeta, detectedSecrets, optimizeCodeFlag) {
-    let processedFiles =[];
+    let processedFiles = [];
     let redactedCount = 0;
     let totalCommentsRemoved = 0;
     let totalEmptyLinesRemoved = 0;
     let originalSize = 0;
+    let optimizationSourceSize = 0;
+    let optimizationResultSize = 0;
 
     const filePromises = selectedFilesMeta.map(f => readFile(f.originalFile));
     const fileContents = await Promise.all(filePromises);
@@ -28,12 +30,17 @@ export async function buildProcessedFiles(selectedFilesMeta, detectedSecrets, op
             redactedCount++;
         });
 
+        const sizeBeforeOptimization = new Blob([content]).size;
+        optimizationSourceSize += sizeBeforeOptimization;
+
         if (optimizeCodeFlag) {
             const optResult = optimizeCode(content, lang);
             content = optResult.result;
             totalCommentsRemoved += optResult.stats.commentsRemoved;
             totalEmptyLinesRemoved += optResult.stats.emptyLinesRemoved;
         }
+
+        optimizationResultSize += new Blob([content]).size;
 
         processedFiles.push({
             path: file.path,
@@ -48,7 +55,9 @@ export async function buildProcessedFiles(selectedFilesMeta, detectedSecrets, op
         redactedCount,
         totalCommentsRemoved,
         totalEmptyLinesRemoved,
-        originalSize
+        originalSize,
+        optimizationSourceSize,
+        optimizationResultSize
     };
 }
 

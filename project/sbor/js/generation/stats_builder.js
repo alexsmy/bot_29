@@ -25,7 +25,7 @@ function buildSmartSummaryCard(smartResult, seedFilesCount, seedFoldersCount) {
     `;
 }
 
-function buildOptimizationCard(optimizeCode, originalSize, finalSize, totalCommentsRemoved, totalEmptyLinesRemoved) {
+function buildOptimizationCard(optimizeCode, optimizationSourceSize, optimizationResultSize, totalCommentsRemoved, totalEmptyLinesRemoved) {
     if (!optimizeCode) {
         return `
             <div class="result-insight-card">
@@ -36,13 +36,13 @@ function buildOptimizationCard(optimizeCode, originalSize, finalSize, totalComme
         `;
     }
 
-    const savedBytes = originalSize - finalSize;
-    const savedPercent = originalSize > 0 ? ((savedBytes / originalSize) * 100).toFixed(1) : 0;
+    const savedBytes = Math.max(0, optimizationSourceSize - optimizationResultSize);
+    const savedPercent = optimizationSourceSize > 0 ? ((savedBytes / optimizationSourceSize) * 100).toFixed(1) : '0.0';
 
     return `
         <div class="result-insight-card result-insight-card--green">
             <div class="stat-label">Результат оптимизации</div>
-            <div class="stat-value">Сэкономлено ${formatBytes(savedBytes > 0 ? savedBytes : 0)} (${savedPercent}%)</div>
+            <div class="stat-value">Сэкономлено ${formatBytes(savedBytes)} (${savedPercent}%)</div>
             <div class="rule-meta" style="margin-top:0.35rem;">
                 Удалено комментариев: <strong>${totalCommentsRemoved}</strong> ·
                 Пустых строк: <strong>${totalEmptyLinesRemoved}</strong>
@@ -72,6 +72,8 @@ export function buildStatsHtml(params) {
         optimizeCode,
         totalCommentsRemoved,
         totalEmptyLinesRemoved,
+        optimizationSourceSize,
+        optimizationResultSize,
         smartResult,
         seedFilesCount,
         seedFoldersCount,
@@ -112,7 +114,7 @@ export function buildStatsHtml(params) {
 
         <div class="result-insights-grid">
             ${buildSmartSummaryCard(smartResult, seedFilesCount, seedFoldersCount)}
-            ${buildOptimizationCard(optimizeCode, originalSize, finalSize, totalCommentsRemoved, totalEmptyLinesRemoved)}
+            ${buildOptimizationCard(optimizeCode, optimizationSourceSize, optimizationResultSize, totalCommentsRemoved, totalEmptyLinesRemoved)}
             <div class="result-insight-card result-insight-card--context">
                 <div class="stat-label">Загрузка контекста</div>
                 ${contextHtml}
