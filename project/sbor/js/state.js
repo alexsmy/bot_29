@@ -42,12 +42,24 @@ export const els = {
     modalSecrets: document.getElementById('modal-secrets'),
     listSecrets: document.getElementById('list-secrets'),
     btnBackSecrets: document.getElementById('btn-back-secrets'),
+    btnNextSecrets: document.getElementById('btn-next-secrets'),
     btnExecuteGen: document.getElementById('btn-execute-gen'),
     aiModelSelect: document.getElementById('ai-model-select'),
     cbOptimize: document.getElementById('cb-optimize'),
     cbRepoMap: document.getElementById('cb-repo-map'),
     exportFormatSelect: document.getElementById('export-format-select'),
     secretScanSummary: document.getElementById('secret-scan-summary'),
+
+    modalFinalization: document.getElementById('modal-finalization'),
+    btnBackFinalization: document.getElementById('btn-back-finalization'),
+    secretsAnalysisPackageList: document.getElementById('secrets-analysis-package-list'),
+
+    modalSave: document.getElementById('modal-save'),
+    saveSummary: document.getElementById('save-summary'),
+    saveSmartProfile: document.getElementById('save-smart-profile'),
+    saveOptimization: document.getElementById('save-optimization'),
+    saveContext: document.getElementById('save-context'),
+    btnNewBuild: document.getElementById('btn-new-build'),
 
     modalSettings: document.getElementById('modal-settings'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
@@ -106,5 +118,6 @@ export const state = {
         lastResult: null,
         seedFiles: new Set(),
         seedFolders: new Set()
-    }
+    },
+    saveResult: null
 };

@@ -1,14 +1,13 @@
 export const layoutTemplate = `
     <div class="container app-shell">
+        <a href="/" class="hub-back-link" aria-label="Назад в Хаб">
+            <span class="hub-back-icon">←</span>
+            <span>Назад в Хаб</span>
+        </a>
+
         <div class="hero-panel">
-            <div class="hero-kicker">Code Builder · modular stack</div>
             <h1>Сборка кода для ИИ</h1>
-            <p>Выберите папку проекта. Инструмент построит карту структуры, применит .gitignore, поможет с исключениями, проверит секреты по реальным паттернам и сохранит всё в один файл.</p>
-            <div class="hero-badges">
-                <span class="hero-badge">Модульная архитектура</span>
-                <span class="hero-badge">Глубокий анализ секретов</span>
-                <span class="hero-badge">Тёмная тема</span>
-            </div>
+            <p>Выберите папку проекта, задайте исключения и получите аккуратную сборку кода в один файл.</p>
         </div>
 
         <label for="folder-input" class="file-input-label">
@@ -19,9 +18,5 @@ export const layoutTemplate = `
 
         <div class="loader" id="loader"></div>
         <div id="status-area"></div>
-
-        <button id="final-download-btn" class="btn btn-success" style="display:none; width:100%; margin-top:2rem; padding: 16px; justify-content: center;">
-            Скачать готовый файл
-        </button>
     </div>
 `;

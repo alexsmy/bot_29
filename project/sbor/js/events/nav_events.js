@@ -1,9 +1,8 @@
-
-
 import { els } from '../state.js';
 import { switchStep } from '../ui_core.js';
 import { openSettings } from '../ui/render_settings.js';
 import { applySettings } from '../file_processor.js';
+import { resetApp } from './file_events.js';
 
 export function setupNavEvents() {
     els.btnBackFinal.addEventListener('click', () => switchStep(1));
@@ -14,6 +13,18 @@ export function setupNavEvents() {
 
     if (els.btnBackSecrets) {
         els.btnBackSecrets.addEventListener('click', () => switchStep(3));
+    }
+
+    if (els.btnNextSecrets) {
+        els.btnNextSecrets.addEventListener('click', () => switchStep(5));
+    }
+
+    if (els.btnBackFinalization) {
+        els.btnBackFinalization.addEventListener('click', () => switchStep(4));
+    }
+
+    if (els.btnNewBuild) {
+        els.btnNewBuild.addEventListener('click', () => window.location.reload());
     }
 
     els.btnSettingsExc.addEventListener('click', openSettings);
@@ -28,5 +39,3 @@ export function setupNavEvents() {
         applySettings(allCheckboxes);
     });
 }
-
-    

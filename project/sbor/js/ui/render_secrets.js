@@ -1,6 +1,5 @@
 import { els, state } from '../state.js';
 import { analyzeProject } from '../analyzer.js';
-import { renderAnalysisPackageSettings } from './render_analysis_package.js';
 import { maskSecretValue } from '../secret_detector.js';
 
 function escapeHtml(value) {
@@ -13,7 +12,7 @@ function escapeHtml(value) {
 }
 
 function escapeRegExp(value) {
-    return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return String(value).replace(/[.*+?^${}()|[\]\]/g, '\$&');
 }
 
 function buildMaskedPreview(finding) {
@@ -46,7 +45,7 @@ function buildSummaryHtml() {
     };
 
     return `
-        <div class="stats-grid" style="margin-bottom: 1rem;">
+        <div class="stats-grid stats-grid-secrets">
             <div class="stat-card">
                 <div class="stat-label">Проверено файлов</div>
                 <div class="stat-value highlight">${safeSummary.scannedFiles}</div>
@@ -63,10 +62,6 @@ function buildSummaryHtml() {
                 <div class="stat-label">Исключено файлов</div>
                 <div class="stat-value">${excludedCount}</div>
             </div>
-        </div>
-        <div class="info-box warning" style="margin-bottom: 1.25rem;">
-            Обнаруживаются только высоковероятные секреты.
-            Файлы можно оставить в сборке с маскированием или исключить целиком вручную.
         </div>
     `;
 }
@@ -144,12 +139,11 @@ function groupFindingsByFile(findings) {
 }
 
 export function renderSecretsList() {
-    renderAnalysisPackageSettings();
     els.listSecrets.innerHTML = '';
 
     const analysis = analyzeProject(state.acceptedFiles);
     const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'info-box';
+    summaryDiv.className = 'info-box compact-info';
     summaryDiv.style.marginBottom = '1rem';
     summaryDiv.innerHTML = `
         <strong style="display:block; margin-bottom:8px;">🤖 Авто-анализ проекта</strong>
@@ -165,8 +159,8 @@ export function renderSecretsList() {
 
     if (state.detectedSecrets.length === 0) {
         const noSecDiv = document.createElement('div');
-        noSecDiv.className = 'info-box success-box';
-        noSecDiv.innerHTML = '✅ Высоковероятные секреты не обнаружены. Можно переходить к генерации.';
+        noSecDiv.className = 'info-box success-box compact-info';
+        noSecDiv.innerHTML = '✅ Высоковероятные секреты не обнаружены. Можно переходить к финализации.';
         els.listSecrets.appendChild(noSecDiv);
         return;
     }

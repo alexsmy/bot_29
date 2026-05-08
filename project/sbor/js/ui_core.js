@@ -1,9 +1,7 @@
-
-
 import { els, state } from './state.js';
 import { AI_MODELS } from './ai_models.js';
 import { SMART_PROFILES } from './smart_filter.js';
-import { renderExclusionsList, renderSmartStep, renderReviewList, renderSecretsList } from './ui_render.js';
+import { renderExclusionsList, renderFinalizationStep, renderSaveStep, renderSmartStep, renderReviewList, renderSecretsList } from './ui_render.js';
 
 export function initUI() {
 
@@ -112,7 +110,7 @@ export function initUI() {
 }
 
 export function resetUI() {
-    els.downloadBtn.style.display = 'none';
+    if (els.downloadBtn) els.downloadBtn.style.display = 'none';
     els.statusArea.style.display = 'none';
     els.loader.style.display = 'none';
     els.searchExc.value = '';
@@ -122,6 +120,7 @@ export function resetUI() {
     state.searchQueryFin = '';
     state.searchQueryReview = '';
     state.searchQuerySmart = '';
+    state.saveResult = null;
     if (els.smartFilterSummary) {
         els.smartFilterSummary.innerHTML = '';
     }
@@ -131,6 +130,12 @@ export function resetUI() {
     if (els.secretScanSummary) {
         els.secretScanSummary.innerHTML = '';
     }
+    if (els.saveSummary) {
+        els.saveSummary.innerHTML = '';
+    }
+    if (els.saveSmartProfile) els.saveSmartProfile.innerHTML = '';
+    if (els.saveOptimization) els.saveOptimization.innerHTML = '';
+    if (els.saveContext) els.saveContext.innerHTML = '';
 }
 
 export function switchStep(step) {
@@ -139,6 +144,8 @@ export function switchStep(step) {
     els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
     els.modalSecrets.style.display = 'none';
+    if (els.modalFinalization) els.modalFinalization.style.display = 'none';
+    if (els.modalSave) els.modalSave.style.display = 'none';
     els.modalSettings.style.display = 'none';
     els.overlay.style.display = 'block';
 
@@ -154,7 +161,11 @@ export function switchStep(step) {
     } else if (step === 4) {
         renderSecretsList();
         els.modalSecrets.style.display = 'flex';
+    } else if (step === 5) {
+        renderFinalizationStep();
+        if (els.modalFinalization) els.modalFinalization.style.display = 'flex';
+    } else if (step === 6) {
+        renderSaveStep();
+        if (els.modalSave) els.modalSave.style.display = 'flex';
     }
 }
-
-    

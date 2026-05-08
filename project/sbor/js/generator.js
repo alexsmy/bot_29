@@ -5,10 +5,12 @@ import { formatOutput } from './export_formatter.js';
 import { generateRepoMap } from './repo_map.js';
 import { buildProcessedFiles } from './generation/content_builder.js';
 import { buildStatsHtml } from './generation/stats_builder.js';
+import { switchStep } from './ui_core.js';
 
 export async function executeGeneration() {
     els.modalSecrets.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
+    if (els.modalFinalization) els.modalFinalization.style.display = 'none';
     els.overlay.style.display = 'none';
     els.loader.style.display = 'block';
     els.statusArea.style.display = 'block';
@@ -54,7 +56,23 @@ export async function executeGeneration() {
     const blob = new Blob([state.outputContent], { type: 'text/plain;charset=utf-8' });
     const finalSize = blob.size;
 
+    state.saveResult = {
+        selectedFilesCount: selectedFilesMeta.length,
+        redactedCount: buildResult.redactedCount,
+        originalSize: buildResult.originalSize,
+        finalSize,
+        optimizeCode: state.optimizeCode,
+        totalCommentsRemoved: buildResult.totalCommentsRemoved,
+        totalEmptyLinesRemoved: buildResult.totalEmptyLinesRemoved,
+        smartResult,
+        seedFilesCount: state.smartFilter.seedFiles.size,
+        seedFoldersCount: state.smartFilter.seedFolders.size,
+        outputContentLength: state.outputContent.length,
+        selectedAiModel: state.selectedAiModel
+    };
+
     els.loader.style.display = 'none';
+    els.statusArea.style.display = 'none';
 
     els.statusArea.innerHTML = buildStatsHtml({
         selectedFilesCount: selectedFilesMeta.length,
@@ -71,8 +89,10 @@ export async function executeGeneration() {
         selectedAiModel: state.selectedAiModel
     });
 
-    els.downloadBtn.style.display = 'flex';
+    switchStep(6);
 
     const ext = state.exportFormat === 'xml' ? 'xml' : 'txt';
-    els.downloadBtn.onclick = () => downloadFile(state.outputContent, ext);
+    if (els.downloadBtn) {
+        els.downloadBtn.onclick = () => downloadFile(state.outputContent, ext);
+    }
 }
