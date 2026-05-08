@@ -1,8 +1,7 @@
-
-
 import { els, state } from '../state.js';
 import { prepareGeneration } from '../secrets.js';
 import { executeGeneration } from '../generator.js';
+import { resetApp } from './file_events.js';
 
 export function setupGenerateEvents() {
     if (els.btnPrepareGen) {
@@ -16,14 +15,29 @@ export function setupGenerateEvents() {
         });
     }
 
-    els.btnExecuteGen.addEventListener('click', () => {
-        executeGeneration().catch(error => {
-            console.error('Ошибка генерации:', error);
-            els.loader.style.display = 'none';
-            els.statusArea.style.display = 'block';
-            els.statusArea.innerHTML = `<strong>Ошибка:</strong> ${error?.message || 'Не удалось сформировать итоговый файл.'}`;
+    if (els.btnExecuteGen) {
+        els.btnExecuteGen.addEventListener('click', () => {
+            executeGeneration().catch(error => {
+                console.error('Ошибка генерации:', error);
+                els.loader.style.display = 'none';
+                els.statusArea.style.display = 'block';
+                els.statusArea.innerHTML = `<strong>Ошибка:</strong> ${error?.message || 'Не удалось сформировать итоговый файл.'}`;
+            });
         });
-    });
-}
+    }
 
-    
+    if (els.downloadBtn) {
+        els.downloadBtn.addEventListener('click', () => {
+            if (typeof els.downloadBtn.__downloadHandler === 'function') {
+                els.downloadBtn.__downloadHandler();
+            }
+        });
+    }
+
+    if (els.btnNewFile) {
+        els.btnNewFile.addEventListener('click', () => {
+            resetApp();
+            window.location.reload();
+        });
+    }
+}

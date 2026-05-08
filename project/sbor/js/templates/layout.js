@@ -1,13 +1,10 @@
 export const layoutTemplate = `
     <div class="container app-shell">
-        <button type="button" class="hub-back-link" id="btn-back-hub">
-            <span class="hub-back-icon">←</span>
-            <span>Назад в Хаб</span>
-        </button>
+        <a href="/" class="hub-back-link">← Назад в Хаб</a>
 
         <div class="hero-panel">
             <h1>Сборка кода для ИИ</h1>
-            <p>Выберите папку проекта. Инструмент построит карту структуры, применит .gitignore, поможет с исключениями, проверит секреты по реальным паттернам и сохранит всё в один файл.</p>
+            <p>Выберите папку проекта. Инструмент построит карту структуры, применит фильтры, проверит секреты и сохранит всё в один файл.</p>
         </div>
 
         <label for="folder-input" class="file-input-label">

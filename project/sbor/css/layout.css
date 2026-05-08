@@ -1,5 +1,5 @@
 .container {
-    width: min(90vw, 1320px);
+    width: min(100%, 980px);
     margin: 0 auto;
     background: linear-gradient(180deg, rgba(15, 23, 42, 0.9), rgba(15, 23, 42, 0.76));
     padding: 2rem;
@@ -34,11 +34,6 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 1rem;
     margin-top: 0.5rem;
-}
-
-.stats-grid-save,
-.stats-grid-secrets {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .stat-card {
@@ -80,3 +75,55 @@
     padding-bottom: 0.5rem;
 }
 
+
+.container {
+    width: min(90vw, 1320px);
+}
+
+.stats-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.generation-ready {
+    margin-bottom: 1rem;
+    font-weight: 700;
+    color: var(--text);
+}
+
+.generation-insights-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.generation-insight-card {
+    background: rgba(15, 23, 42, 0.72);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 1rem 1.05rem;
+    box-shadow: var(--shadow-sm);
+    min-width: 0;
+}
+
+.generation-insight-title {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+}
+
+.generation-insight-value {
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text);
+    margin-bottom: 0.35rem;
+}
+
+.generation-insight-text {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    line-height: 1.55;
+}

@@ -7,7 +7,6 @@ export const els = {
     loader: document.getElementById('loader'),
     downloadBtn: document.getElementById('final-download-btn'),
     overlay: document.getElementById('modal-overlay'),
-    btnBackHub: document.getElementById('btn-back-hub'),
 
     modalExclusions: document.getElementById('modal-exclusions'),
     listExclusions: document.getElementById('list-exclusions'),
@@ -44,23 +43,21 @@ export const els = {
     listSecrets: document.getElementById('list-secrets'),
     btnBackSecrets: document.getElementById('btn-back-secrets'),
     btnNextSecrets: document.getElementById('btn-next-secrets'),
+    secretScanSummary: document.getElementById('secret-scan-summary'),
+
+    modalFinalize: document.getElementById('modal-finalize'),
+    btnBackFinalize: document.getElementById('btn-back-finalize'),
     btnExecuteGen: document.getElementById('btn-execute-gen'),
     aiModelSelect: document.getElementById('ai-model-select'),
     cbOptimize: document.getElementById('cb-optimize'),
     cbRepoMap: document.getElementById('cb-repo-map'),
     exportFormatSelect: document.getElementById('export-format-select'),
-    secretScanSummary: document.getElementById('secret-scan-summary'),
+    finalAnalysisPackageList: document.getElementById('final-analysis-package-list'),
 
-    modalFinalization: document.getElementById('modal-finalization'),
-    btnBackFinalization: document.getElementById('btn-back-finalization'),
-    secretsAnalysisPackageList: document.getElementById('secrets-analysis-package-list'),
-
-    modalSave: document.getElementById('modal-save'),
-    saveSummary: document.getElementById('save-summary'),
-    saveSmartProfile: document.getElementById('save-smart-profile'),
-    saveOptimization: document.getElementById('save-optimization'),
-    saveContext: document.getElementById('save-context'),
-    btnNewBuild: document.getElementById('btn-new-build'),
+    modalResult: document.getElementById('modal-result'),
+    generationSummary: document.getElementById('generation-summary'),
+    generationDetails: document.getElementById('generation-details'),
+    btnNewFile: document.getElementById('btn-new-file'),
 
     modalSettings: document.getElementById('modal-settings'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
@@ -69,7 +66,7 @@ export const els = {
     settingsIncluded: document.getElementById('settings-included-list'),
     settingsExcluded: document.getElementById('settings-excluded-list'),
     settingsRulesList: document.getElementById('settings-rules-list'),
-    settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list')
+    settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list'),
 };
 
 export const state = {
@@ -102,7 +99,7 @@ export const state = {
     selectedAiModel: AI_MODELS[0],
     optimizeCode: false,
     includeRepoMap: true,
-    exportFormat: 'txt',
+    exportFormat: 'markdown',
     analysisPackage: {
         taskContext: true,
         entrypoints: true,
@@ -119,5 +116,5 @@ export const state = {
         seedFiles: new Set(),
         seedFolders: new Set()
     },
-    saveResult: null
+    generationResult: null
 };

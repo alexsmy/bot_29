@@ -1,7 +1,7 @@
 import { els, state } from './state.js';
 import { AI_MODELS } from './ai_models.js';
 import { SMART_PROFILES } from './smart_filter.js';
-import { renderExclusionsList, renderFinalizationStep, renderSaveStep, renderSmartStep, renderReviewList, renderSecretsList } from './ui_render.js';
+import { renderExclusionsList, renderSmartStep, renderReviewList, renderSecretsList, renderAnalysisPackageSettings } from './ui_render.js';
 
 export function initUI() {
 
@@ -13,24 +13,22 @@ export function initUI() {
         }
     };
 
-    if (els.aiModelSelect) {
-        els.aiModelSelect.innerHTML = '';
-        AI_MODELS.forEach(model => {
-            const option = document.createElement('option');
-            option.value = model.id;
-            option.textContent = model.name;
-            els.aiModelSelect.appendChild(option);
-        });
+    els.aiModelSelect.innerHTML = '';
+    AI_MODELS.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.id;
+        option.textContent = model.name;
+        els.aiModelSelect.appendChild(option);
+    });
 
-        const savedModel = localStorage.getItem('sbor_ai_model');
-        if (savedModel) state.selectedAiModel = AI_MODELS.find(m => m.id === savedModel) || AI_MODELS[0];
-        els.aiModelSelect.value = state.selectedAiModel.id;
+    const savedModel = localStorage.getItem('sbor_ai_model');
+    if (savedModel) state.selectedAiModel = AI_MODELS.find(m => m.id === savedModel) || AI_MODELS[0];
+    els.aiModelSelect.value = state.selectedAiModel.id;
 
-        els.aiModelSelect.addEventListener('change', (e) => {
-            state.selectedAiModel = AI_MODELS.find(m => m.id === e.target.value) || AI_MODELS[0];
-            localStorage.setItem('sbor_ai_model', state.selectedAiModel.id);
-        });
-    }
+    els.aiModelSelect.addEventListener('change', (e) => {
+        state.selectedAiModel = AI_MODELS.find(m => m.id === e.target.value) || AI_MODELS[0];
+        localStorage.setItem('sbor_ai_model', state.selectedAiModel.id);
+    });
 
     if (els.smartProfileSelect) {
         els.smartProfileSelect.innerHTML = '';
@@ -68,7 +66,7 @@ export function initUI() {
 
     if (els.exportFormatSelect) {
         loadSetting('sbor_export_format', els.exportFormatSelect, 'select');
-        state.exportFormat = els.exportFormatSelect.value || 'txt';
+        state.exportFormat = els.exportFormatSelect.value;
         els.exportFormatSelect.addEventListener('change', (e) => {
             state.exportFormat = e.target.value;
             localStorage.setItem('sbor_export_format', e.target.value);
@@ -93,19 +91,15 @@ export function initUI() {
         });
     }
 
-    if (els.searchExc) {
-        els.searchExc.addEventListener('input', (e) => {
-            state.searchQueryExc = e.target.value.toLowerCase();
-            renderExclusionsList();
-        });
-    }
+    els.searchExc.addEventListener('input', (e) => {
+        state.searchQueryExc = e.target.value.toLowerCase();
+        renderExclusionsList();
+    });
 
-    if (els.searchFin) {
-        els.searchFin.addEventListener('input', (e) => {
-            state.searchQuerySmart = e.target.value.toLowerCase();
-            renderSmartStep();
-        });
-    }
+    els.searchFin.addEventListener('input', (e) => {
+        state.searchQuerySmart = e.target.value.toLowerCase();
+        renderSmartStep();
+    });
 
     if (els.searchReview) {
         els.searchReview.addEventListener('input', (e) => {
@@ -116,17 +110,19 @@ export function initUI() {
 }
 
 export function resetUI() {
-    if (els.downloadBtn) els.downloadBtn.style.display = 'none';
-    if (els.statusArea) els.statusArea.style.display = 'none';
-    if (els.loader) els.loader.style.display = 'none';
-    if (els.searchExc) els.searchExc.value = '';
-    if (els.searchFin) els.searchFin.value = '';
+    els.downloadBtn.style.display = 'none';
+    els.statusArea.style.display = 'none';
+    els.loader.style.display = 'none';
+    if (els.generationSummary) els.generationSummary.innerHTML = '';
+    if (els.generationDetails) els.generationDetails.innerHTML = '';
+    if (els.downloadBtn) els.downloadBtn.__downloadHandler = null;
+    els.searchExc.value = '';
+    els.searchFin.value = '';
     if (els.searchReview) els.searchReview.value = '';
     state.searchQueryExc = '';
     state.searchQueryFin = '';
     state.searchQueryReview = '';
     state.searchQuerySmart = '';
-    state.saveResult = null;
     if (els.smartFilterSummary) {
         els.smartFilterSummary.innerHTML = '';
     }
@@ -136,31 +132,25 @@ export function resetUI() {
     if (els.secretScanSummary) {
         els.secretScanSummary.innerHTML = '';
     }
-    if (els.saveSummary) {
-        els.saveSummary.innerHTML = '';
-    }
-    if (els.saveSmartProfile) els.saveSmartProfile.innerHTML = '';
-    if (els.saveOptimization) els.saveOptimization.innerHTML = '';
-    if (els.saveContext) els.saveContext.innerHTML = '';
 }
 
 export function switchStep(step) {
     state.currentStep = step;
-    if (els.modalExclusions) els.modalExclusions.style.display = 'none';
-    if (els.modalFinal) els.modalFinal.style.display = 'none';
+    els.modalExclusions.style.display = 'none';
+    els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
     if (els.modalSecrets) els.modalSecrets.style.display = 'none';
-    if (els.modalFinalization) els.modalFinalization.style.display = 'none';
-    if (els.modalSave) els.modalSave.style.display = 'none';
-    if (els.modalSettings) els.modalSettings.style.display = 'none';
-    if (els.overlay) els.overlay.style.display = 'block';
+    if (els.modalFinalize) els.modalFinalize.style.display = 'none';
+    if (els.modalResult) els.modalResult.style.display = 'none';
+    els.modalSettings.style.display = 'none';
+    els.overlay.style.display = 'block';
 
     if (step === 1) {
         renderExclusionsList();
-        if (els.modalExclusions) els.modalExclusions.style.display = 'flex';
+        els.modalExclusions.style.display = 'flex';
     } else if (step === 2) {
         renderSmartStep();
-        if (els.modalFinal) els.modalFinal.style.display = 'flex';
+        els.modalFinal.style.display = 'flex';
     } else if (step === 3) {
         renderReviewList();
         if (els.modalReview) els.modalReview.style.display = 'flex';
@@ -168,10 +158,9 @@ export function switchStep(step) {
         renderSecretsList();
         if (els.modalSecrets) els.modalSecrets.style.display = 'flex';
     } else if (step === 5) {
-        renderFinalizationStep();
-        if (els.modalFinalization) els.modalFinalization.style.display = 'flex';
+        renderAnalysisPackageSettings();
+        if (els.modalFinalize) els.modalFinalize.style.display = 'flex';
     } else if (step === 6) {
-        renderSaveStep();
-        if (els.modalSave) els.modalSave.style.display = 'flex';
+        if (els.modalResult) els.modalResult.style.display = 'flex';
     }
 }

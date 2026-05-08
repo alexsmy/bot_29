@@ -1,5 +1,3 @@
-
-
 import { setupFileEvents, resetApp } from './file_events.js';
 import { setupSmartEvents } from './smart_events.js';
 import { setupNavEvents } from './nav_events.js';
@@ -13,5 +11,3 @@ export function setupAllEvents() {
     setupNavEvents();
     setupGenerateEvents();
 }
-
-    

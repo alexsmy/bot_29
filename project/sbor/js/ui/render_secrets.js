@@ -1,6 +1,4 @@
 import { els, state } from '../state.js';
-import { analyzeProject } from '../analyzer.js';
-import { maskSecretValue } from '../secret_detector.js';
 
 function escapeHtml(value) {
     return String(value)
@@ -9,6 +7,13 @@ function escapeHtml(value) {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+}
+
+function maskSecretValue(value) {
+    const str = String(value || '');
+    if (!str) return '*****';
+    if (str.length <= 6) return `${str[0]}*****${str[str.length - 1] || ''}`;
+    return `${str.slice(0, 2)}*****${str.slice(-2)}`;
 }
 
 function escapeRegExp(value) {
@@ -45,7 +50,7 @@ function buildSummaryHtml() {
     };
 
     return `
-        <div class="stats-grid stats-grid-secrets">
+        <div class="stats-grid stats-grid--four" style="margin-bottom: 1rem;">
             <div class="stat-card">
                 <div class="stat-label">Проверено файлов</div>
                 <div class="stat-value highlight">${safeSummary.scannedFiles}</div>
@@ -139,19 +144,7 @@ function groupFindingsByFile(findings) {
 }
 
 export function renderSecretsList() {
-    if (els.listSecrets) els.listSecrets.innerHTML = '';
-
-    const analysis = analyzeProject(state.acceptedFiles);
-    const summaryDiv = document.createElement('div');
-    summaryDiv.className = 'info-box compact-info';
-    summaryDiv.style.marginBottom = '1rem';
-    summaryDiv.innerHTML = `
-        <strong style="display:block; margin-bottom:8px;">🤖 Авто-анализ проекта</strong>
-        <div><strong>Тип:</strong> ${escapeHtml(analysis.projectType)}</div>
-        <div><strong>Файлов:</strong> ${analysis.totalFiles}</div>
-        <div><strong>Топ форматов:</strong> ${escapeHtml(analysis.topExtensions || 'Нет данных')}</div>
-    `;
-    if (els.listSecrets) els.listSecrets.appendChild(summaryDiv);
+    els.listSecrets.innerHTML = '';
 
     if (els.secretScanSummary) {
         els.secretScanSummary.innerHTML = buildSummaryHtml();
@@ -161,7 +154,7 @@ export function renderSecretsList() {
         const noSecDiv = document.createElement('div');
         noSecDiv.className = 'info-box success-box';
         noSecDiv.innerHTML = '✅ Высоковероятные секреты не обнаружены. Можно переходить к финализации.';
-        if (els.listSecrets) els.listSecrets.appendChild(noSecDiv);
+        els.listSecrets.appendChild(noSecDiv);
         return;
     }
 
@@ -220,6 +213,6 @@ export function renderSecretsList() {
             syncFileExclusion(group.filePath, cb.checked);
         });
 
-        if (els.listSecrets) els.listSecrets.appendChild(card);
+        els.listSecrets.appendChild(card);
     });
 }

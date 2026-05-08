@@ -11,6 +11,15 @@ export async function processFolder(files) {
     if (state.allFiles.length === 0) return;
 
     resetUI();
+    state.generationResult = null;
+    if (els.modalExclusions) els.modalExclusions.style.display = 'none';
+    if (els.modalFinal) els.modalFinal.style.display = 'none';
+    if (els.modalReview) els.modalReview.style.display = 'none';
+    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
+    if (els.modalFinalize) els.modalFinalize.style.display = 'none';
+    if (els.modalResult) els.modalResult.style.display = 'none';
+    if (els.modalSettings) els.modalSettings.style.display = 'none';
+    if (els.overlay) els.overlay.style.display = 'none';
     els.loader.style.display = 'block';
     els.statusArea.style.display = 'block';
     els.statusArea.innerHTML = `Анализ структуры из ${state.allFiles.length} файлов...`;

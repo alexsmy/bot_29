@@ -1,4 +1,3 @@
-
 import { els, state } from '../state.js';
 
 const ANALYSIS_PACKAGE_OPTIONS = [
@@ -77,6 +76,7 @@ function renderContainer(container, withHint = false) {
     if (!container) return;
 
     container.innerHTML = '';
+    container.classList.add('analysis-package-grid');
 
     ANALYSIS_PACKAGE_OPTIONS.forEach(item => {
         container.appendChild(
@@ -104,5 +104,5 @@ function renderContainer(container, withHint = false) {
 
 export function renderAnalysisPackageSettings() {
     renderContainer(els.settingsAnalysisPackageList, true);
-    renderContainer(els.secretsAnalysisPackageList, false);
+    renderContainer(els.finalAnalysisPackageList, false);
 }
