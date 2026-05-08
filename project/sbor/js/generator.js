@@ -4,17 +4,18 @@ import { analyzeProject } from './analyzer.js';
 import { formatOutput } from './export_formatter.js';
 import { generateRepoMap } from './repo_map.js';
 import { buildProcessedFiles } from './generation/content_builder.js';
-import { buildStatsHtml } from './generation/stats_builder.js';
 import { switchStep } from './ui_core.js';
 
 export async function executeGeneration() {
-    els.modalSecrets.style.display = 'none';
-    if (els.modalReview) els.modalReview.style.display = 'none';
+    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
     if (els.modalFinalization) els.modalFinalization.style.display = 'none';
-    els.overlay.style.display = 'none';
-    els.loader.style.display = 'block';
-    els.statusArea.style.display = 'block';
-    els.statusArea.innerHTML = 'Формирование итогового файла...';
+    if (els.modalReview) els.modalReview.style.display = 'none';
+    if (els.overlay) els.overlay.style.display = 'none';
+    if (els.loader) els.loader.style.display = 'block';
+    if (els.statusArea) {
+        els.statusArea.style.display = 'block';
+        els.statusArea.innerHTML = 'Формирование итогового файла...';
+    }
 
     const selectedPaths = new Set(state.finalSelectedPaths);
     const excludedSecretFiles = state.secretReview?.excludedFiles || new Set();
@@ -24,8 +25,8 @@ export async function executeGeneration() {
     }
 
     if (selectedPaths.size === 0) {
-        els.loader.style.display = 'none';
-        els.statusArea.innerHTML = 'Нечего собирать: в финальном списке не выбрано ни одного файла.';
+        if (els.loader) els.loader.style.display = 'none';
+        if (els.statusArea) els.statusArea.innerHTML = 'Нечего собирать: в финальном списке не выбрано ни одного файла.';
         return;
     }
 
@@ -65,34 +66,11 @@ export async function executeGeneration() {
         totalCommentsRemoved: buildResult.totalCommentsRemoved,
         totalEmptyLinesRemoved: buildResult.totalEmptyLinesRemoved,
         smartResult,
-        seedFilesCount: state.smartFilter.seedFiles.size,
-        seedFoldersCount: state.smartFilter.seedFolders.size,
-        outputContentLength: state.outputContent.length,
-        selectedAiModel: state.selectedAiModel
+        outputContentLength: state.outputContent.length
     };
 
-    els.loader.style.display = 'none';
-    els.statusArea.style.display = 'none';
-
-    els.statusArea.innerHTML = buildStatsHtml({
-        selectedFilesCount: selectedFilesMeta.length,
-        redactedCount: buildResult.redactedCount,
-        originalSize: buildResult.originalSize,
-        finalSize: finalSize,
-        optimizeCode: state.optimizeCode,
-        totalCommentsRemoved: buildResult.totalCommentsRemoved,
-        totalEmptyLinesRemoved: buildResult.totalEmptyLinesRemoved,
-        smartResult: smartResult,
-        seedFilesCount: state.smartFilter.seedFiles.size,
-        seedFoldersCount: state.smartFilter.seedFolders.size,
-        outputContentLength: state.outputContent.length,
-        selectedAiModel: state.selectedAiModel
-    });
+    if (els.loader) els.loader.style.display = 'none';
+    if (els.statusArea) els.statusArea.style.display = 'none';
 
     switchStep(6);
-
-    const ext = state.exportFormat === 'xml' ? 'xml' : 'txt';
-    if (els.downloadBtn) {
-        els.downloadBtn.onclick = () => downloadFile(state.outputContent, ext);
-    }
 }

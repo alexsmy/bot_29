@@ -7,6 +7,7 @@ export const els = {
     loader: document.getElementById('loader'),
     downloadBtn: document.getElementById('final-download-btn'),
     overlay: document.getElementById('modal-overlay'),
+    btnBackHub: document.getElementById('btn-back-hub'),
 
     modalExclusions: document.getElementById('modal-exclusions'),
     listExclusions: document.getElementById('list-exclusions'),
@@ -68,8 +69,7 @@ export const els = {
     settingsIncluded: document.getElementById('settings-included-list'),
     settingsExcluded: document.getElementById('settings-excluded-list'),
     settingsRulesList: document.getElementById('settings-rules-list'),
-    settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list'),
-    secretsAnalysisPackageList: document.getElementById('secrets-analysis-package-list'),
+    settingsAnalysisPackageList: document.getElementById('settings-analysis-package-list')
 };
 
 export const state = {
@@ -102,7 +102,7 @@ export const state = {
     selectedAiModel: AI_MODELS[0],
     optimizeCode: false,
     includeRepoMap: true,
-    exportFormat: 'markdown',
+    exportFormat: 'txt',
     analysisPackage: {
         taskContext: true,
         entrypoints: true,

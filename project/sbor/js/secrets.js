@@ -15,11 +15,13 @@ export async function prepareGeneration(selectedPaths) {
         return;
     }
 
-    els.modalReview.style.display = 'none';
-    els.overlay.style.display = 'none';
-    els.loader.style.display = 'block';
-    els.statusArea.style.display = 'block';
-    els.statusArea.innerHTML = 'Чтение файлов, анализ связей и поиск секретов...';
+    if (els.modalReview) els.modalReview.style.display = 'none';
+    if (els.overlay) els.overlay.style.display = 'none';
+    if (els.loader) els.loader.style.display = 'block';
+    if (els.statusArea) {
+        els.statusArea.style.display = 'block';
+        els.statusArea.innerHTML = 'Чтение файлов, анализ связей и поиск секретов...';
+    }
 
     try {
         state.smartFilter.lastResult = await buildSmartSelection({
@@ -48,7 +50,7 @@ export async function prepareGeneration(selectedPaths) {
         summary: scanResult.summary
     };
 
-    els.loader.style.display = 'none';
+    if (els.loader) els.loader.style.display = 'none';
 
     switchStep(4);
 }

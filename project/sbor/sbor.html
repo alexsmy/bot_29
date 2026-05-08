@@ -24,7 +24,7 @@
 
         const APP_VERSION = Date.now();
 
-        const cssFiles =['base.css', 'layout.css', 'components.css', 'modals.css'];
+        const cssFiles = ['base.css', 'layout.css', 'components.css', 'modals.css'];
         cssFiles.forEach(file => {
             const link = document.createElement('link');
             link.rel = 'stylesheet';
@@ -32,7 +32,7 @@
             document.head.appendChild(link);
         });
 
-        const jsModules =[
+        const jsModules = [
             'boot.js', 'template.js',
             'templates/layout.js', 'templates/modals.js',
             'app.js', 'config.js', 'state.js', 'utils.js',

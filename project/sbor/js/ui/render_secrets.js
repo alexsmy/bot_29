@@ -139,7 +139,7 @@ function groupFindingsByFile(findings) {
 }
 
 export function renderSecretsList() {
-    els.listSecrets.innerHTML = '';
+    if (els.listSecrets) els.listSecrets.innerHTML = '';
 
     const analysis = analyzeProject(state.acceptedFiles);
     const summaryDiv = document.createElement('div');
@@ -151,7 +151,7 @@ export function renderSecretsList() {
         <div><strong>Файлов:</strong> ${analysis.totalFiles}</div>
         <div><strong>Топ форматов:</strong> ${escapeHtml(analysis.topExtensions || 'Нет данных')}</div>
     `;
-    els.listSecrets.appendChild(summaryDiv);
+    if (els.listSecrets) els.listSecrets.appendChild(summaryDiv);
 
     if (els.secretScanSummary) {
         els.secretScanSummary.innerHTML = buildSummaryHtml();
@@ -159,9 +159,9 @@ export function renderSecretsList() {
 
     if (state.detectedSecrets.length === 0) {
         const noSecDiv = document.createElement('div');
-        noSecDiv.className = 'info-box success-box compact-info';
+        noSecDiv.className = 'info-box success-box';
         noSecDiv.innerHTML = '✅ Высоковероятные секреты не обнаружены. Можно переходить к финализации.';
-        els.listSecrets.appendChild(noSecDiv);
+        if (els.listSecrets) els.listSecrets.appendChild(noSecDiv);
         return;
     }
 
@@ -220,6 +220,6 @@ export function renderSecretsList() {
             syncFileExclusion(group.filePath, cb.checked);
         });
 
-        els.listSecrets.appendChild(card);
+        if (els.listSecrets) els.listSecrets.appendChild(card);
     });
 }

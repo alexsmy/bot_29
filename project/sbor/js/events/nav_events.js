@@ -2,10 +2,11 @@ import { els } from '../state.js';
 import { switchStep } from '../ui_core.js';
 import { openSettings } from '../ui/render_settings.js';
 import { applySettings } from '../file_processor.js';
-import { resetApp } from './file_events.js';
 
 export function setupNavEvents() {
-    els.btnBackFinal.addEventListener('click', () => switchStep(1));
+    if (els.btnBackFinal) {
+        els.btnBackFinal.addEventListener('click', () => switchStep(1));
+    }
 
     if (els.btnBackReview) {
         els.btnBackReview.addEventListener('click', () => switchStep(2));
@@ -15,27 +16,39 @@ export function setupNavEvents() {
         els.btnBackSecrets.addEventListener('click', () => switchStep(3));
     }
 
-    if (els.btnNextSecrets) {
-        els.btnNextSecrets.addEventListener('click', () => switchStep(5));
-    }
-
     if (els.btnBackFinalization) {
         els.btnBackFinalization.addEventListener('click', () => switchStep(4));
     }
 
-    if (els.btnNewBuild) {
-        els.btnNewBuild.addEventListener('click', () => window.location.reload());
+    if (els.btnNextSecrets) {
+        els.btnNextSecrets.addEventListener('click', () => switchStep(5));
     }
 
-    els.btnSettingsExc.addEventListener('click', openSettings);
-    els.btnSettingsFinal.addEventListener('click', openSettings);
+    if (els.btnBackHub) {
+        els.btnBackHub.addEventListener('click', () => {
+            window.location.href = '/';
+        });
+    }
 
-    els.btnCloseSettings.addEventListener('click', () => {
-        els.modalSettings.style.display = 'none';
-    });
+    if (els.btnNewBuild) {
+        els.btnNewBuild.addEventListener('click', () => {
+            window.location.reload();
+        });
+    }
 
-    els.btnApplySettings.addEventListener('click', () => {
-        const allCheckboxes = els.modalSettings.querySelectorAll('input[type="checkbox"]');
-        applySettings(allCheckboxes);
-    });
+    if (els.btnSettingsExc) els.btnSettingsExc.addEventListener('click', openSettings);
+    if (els.btnSettingsFinal) els.btnSettingsFinal.addEventListener('click', openSettings);
+
+    if (els.btnCloseSettings) {
+        els.btnCloseSettings.addEventListener('click', () => {
+            els.modalSettings.style.display = 'none';
+        });
+    }
+
+    if (els.btnApplySettings) {
+        els.btnApplySettings.addEventListener('click', () => {
+            const allCheckboxes = els.modalSettings.querySelectorAll('input[type="checkbox"]');
+            applySettings(allCheckboxes);
+        });
+    }
 }

@@ -13,22 +13,24 @@ export function initUI() {
         }
     };
 
-    els.aiModelSelect.innerHTML = '';
-    AI_MODELS.forEach(model => {
-        const option = document.createElement('option');
-        option.value = model.id;
-        option.textContent = model.name;
-        els.aiModelSelect.appendChild(option);
-    });
+    if (els.aiModelSelect) {
+        els.aiModelSelect.innerHTML = '';
+        AI_MODELS.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model.id;
+            option.textContent = model.name;
+            els.aiModelSelect.appendChild(option);
+        });
 
-    const savedModel = localStorage.getItem('sbor_ai_model');
-    if (savedModel) state.selectedAiModel = AI_MODELS.find(m => m.id === savedModel) || AI_MODELS[0];
-    els.aiModelSelect.value = state.selectedAiModel.id;
+        const savedModel = localStorage.getItem('sbor_ai_model');
+        if (savedModel) state.selectedAiModel = AI_MODELS.find(m => m.id === savedModel) || AI_MODELS[0];
+        els.aiModelSelect.value = state.selectedAiModel.id;
 
-    els.aiModelSelect.addEventListener('change', (e) => {
-        state.selectedAiModel = AI_MODELS.find(m => m.id === e.target.value) || AI_MODELS[0];
-        localStorage.setItem('sbor_ai_model', state.selectedAiModel.id);
-    });
+        els.aiModelSelect.addEventListener('change', (e) => {
+            state.selectedAiModel = AI_MODELS.find(m => m.id === e.target.value) || AI_MODELS[0];
+            localStorage.setItem('sbor_ai_model', state.selectedAiModel.id);
+        });
+    }
 
     if (els.smartProfileSelect) {
         els.smartProfileSelect.innerHTML = '';
@@ -66,7 +68,7 @@ export function initUI() {
 
     if (els.exportFormatSelect) {
         loadSetting('sbor_export_format', els.exportFormatSelect, 'select');
-        state.exportFormat = els.exportFormatSelect.value;
+        state.exportFormat = els.exportFormatSelect.value || 'txt';
         els.exportFormatSelect.addEventListener('change', (e) => {
             state.exportFormat = e.target.value;
             localStorage.setItem('sbor_export_format', e.target.value);
@@ -91,15 +93,19 @@ export function initUI() {
         });
     }
 
-    els.searchExc.addEventListener('input', (e) => {
-        state.searchQueryExc = e.target.value.toLowerCase();
-        renderExclusionsList();
-    });
+    if (els.searchExc) {
+        els.searchExc.addEventListener('input', (e) => {
+            state.searchQueryExc = e.target.value.toLowerCase();
+            renderExclusionsList();
+        });
+    }
 
-    els.searchFin.addEventListener('input', (e) => {
-        state.searchQuerySmart = e.target.value.toLowerCase();
-        renderSmartStep();
-    });
+    if (els.searchFin) {
+        els.searchFin.addEventListener('input', (e) => {
+            state.searchQuerySmart = e.target.value.toLowerCase();
+            renderSmartStep();
+        });
+    }
 
     if (els.searchReview) {
         els.searchReview.addEventListener('input', (e) => {
@@ -111,10 +117,10 @@ export function initUI() {
 
 export function resetUI() {
     if (els.downloadBtn) els.downloadBtn.style.display = 'none';
-    els.statusArea.style.display = 'none';
-    els.loader.style.display = 'none';
-    els.searchExc.value = '';
-    els.searchFin.value = '';
+    if (els.statusArea) els.statusArea.style.display = 'none';
+    if (els.loader) els.loader.style.display = 'none';
+    if (els.searchExc) els.searchExc.value = '';
+    if (els.searchFin) els.searchFin.value = '';
     if (els.searchReview) els.searchReview.value = '';
     state.searchQueryExc = '';
     state.searchQueryFin = '';
@@ -140,27 +146,27 @@ export function resetUI() {
 
 export function switchStep(step) {
     state.currentStep = step;
-    els.modalExclusions.style.display = 'none';
-    els.modalFinal.style.display = 'none';
+    if (els.modalExclusions) els.modalExclusions.style.display = 'none';
+    if (els.modalFinal) els.modalFinal.style.display = 'none';
     if (els.modalReview) els.modalReview.style.display = 'none';
-    els.modalSecrets.style.display = 'none';
+    if (els.modalSecrets) els.modalSecrets.style.display = 'none';
     if (els.modalFinalization) els.modalFinalization.style.display = 'none';
     if (els.modalSave) els.modalSave.style.display = 'none';
-    els.modalSettings.style.display = 'none';
-    els.overlay.style.display = 'block';
+    if (els.modalSettings) els.modalSettings.style.display = 'none';
+    if (els.overlay) els.overlay.style.display = 'block';
 
     if (step === 1) {
         renderExclusionsList();
-        els.modalExclusions.style.display = 'flex';
+        if (els.modalExclusions) els.modalExclusions.style.display = 'flex';
     } else if (step === 2) {
         renderSmartStep();
-        els.modalFinal.style.display = 'flex';
+        if (els.modalFinal) els.modalFinal.style.display = 'flex';
     } else if (step === 3) {
         renderReviewList();
         if (els.modalReview) els.modalReview.style.display = 'flex';
     } else if (step === 4) {
         renderSecretsList();
-        els.modalSecrets.style.display = 'flex';
+        if (els.modalSecrets) els.modalSecrets.style.display = 'flex';
     } else if (step === 5) {
         renderFinalizationStep();
         if (els.modalFinalization) els.modalFinalization.style.display = 'flex';

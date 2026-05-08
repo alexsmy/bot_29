@@ -26,7 +26,6 @@ function buildSummaryHtml() {
     }
 
     const tokenCount = estimateTokens(result.outputContentLength || 0, state.selectedAiModel);
-    const contextHtml = getContextUsageHtml(tokenCount, state.selectedAiModel);
 
     return `
         <div class="stats-grid stats-grid-save">
@@ -47,7 +46,6 @@ function buildSummaryHtml() {
                 <div class="stat-value">${tokenCount.toLocaleString()}</div>
             </div>
         </div>
-        ${contextHtml}
     `;
 }
 
@@ -93,6 +91,7 @@ export function renderSaveStep() {
 
     if (els.downloadBtn) {
         els.downloadBtn.style.display = 'inline-flex';
+        els.downloadBtn.classList.add('btn-fit-content');
         els.downloadBtn.onclick = () => downloadFile(state.outputContent, getSavedExtension());
     }
 }

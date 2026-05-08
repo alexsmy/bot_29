@@ -336,6 +336,22 @@ input[type='file'] {
     margin-top: 0.55rem;
 }
 
+
+.smart-filter-grid-step2 {
+    grid-template-columns: minmax(280px, 1.4fr) repeat(2, minmax(170px, 0.8fr));
+    align-items: start;
+}
+
+.smart-profile-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.smart-profile-stack .ai-select {
+    width: 100%;
+}
+
 .smart-toggle {
     display: flex;
     align-items: center;
