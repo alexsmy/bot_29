@@ -150,7 +150,16 @@ function updateCardDOM(card, stat) {
 
     const lastCheckedEl = card.querySelector('[data-target="last-checked"]');
     if (lastCheckedEl) {
-        lastCheckedEl.innerText = stat.last_checked ? stat.last_checked.split(' ')[1] : 'Ожидание...';
+        if (stat.last_checked) {
+            const dateObj = new Date(stat.last_checked);
+            if (!isNaN(dateObj.getTime())) {
+                lastCheckedEl.innerText = dateObj.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } else {
+                lastCheckedEl.innerText = stat.last_checked.split(' ')[1] || 'Ожидание...';
+            }
+        } else {
+            lastCheckedEl.innerText = 'Ожидание...';
+        }
     }
 
     const uptimeBar = card.querySelector('[data-target="uptime-bar"]');
@@ -213,7 +222,15 @@ export function renderStats(stats) {
 export function updateLastSync(text, isError = false) {
     const lastSync = document.getElementById('last-sync');
     if (!lastSync) return;
-    lastSync.textContent = text;
+    
+    if (text.startsWith('Обновлено:')) {
+        const timePart = text.replace('Обновлено:', '').trim();
+        const now = new Date();
+        const formattedTime = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        lastSync.textContent = `Обновлено: ${formattedTime}`;
+    } else {
+        lastSync.textContent = text;
+    }
     lastSync.dataset.state = isError ? 'error' : 'ok';
 }
 
