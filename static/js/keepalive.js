@@ -1,6 +1,7 @@
 import { fetchConfig, fetchStats, saveConfig } from './keepalive/api.js';
 import { renderStats, updateLastSync, setConnectionHint } from './keepalive/ui.js';
 import { KeepAliveSettingsModal } from './keepalive/settings-modal.js';
+import { formatCurrentLocalSyncTime } from './keepalive/time-format.js';
 
 let settingsModal = null;
 let refreshTimer = null;
@@ -10,7 +11,7 @@ async function refreshStats() {
     try {
         const stats = await fetchStats();
         renderStats(stats);
-        updateLastSync(`Обновлено: ${new Date().toLocaleTimeString('ru-RU')}`);
+        updateLastSync(formatCurrentLocalSyncTime());
         setConnectionHint('Система активна');
     } catch (error) {
         console.error('Ошибка получения данных:', error);

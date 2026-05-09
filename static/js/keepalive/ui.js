@@ -1,3 +1,5 @@
+import { formatLocalTime } from './time-format.js';
+
 function formatUrl(urlString) {
     try {
         const url = new URL(urlString);
@@ -82,17 +84,14 @@ function generateCardHTML(stat) {
                 </div>
             </div>
 
-            <div class="service-meter">
-                <div class="service-meter-row">
-                    <span class="service-meter-label">Uptime</span>
-                    <span class="service-meter-value"><span data-target="uptime">0</span>%</span>
-                </div>
-                <div class="uptime-bar-bg">
-                    <div data-target="uptime-bar" class="uptime-bar"></div>
-                </div>
-            </div>
-
             <div class="service-stats-grid">
+                <div class="stat-chip stat-chip--uptime">
+                    <div class="stat-chip-label">Uptime</div>
+                    <div class="stat-chip-value"><span data-target="uptime">0</span><span class="stat-chip-unit">%</span></div>
+                    <div class="uptime-bar-bg">
+                        <div data-target="uptime-bar" class="uptime-bar"></div>
+                    </div>
+                </div>
                 <div class="stat-chip">
                     <div class="stat-chip-label">Отклик</div>
                     <div class="stat-chip-value"><span data-target="response-time">...</span> <span class="stat-chip-unit">мс</span></div>
@@ -150,7 +149,7 @@ function updateCardDOM(card, stat) {
 
     const lastCheckedEl = card.querySelector('[data-target="last-checked"]');
     if (lastCheckedEl) {
-        lastCheckedEl.innerText = stat.last_checked ? stat.last_checked.split(' ')[1] : 'Ожидание...';
+        lastCheckedEl.innerText = formatLocalTime(stat.last_checked_iso || stat.last_checked);
     }
 
     const uptimeBar = card.querySelector('[data-target="uptime-bar"]');
