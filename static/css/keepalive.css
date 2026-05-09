@@ -88,13 +88,20 @@ body.keepalive-page {
     color: var(--text-soft);
     text-decoration: none;
     font-size: 0.88rem;
-    padding: 0.7rem 1rem;
+    padding: 0.55rem 0.85rem;
     border-radius: 999px;
     border: 1px solid rgba(148, 163, 184, 0.16);
     background: rgba(15, 23, 42, 0.5);
     backdrop-filter: blur(16px);
     transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
-    margin-bottom: 1rem;
+}
+
+.top-bar-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
 }
 
 .back-link:hover {
@@ -155,14 +162,14 @@ body.keepalive-page {
 }
 
 .hero-actions {
-    display: grid;
+    display: flex;
+    align-items: center;
     gap: 0.85rem;
-    justify-items: stretch;
 }
 
 .hero-status-card {
     border-radius: 20px;
-    padding: 1rem 1.1rem;
+    padding: 0.75rem 1rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(148, 163, 184, 0.1);
 }
@@ -214,6 +221,25 @@ body.keepalive-page {
     box-shadow: 0 12px 28px rgba(67, 123, 255, 0.26);
 }
 
+.action-btn--icon-only {
+    width: 2.4rem;
+    height: 2.4rem;
+    padding: 0;
+    border-radius: 12px;
+    background: rgba(91, 156, 255, 0.15);
+    border: 1px solid rgba(91, 156, 255, 0.25);
+    color: #d9e7ff;
+}
+
+.action-btn--icon-only:hover {
+    background: rgba(91, 156, 255, 0.22);
+    border-color: rgba(91, 156, 255, 0.4);
+}
+
+.action-btn--icon-only i {
+    font-size: 1.05rem;
+}
+
 .action-btn--secondary {
     background: rgba(148, 163, 184, 0.16);
     border: 1px solid rgba(148, 163, 184, 0.18);
@@ -230,11 +256,17 @@ body.keepalive-page {
 }
 
 .connection-hint {
-    margin-top: 1rem;
     border-radius: 18px;
     padding: 0.9rem 1rem;
     color: var(--text-soft);
     font-size: 0.92rem;
+}
+
+.connection-hint--compact {
+    margin-top: 0;
+    padding: 0.5rem 0.85rem;
+    font-size: 0.82rem;
+    border-radius: 999px;
 }
 
 .summary-grid {
@@ -627,10 +659,13 @@ body.keepalive-page {
     }
 
     .section-head--inline,
-    .modal-footer,
-    .hero-actions {
+    .modal-footer {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .hero-actions {
+        flex-wrap: wrap;
     }
 
     .footer-actions {
@@ -781,6 +816,10 @@ body.modal-open {
     .settings-form,
     .settings-message {
         border-radius: 0;
+    }
+
+    .top-bar-row {
+        flex-wrap: wrap;
     }
 
     .summary-grid {

@@ -15,10 +15,13 @@
         <div class="ambient ambient-c"></div>
 
         <main class="dashboard-shell">
-            <a href="/" class="back-link">
-                <i class="fa-solid fa-arrow-left"></i>
-                <span>Назад в Хаб</span>
-            </a>
+            <div class="top-bar-row">
+                <a href="/" class="back-link">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Назад в Хаб</span>
+                </a>
+                <div id="connection-hint" class="connection-hint connection-hint--compact glass-card">Ожидание данных...</div>
+            </div>
 
             <header class="hero-panel glass-card">
                 <div class="hero-copy">
@@ -39,14 +42,11 @@
                         <div id="last-sync" class="hero-status-subline">Синхронизация...</div>
                     </div>
 
-                    <button id="open-settings-btn" class="action-btn action-btn--primary" type="button">
+                    <button id="open-settings-btn" class="action-btn action-btn--icon-only" type="button" aria-label="Настройки">
                         <i class="fa-solid fa-gear"></i>
-                        <span>Настройки</span>
                     </button>
                 </div>
             </header>
-
-            <div id="connection-hint" class="connection-hint glass-card">Ожидание данных...</div>
 
             <section id="summary-panel" class="summary-grid"></section>
 
