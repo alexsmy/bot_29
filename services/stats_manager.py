@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 # Глобальный словарь для хранения состояния каждого URL.
@@ -21,6 +21,7 @@ def init_stat(target_id: str, name: str, url: str):
             "status_code": None,
             "response_time_ms": 0,
             "last_checked": None,
+            "last_checked_iso": None,
             "success_count": 0,
             "fail_count": 0,
         }
@@ -34,8 +35,10 @@ def update_stat(target_id: str, is_success: bool, status_code: int, response_tim
     if target_id in _stats:
         _stats[target_id]["status"] = "Онлайн" if is_success else "Оффлайн"
         _stats[target_id]["status_code"] = status_code
+        checked_at = datetime.now(timezone.utc)
         _stats[target_id]["response_time_ms"] = round(response_time_sec * 1000)
-        _stats[target_id]["last_checked"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        _stats[target_id]["last_checked"] = checked_at.strftime("%Y-%m-%d %H:%M:%S")
+        _stats[target_id]["last_checked_iso"] = checked_at.isoformat()
 
         if is_success:
             _stats[target_id]["success_count"] += 1

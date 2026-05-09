@@ -29,16 +29,19 @@ function createTargetRow(target = {}) {
             <label>Переменная окружения</label>
             <input type="text" data-field="env_override" placeholder="WEB_APP_URL" value="${escapeHtml(target.env_override || '')}">
         </div>
-        <div class="field-group field-group--inline">
-            <label>Активен</label>
-            <div class="switch-wrap">
+        <div class="target-row-actions">
+            <label class="compact-switch" aria-label="Активность URL">
                 <input type="checkbox" data-field="enabled" ${target.enabled === false ? '' : 'checked'}>
-                <span>Вкл</span>
-            </div>
+                <span class="compact-switch-track" aria-hidden="true">
+                    <span class="compact-switch-thumb"></span>
+                </span>
+                <span class="compact-switch-text">Активен</span>
+            </label>
+            <button type="button" class="row-delete-btn" data-action="remove-row" aria-label="Удалить URL">
+                <i class="fa-solid fa-trash"></i>
+                <span class="row-delete-text">Удалить</span>
+            </button>
         </div>
-        <button type="button" class="row-delete-btn" data-action="remove-row" aria-label="Удалить URL">
-            <i class="fa-solid fa-trash"></i>
-        </button>
     `;
 
     return row;
@@ -144,10 +147,55 @@ export class KeepAliveSettingsModal {
 
                 const row = removeButton.closest('[data-target-row="true"]');
                 if (row) {
-                    row.remove();
+                    this._handleDeleteRequest(row, removeButton);
                 }
             });
         }
+    }
+
+    _resetDeleteConfirmation(row, button) {
+        if (row.dataset.deleteConfirmTimer) {
+            window.clearTimeout(Number(row.dataset.deleteConfirmTimer));
+        }
+
+        row.dataset.deleteConfirm = 'false';
+        delete row.dataset.deleteConfirmTimer;
+        row.classList.remove('target-row--confirm-delete');
+
+        if (button) {
+            button.classList.remove('is-confirming');
+            button.setAttribute('aria-label', 'Удалить URL');
+            const textEl = button.querySelector('.row-delete-text');
+            if (textEl) {
+                textEl.textContent = 'Удалить';
+            }
+        }
+    }
+
+    _handleDeleteRequest(row, button) {
+        if (row.dataset.deleteConfirm === 'true') {
+            this._resetDeleteConfirmation(row, button);
+            row.remove();
+            this.setMessage('URL удалён из списка. Нажмите «Сохранить», чтобы применить изменения.', 'info');
+            return;
+        }
+
+        row.dataset.deleteConfirm = 'true';
+        row.classList.add('target-row--confirm-delete');
+        button.classList.add('is-confirming');
+        button.setAttribute('aria-label', 'Подтвердить удаление URL');
+
+        const textEl = button.querySelector('.row-delete-text');
+        if (textEl) {
+            textEl.textContent = 'Подтвердить';
+        }
+
+        this.setMessage('Нажмите «Подтвердить» в этой строке, чтобы удалить URL.', 'info');
+
+        const timerId = window.setTimeout(() => {
+            this._resetDeleteConfirmation(row, button);
+        }, 6000);
+        row.dataset.deleteConfirmTimer = String(timerId);
     }
 
     isOpen() {
@@ -179,6 +227,10 @@ export class KeepAliveSettingsModal {
     }
 
     close() {
+        Array.from(this.targetList?.querySelectorAll('[data-target-row="true"]') || []).forEach((row) => {
+            this._resetDeleteConfirmation(row, row.querySelector('[data-action="remove-row"]'));
+        });
+
         if (this.modal) {
             this.modal.classList.add('is-hidden');
             this.modal.setAttribute('aria-hidden', 'true');
