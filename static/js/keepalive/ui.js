@@ -166,6 +166,7 @@ function renderEmptyState(container) {
     }
 }
 
+// FIX 1: Optimize DOM rendering with batching and caching
 export function renderStats(stats) {
     const container = document.getElementById('stats-container');
     if (!container) {
@@ -186,27 +187,44 @@ export function renderStats(stats) {
     ensureSummaryPanel(stats);
 
     const activeIds = new Set();
+    const existingCardsMap = new Map();
+    
+    // Build map of existing cards for O(1) lookup
+    Array.from(container.children).forEach((child) => {
+        if (child.id) {
+            existingCardsMap.set(child.id, child);
+        }
+    });
 
+    const cardsToAppend = [];
+
+    // Process all stats and batch DOM updates
     stats.forEach((stat) => {
         const cardId = getCardId(stat);
         activeIds.add(cardId);
 
-        let card = document.getElementById(cardId);
+        let card = existingCardsMap.get(cardId);
         if (!card) {
             card = document.createElement('div');
             card.id = cardId;
             card.className = 'glass-card service-card';
             card.innerHTML = generateCardHTML(stat);
+            cardsToAppend.push(card);
+        } else {
+            existingCardsMap.delete(cardId); // Mark as processed
         }
 
         updateCardDOM(card, stat);
+    });
+
+    // Batch append new cards at once instead of one by one
+    cardsToAppend.forEach((card) => {
         container.appendChild(card);
     });
 
-    Array.from(container.children).forEach((child) => {
-        if (child.id && !activeIds.has(child.id)) {
-            child.remove();
-        }
+    // Remove cards that are no longer in stats
+    existingCardsMap.forEach((card) => {
+        card.remove();
     });
 }
 
@@ -223,7 +241,6 @@ export function setConnectionHint(text) {
         el.textContent = text;
     }
 }
-
 
 export function updateRefreshIntervalLabel(seconds) {
     const el = document.getElementById('refresh-interval-label');
