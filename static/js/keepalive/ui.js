@@ -1,4 +1,5 @@
 import { formatLocalTime } from './time-format.js';
+import { formatRefreshLabel } from './refresh-controller.js';
 
 function formatUrl(urlString) {
     try {
@@ -220,5 +221,13 @@ export function setConnectionHint(text) {
     const el = document.getElementById('connection-hint');
     if (el) {
         el.textContent = text;
+    }
+}
+
+
+export function updateRefreshIntervalLabel(seconds) {
+    const el = document.getElementById('refresh-interval-label');
+    if (el) {
+        el.textContent = formatRefreshLabel(seconds);
     }
 }

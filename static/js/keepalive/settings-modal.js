@@ -35,7 +35,7 @@ function createTargetRow(target = {}) {
                 <span class="compact-switch-track" aria-hidden="true">
                     <span class="compact-switch-thumb"></span>
                 </span>
-                <span class="compact-switch-text">Активен</span>
+                <span class="compact-switch-text">${target.enabled === false ? 'Пассивен' : 'Активен'}</span>
             </label>
             <button type="button" class="row-delete-btn" data-action="remove-row" aria-label="Удалить URL">
                 <i class="fa-solid fa-trash"></i>
@@ -63,6 +63,10 @@ function normalizeConfigForDownload(config) {
             initial_delay_seconds: Number(config.settings.initial_delay_seconds),
             request_timeout_seconds: Number(config.settings.request_timeout_seconds),
             internet_check_timeout_seconds: Number(config.settings.internet_check_timeout_seconds),
+            dashboard_refresh_seconds: Number(config.settings.dashboard_refresh_seconds),
+        },
+        security: {
+            pin_configured: Boolean(config.security?.pin_configured),
         },
         targets: config.targets.map((target) => ({
             id: target.id,
@@ -108,6 +112,10 @@ export class KeepAliveSettingsModal {
                     this.setMessage('Сохранение...', 'info');
                     const config = this.collectFormData(true);
                     const result = await this.onApply(config);
+                    if (result?.config) {
+                        this.currentConfig = result.config;
+                        this.populate(result.config);
+                    }
                     this.setMessage(result?.message || 'Настройки применены.', 'success');
                 } catch (error) {
                     this.setMessage(error.message || 'Не удалось применить настройки.', 'error');
@@ -148,6 +156,17 @@ export class KeepAliveSettingsModal {
                 const row = removeButton.closest('[data-target-row="true"]');
                 if (row) {
                     this._handleDeleteRequest(row, removeButton);
+                }
+            });
+
+            this.targetList.addEventListener('change', (event) => {
+                const enabledInput = event.target.closest('[data-field="enabled"]');
+                if (!enabledInput) return;
+
+                const switchLabel = enabledInput.closest('.compact-switch');
+                const switchText = switchLabel?.querySelector('.compact-switch-text');
+                if (switchText) {
+                    switchText.textContent = enabledInput.checked ? 'Активен' : 'Пассивен';
                 }
             });
         }
@@ -253,6 +272,8 @@ export class KeepAliveSettingsModal {
         setValue('[name="initial_delay_seconds"]', settings.initial_delay_seconds ?? 10);
         setValue('[name="request_timeout_seconds"]', settings.request_timeout_seconds ?? 30);
         setValue('[name="internet_check_timeout_seconds"]', settings.internet_check_timeout_seconds ?? 10);
+        setValue('[name="dashboard_refresh_seconds"]', settings.dashboard_refresh_seconds ?? 60);
+        setValue('[name="settings_pin"]', '');
 
         if (this.targetList) {
             this.targetList.innerHTML = '';
@@ -300,12 +321,23 @@ export class KeepAliveSettingsModal {
                 initial_delay_seconds: this._readNumberField('initial_delay_seconds', 10),
                 request_timeout_seconds: this._readNumberField('request_timeout_seconds', 30),
                 internet_check_timeout_seconds: this._readNumberField('internet_check_timeout_seconds', 10),
+                dashboard_refresh_seconds: this._readNumberField('dashboard_refresh_seconds', 60),
             },
+            security: {},
             targets: this._readTargets(),
         };
 
         if (!strict) {
             return config;
+        }
+
+        const pinInput = this.form?.querySelector('[name="settings_pin"]');
+        const pinValue = pinInput?.value?.trim() || '';
+        if (pinValue) {
+            if (!/^\d{4,6}$/.test(pinValue)) {
+                throw new Error('Пин-код должен состоять только из 4–6 цифр.');
+            }
+            config.security.settings_pin = pinValue;
         }
 
         const settings = config.settings;
@@ -317,6 +349,9 @@ export class KeepAliveSettingsModal {
         }
         if (settings.error_wait_seconds < 1 || settings.initial_delay_seconds < 0 || settings.request_timeout_seconds < 1 || settings.internet_check_timeout_seconds < 1) {
             throw new Error('Проверьте значения таймеров. Они должны быть положительными.');
+        }
+        if (settings.dashboard_refresh_seconds < 5 || settings.dashboard_refresh_seconds > 300) {
+            throw new Error('Обновление страницы должно быть от 5 до 300 секунд.');
         }
 
         config.targets.forEach((target, index) => {

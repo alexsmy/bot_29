@@ -5,8 +5,19 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict
 
+from config.keepalive_security import (
+    ConfigTamperError,
+    attach_config_signature,
+    assert_config_integrity,
+    ensure_signed_config,
+    get_initial_settings_pin,
+    make_pin_record,
+    public_security_config,
+    save_integrity_signature,
+    validate_pin_format,
+)
 from utils.logger import log
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -20,9 +31,12 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "initial_delay_seconds": 10,
         "request_timeout_seconds": 30,
         "internet_check_timeout_seconds": 10,
+        "dashboard_refresh_seconds": 60,
     },
     "targets": [],
 }
+
+SECURITY_PUBLIC_KEYS = {"pin_configured", "pin_min_length", "pin_max_length"}
 
 
 def _to_int(value: Any, default: int, minimum: int | None = None, maximum: int | None = None) -> int:
@@ -71,6 +85,12 @@ def _normalize_settings(raw_settings: Any) -> Dict[str, Any]:
             DEFAULT_CONFIG["settings"]["internet_check_timeout_seconds"],
             minimum=1,
         ),
+        "dashboard_refresh_seconds": _to_int(
+            settings.get("dashboard_refresh_seconds"),
+            DEFAULT_CONFIG["settings"]["dashboard_refresh_seconds"],
+            minimum=5,
+            maximum=300,
+        ),
     }
     return normalized
 
@@ -106,13 +126,48 @@ def _normalize_target(raw_target: Any, index: int) -> Dict[str, Any]:
     }
 
 
-def normalize_config(config: Any) -> Dict[str, Any]:
+def _security_from_existing(existing_security: Any) -> Dict[str, Any] | None:
+    if not isinstance(existing_security, dict):
+        return None
+
+    pin_hash = str(existing_security.get("settings_pin_hash") or "")
+    pin_salt = str(existing_security.get("settings_pin_salt") or "")
+    if not pin_hash or not pin_salt:
+        return None
+
+    result = {
+        "settings_pin_hash": pin_hash,
+        "settings_pin_salt": pin_salt,
+    }
+    signature = existing_security.get("config_signature")
+    if signature:
+        result["config_signature"] = str(signature)
+    return result
+
+
+def _normalize_security(raw_security: Any, previous_security: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    security = _security_from_existing(previous_security) or _security_from_existing(raw_security)
+
+    if isinstance(raw_security, dict):
+        new_pin = str(raw_security.get("settings_pin") or "").strip()
+        if new_pin:
+            validate_pin_format(new_pin)
+            security = make_pin_record(new_pin)
+
+    if security is None:
+        security = make_pin_record(get_initial_settings_pin())
+
+    return security
+
+
+def normalize_config(config: Any, previous_security: Dict[str, Any] | None = None) -> Dict[str, Any]:
     if not isinstance(config, dict):
         raise ValueError("Конфигурация должна быть JSON-объектом.")
 
     normalized = {
         "settings": _normalize_settings(config.get("settings", {})),
         "targets": [],
+        "security": _normalize_security(config.get("security", {}), previous_security),
     }
 
     raw_targets = config.get("targets", [])
@@ -127,46 +182,83 @@ def normalize_config(config: Any) -> Dict[str, Any]:
     return normalized
 
 
-def load_advanced_config() -> Dict[str, Any]:
+def public_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Возвращает конфигурацию без хэша/соли/подписи для браузера и скачивания."""
+    return {
+        "settings": config.get("settings") or {},
+        "targets": config.get("targets") or [],
+        "security": public_security_config(config.get("security") or {}),
+    }
+
+
+def load_advanced_config(*, public: bool = False, strict_integrity: bool = False) -> Dict[str, Any]:
     """
     Загружает JSON-конфигурацию самоподдержки.
-    Возвращает уже нормализованный объект, пригодный для UI и runtime.
+    Возвращает нормализованный объект, пригодный для UI и runtime.
     """
     if not CONFIG_FILE.exists():
         log("CONFIG", f"Файл {CONFIG_FILE} не найден. Используются настройки по умолчанию.")
-        return json.loads(json.dumps(DEFAULT_CONFIG))
+        normalized_default = normalize_config(json.loads(json.dumps(DEFAULT_CONFIG)))
+        signed_default = ensure_signed_config(normalized_default)
+        return public_config(signed_default) if public else signed_default
 
     try:
         with CONFIG_FILE.open("r", encoding="utf-8") as file:
             parsed_config = json.load(file)
 
         normalized = normalize_config(parsed_config)
+        assert_config_integrity(normalized)
+
+        if not (normalized.get("security") or {}).get("config_signature"):
+            normalized = _write_signed_config(normalized)
+            log("CONFIG", "Конфигурация переведена на формат с подписью целостности.")
+
         log("CONFIG", "Конфигурация успешно загружена.")
-        return normalized
+        return public_config(normalized) if public else normalized
+    except ConfigTamperError:
+        log("ERROR", "Проверка целостности keep-alive конфигурации не пройдена.")
+        if strict_integrity:
+            raise
+        fallback = normalize_config(json.loads(json.dumps(DEFAULT_CONFIG)))
+        return public_config(fallback) if public else fallback
     except json.JSONDecodeError as error:
         log("ERROR", f"Ошибка парсинга {CONFIG_FILE}: {error}. Проверьте синтаксис JSON.")
-        return json.loads(json.dumps(DEFAULT_CONFIG))
+        if strict_integrity:
+            raise ValueError(f"Ошибка парсинга JSON-конфигурации: {error}") from error
+        fallback = normalize_config(json.loads(json.dumps(DEFAULT_CONFIG)))
+        return public_config(fallback) if public else fallback
     except Exception as error:
         log("ERROR", f"Непредвиденная ошибка при чтении конфига: {error}")
-        return json.loads(json.dumps(DEFAULT_CONFIG))
+        if strict_integrity:
+            raise
+        fallback = normalize_config(json.loads(json.dumps(DEFAULT_CONFIG)))
+        return public_config(fallback) if public else fallback
 
 
-def save_advanced_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """Сохраняет конфигурацию в JSON и возвращает нормализованную версию."""
-    normalized = normalize_config(config)
+def _write_signed_config(normalized_config: Dict[str, Any]) -> Dict[str, Any]:
+    signed = attach_config_signature(normalized_config)
     CONFIG_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     fd, temp_path = tempfile.mkstemp(prefix="keep_alive_settings_", suffix=".json", dir=str(CONFIG_FILE.parent))
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as temp_file:
-            json.dump(normalized, temp_file, ensure_ascii=False, indent=4)
+            json.dump(signed, temp_file, ensure_ascii=False, indent=4)
             temp_file.write("\n")
         os.replace(temp_path, CONFIG_FILE)
-        log("CONFIG", f"Конфигурация сохранена в {CONFIG_FILE}.")
-        return normalized
+        save_integrity_signature(signed["security"]["config_signature"])
+        return signed
     except Exception:
         try:
             os.remove(temp_path)
         except OSError:
             pass
         raise
+
+
+def save_advanced_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """Сохраняет конфигурацию в JSON и возвращает нормализованную публичную версию."""
+    current_config = load_advanced_config(strict_integrity=True)
+    normalized = normalize_config(config, previous_security=current_config.get("security"))
+    signed = _write_signed_config(normalized)
+    log("CONFIG", f"Конфигурация сохранена в {CONFIG_FILE}.")
+    return public_config(signed)

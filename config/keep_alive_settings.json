@@ -5,7 +5,8 @@
         "error_wait_seconds": 60,
         "initial_delay_seconds": 60,
         "request_timeout_seconds": 30,
-        "internet_check_timeout_seconds": 10
+        "internet_check_timeout_seconds": 10,
+        "dashboard_refresh_seconds": 60
     },
     "targets": [
         {
@@ -26,5 +27,9 @@
             "env_override": null,
             "enabled": true
         }
-    ]
+    ],
+    "security": {
+        "settings_pin_salt": "uV3MGH_DLtBZy_JiuvfjIg==",
+        "settings_pin_hash": "rzV9nq6BuHPgAOTwii_P0iEEa-7Ev83cpYhcEncWyus="
+    }
 }
