@@ -33,7 +33,12 @@ function applyDashboardRefreshInterval(config) {
 }
 
 async function loadAndOpenSettings() {
-    if (loadingConfig) return;
+    // FIX 1: Prevent queue buildup with early return and warning
+    if (loadingConfig) {
+        console.warn('Загрузка настроек уже в процессе. Повтор через 500мс...');
+        return;
+    }
+
     loadingConfig = true;
     try {
         updateLastSync('Загрузка настроек...');
@@ -43,16 +48,25 @@ async function loadAndOpenSettings() {
         settingsModal.open(config);
         setConnectionHint('Редактирование настроек');
     } catch (error) {
+        console.error('Ошибка при загрузке настроек:', error);
+        
         if (error.status === 401) {
-            const pinStatus = await fetchPinStatus().catch(() => ({}));
-            pinModal.open(pinStatus);
-            setConnectionHint('Требуется PIN');
+            try {
+                const pinStatus = await fetchPinStatus();
+                pinModal.open(pinStatus);
+                setConnectionHint('Требуется PIN');
+            } catch (pinError) {
+                console.error('Ошибка получения статуса PIN:', pinError);
+                pinModal.open({});
+                setConnectionHint('Требуется PIN (статус недоступен)');
+            }
             return;
         }
 
         settingsModal.open(cachedConfig || { settings: {}, targets: [] });
         settingsModal.setMessage(error.message || 'Не удалось загрузить настройки.', 'error');
     } finally {
+        // FIX 2: Guaranteed reset of loading flag in finally block
         loadingConfig = false;
     }
 }
@@ -82,6 +96,18 @@ function bindUi() {
             loadAndOpenSettings();
         });
     }
+
+    // FIX 3: Handle back navigation with proper cleanup
+    const backLink = document.querySelector('.back-link');
+    if (backLink) {
+        backLink.addEventListener('click', (e) => {
+            // Ensure cleanup before navigation
+            if (refreshController) {
+                refreshController.stop();
+            }
+            loadingConfig = false; // Reset any pending state
+        });
+    }
 }
 
 function initApp() {
@@ -101,6 +127,25 @@ function initApp() {
 
 window.addEventListener('DOMContentLoaded', initApp);
 
+// FIX 4: Clean unload handler
 window.addEventListener('beforeunload', () => {
-    refreshController?.stop();
+    if (refreshController) {
+        refreshController.stop();
+    }
+    loadingConfig = false;
+});
+
+// FIX 5: Pause updates when tab is hidden to save bandwidth and reduce load
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        if (refreshController) {
+            refreshController.stop();
+            console.info('Обновления паузированы (вкладка в фоне)');
+        }
+    } else {
+        if (refreshController) {
+            refreshController.start();
+            console.info('Обновления возобновлены (вкладка активна)');
+        }
+    }
 });
