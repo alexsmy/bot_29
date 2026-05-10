@@ -48,6 +48,8 @@ async def check_internet_connection(timeout_seconds: int = 10) -> bool:
 async def monitor_url(url: str, target_id: str, task_name: str, headers: dict, settings: dict):
     """
     Универсальная функция для периодической проверки доступности URL.
+    Один HTTP-клиент переиспользуется внутри мониторинга, чтобы не создавать
+    заново пул соединений и DNS-состояние на каждом цикле проверки.
     """
     log("KEEP_ALIVE", f"[{task_name}] 🚀 Запущен мониторинг для: {url}")
 
@@ -57,17 +59,19 @@ async def monitor_url(url: str, target_id: str, task_name: str, headers: dict, s
     max_wait = settings.get("max_wait_minutes", 14)
     error_wait = settings.get("error_wait_seconds", 60)
     request_timeout = settings.get("request_timeout_seconds", 30)
+    timeout = httpx.Timeout(float(request_timeout))
+    limits = httpx.Limits(max_keepalive_connections=5, max_connections=10, keepalive_expiry=30.0)
 
-    while True:
-        wait_seconds = 0
-        is_success = False
-        status_code = 0
-        start_time = time.time()
+    async with httpx.AsyncClient(timeout=timeout, limits=limits, headers=headers, follow_redirects=True) as client:
+        while True:
+            wait_seconds = 0
+            is_success = False
+            status_code = 0
+            start_time = time.monotonic()
 
-        try:
-            async with httpx.AsyncClient(timeout=float(request_timeout)) as client:
+            try:
                 log("KEEP_ALIVE", f"[{task_name}] 📡 Отправляю запрос на {url}...")
-                response = await client.get(url, headers=headers)
+                response = await client.get(url)
                 status_code = response.status_code
 
                 if 200 <= response.status_code < 300:
@@ -77,28 +81,28 @@ async def monitor_url(url: str, target_id: str, task_name: str, headers: dict, s
                     log("KEEP_ALIVE", f"[{task_name}] ⚠️ Получен странный статус: {response.status_code}.", level=logging.WARNING)
                     is_success = False
 
-        except asyncio.CancelledError:
-            log("KEEP_ALIVE", f"[{task_name}] ⛔ Мониторинг остановлен.")
-            raise
-        except httpx.RequestError as error:
-            log("ERROR", f"[{task_name}] ❌ Ошибка сети (сайт недоступен): {error}", level=logging.ERROR)
-            is_success = False
-        except Exception as error:
-            log("CRITICAL", f"[{task_name}] ❌ Критическая ошибка в цикле: {error}", level=logging.CRITICAL)
-            is_success = False
+            except asyncio.CancelledError:
+                log("KEEP_ALIVE", f"[{task_name}] ⛔ Мониторинг остановлен.")
+                raise
+            except httpx.RequestError as error:
+                log("ERROR", f"[{task_name}] ❌ Ошибка сети (сайт недоступен): {error}", level=logging.ERROR)
+                is_success = False
+            except Exception as error:
+                log("CRITICAL", f"[{task_name}] ❌ Критическая ошибка в цикле: {error}", level=logging.CRITICAL)
+                is_success = False
 
-        elapsed_time = time.time() - start_time
-        update_stat(target_id, is_success, status_code, elapsed_time)
+            elapsed_time = time.monotonic() - start_time
+            update_stat(target_id, is_success, status_code, elapsed_time)
 
-        if is_success:
-            wait_seconds = random.randint(min_wait * 60, max_wait * 60)
-            minutes, seconds = divmod(wait_seconds, 60)
-            log("KEEP_ALIVE", f"[{task_name}] 💤 Ухожу в сон на {minutes} мин {seconds} сек.")
-        else:
-            wait_seconds = error_wait
-            log("KEEP_ALIVE", f"[{task_name}] 🔄 Режим восстановления. Повторная проверка через {wait_seconds} сек.")
+            if is_success:
+                wait_seconds = random.randint(min_wait * 60, max_wait * 60)
+                minutes, seconds = divmod(wait_seconds, 60)
+                log("KEEP_ALIVE", f"[{task_name}] 💤 Ухожу в сон на {minutes} мин {seconds} сек.")
+            else:
+                wait_seconds = error_wait
+                log("KEEP_ALIVE", f"[{task_name}] 🔄 Режим восстановления. Повторная проверка через {wait_seconds} сек.")
 
-        await asyncio.sleep(wait_seconds)
+            await asyncio.sleep(wait_seconds)
 
 
 async def _build_monitor_tasks(config: dict, headers: dict) -> tuple[list[asyncio.Task], dict]:

@@ -1,13 +1,15 @@
 import { fetchConfig, fetchPinStatus, fetchStats, saveConfig, unlockSettings } from './keepalive/api.js';
-import { renderStats, updateLastSync, setConnectionHint } from './keepalive/ui.js';
+import { renderStats, updateLastSync, setConnectionHint, updateRefreshIntervalLabel } from './keepalive/ui.js';
 import { KeepAliveSettingsModal } from './keepalive/settings-modal.js';
 import { KeepAlivePinModal } from './keepalive/pin-modal.js';
 import { formatCurrentLocalSyncTime } from './keepalive/time-format.js';
+import { RefreshController, getRefreshSecondsFromConfig } from './keepalive/refresh-controller.js';
 
 let settingsModal = null;
 let pinModal = null;
-let refreshTimer = null;
+let refreshController = null;
 let loadingConfig = false;
+let cachedConfig = null;
 
 async function refreshStats() {
     try {
@@ -22,12 +24,22 @@ async function refreshStats() {
     }
 }
 
+function applyDashboardRefreshInterval(config) {
+    const refreshSeconds = getRefreshSecondsFromConfig(config);
+    if (refreshController) {
+        refreshController.updateInterval(refreshSeconds);
+    }
+    updateRefreshIntervalLabel(refreshSeconds);
+}
+
 async function loadAndOpenSettings() {
     if (loadingConfig) return;
     loadingConfig = true;
     try {
         updateLastSync('Загрузка настроек...');
         const config = await fetchConfig();
+        cachedConfig = config;
+        applyDashboardRefreshInterval(config);
         settingsModal.open(config);
         setConnectionHint('Редактирование настроек');
     } catch (error) {
@@ -38,7 +50,7 @@ async function loadAndOpenSettings() {
             return;
         }
 
-        settingsModal.open({ settings: {}, targets: [] });
+        settingsModal.open(cachedConfig || { settings: {}, targets: [] });
         settingsModal.setMessage(error.message || 'Не удалось загрузить настройки.', 'error');
     } finally {
         loadingConfig = false;
@@ -52,7 +64,11 @@ async function handlePinSubmit(pin) {
 
 async function applyConfig(config) {
     const result = await saveConfig(config);
-    await refreshStats();
+    if (result?.config) {
+        cachedConfig = result.config;
+        applyDashboardRefreshInterval(result.config);
+    }
+    await refreshController?.runNow();
     return {
         message: result?.ok ? 'Настройки сохранены и применены.' : 'Настройки обновлены.',
         config: result?.config,
@@ -75,17 +91,16 @@ function initApp() {
     pinModal = new KeepAlivePinModal({
         onSubmit: handlePinSubmit,
     });
+    refreshController = new RefreshController(refreshStats);
 
     bindUi();
-    refreshStats();
-
-    refreshTimer = window.setInterval(refreshStats, 60000);
+    applyDashboardRefreshInterval(cachedConfig);
+    refreshController.runNow();
+    refreshController.start();
 }
 
 window.addEventListener('DOMContentLoaded', initApp);
 
 window.addEventListener('beforeunload', () => {
-    if (refreshTimer) {
-        clearInterval(refreshTimer);
-    }
+    refreshController?.stop();
 });

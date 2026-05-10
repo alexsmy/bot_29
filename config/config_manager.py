@@ -31,6 +31,7 @@ DEFAULT_CONFIG: Dict[str, Any] = {
         "initial_delay_seconds": 10,
         "request_timeout_seconds": 30,
         "internet_check_timeout_seconds": 10,
+        "dashboard_refresh_seconds": 60,
     },
     "targets": [],
 }
@@ -83,6 +84,12 @@ def _normalize_settings(raw_settings: Any) -> Dict[str, Any]:
             settings.get("internet_check_timeout_seconds"),
             DEFAULT_CONFIG["settings"]["internet_check_timeout_seconds"],
             minimum=1,
+        ),
+        "dashboard_refresh_seconds": _to_int(
+            settings.get("dashboard_refresh_seconds"),
+            DEFAULT_CONFIG["settings"]["dashboard_refresh_seconds"],
+            minimum=5,
+            maximum=300,
         ),
     }
     return normalized

@@ -5,7 +5,8 @@
         "error_wait_seconds": 60,
         "initial_delay_seconds": 60,
         "request_timeout_seconds": 30,
-        "internet_check_timeout_seconds": 10
+        "internet_check_timeout_seconds": 10,
+        "dashboard_refresh_seconds": 60
     },
     "targets": [
         {

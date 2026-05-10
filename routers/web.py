@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from services.stats_manager import get_all_stats
+from services.template_cache import read_template
 
 router = APIRouter()
 
@@ -22,10 +23,7 @@ async def dashboard():
     if not os.path.exists(template_path):
         return HTMLResponse(content="<h1>Ошибка: Файл шаблона templates/index.html не найден.</h1>", status_code=404)
 
-    with open(template_path, "r", encoding="utf-8") as file:
-        html_content = file.read()
-
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(content=read_template(template_path))
 
 
 @router.get("/keepalive")
@@ -36,10 +34,7 @@ async def keepalive_page():
     if not os.path.exists(template_path):
         return HTMLResponse(content="<h1>Ошибка: Файл шаблона templates/keepalive.html не найден.</h1>", status_code=404)
 
-    with open(template_path, "r", encoding="utf-8") as file:
-        html_content = file.read()
-
-    return HTMLResponse(content=html_content)
+    return HTMLResponse(content=read_template(template_path))
 
 
 @router.get("/radio")
