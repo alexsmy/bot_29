@@ -1,9 +1,11 @@
-import { fetchConfig, fetchStats, saveConfig } from './keepalive/api.js';
+import { fetchConfig, fetchPinStatus, fetchStats, saveConfig, unlockSettings } from './keepalive/api.js';
 import { renderStats, updateLastSync, setConnectionHint } from './keepalive/ui.js';
 import { KeepAliveSettingsModal } from './keepalive/settings-modal.js';
+import { KeepAlivePinModal } from './keepalive/pin-modal.js';
 import { formatCurrentLocalSyncTime } from './keepalive/time-format.js';
 
 let settingsModal = null;
+let pinModal = null;
 let refreshTimer = null;
 let loadingConfig = false;
 
@@ -29,6 +31,13 @@ async function loadAndOpenSettings() {
         settingsModal.open(config);
         setConnectionHint('Редактирование настроек');
     } catch (error) {
+        if (error.status === 401) {
+            const pinStatus = await fetchPinStatus().catch(() => ({}));
+            pinModal.open(pinStatus);
+            setConnectionHint('Требуется PIN');
+            return;
+        }
+
         settingsModal.open({ settings: {}, targets: [] });
         settingsModal.setMessage(error.message || 'Не удалось загрузить настройки.', 'error');
     } finally {
@@ -36,11 +45,17 @@ async function loadAndOpenSettings() {
     }
 }
 
+async function handlePinSubmit(pin) {
+    await unlockSettings(pin);
+    await loadAndOpenSettings();
+}
+
 async function applyConfig(config) {
     const result = await saveConfig(config);
     await refreshStats();
     return {
         message: result?.ok ? 'Настройки сохранены и применены.' : 'Настройки обновлены.',
+        config: result?.config,
     };
 }
 
@@ -56,6 +71,9 @@ function bindUi() {
 function initApp() {
     settingsModal = new KeepAliveSettingsModal({
         onApply: applyConfig,
+    });
+    pinModal = new KeepAlivePinModal({
+        onSubmit: handlePinSubmit,
     });
 
     bindUi();

@@ -64,6 +64,9 @@ function normalizeConfigForDownload(config) {
             request_timeout_seconds: Number(config.settings.request_timeout_seconds),
             internet_check_timeout_seconds: Number(config.settings.internet_check_timeout_seconds),
         },
+        security: {
+            pin_configured: Boolean(config.security?.pin_configured),
+        },
         targets: config.targets.map((target) => ({
             id: target.id,
             name: target.name,
@@ -108,6 +111,10 @@ export class KeepAliveSettingsModal {
                     this.setMessage('Сохранение...', 'info');
                     const config = this.collectFormData(true);
                     const result = await this.onApply(config);
+                    if (result?.config) {
+                        this.currentConfig = result.config;
+                        this.populate(result.config);
+                    }
                     this.setMessage(result?.message || 'Настройки применены.', 'success');
                 } catch (error) {
                     this.setMessage(error.message || 'Не удалось применить настройки.', 'error');
@@ -253,6 +260,7 @@ export class KeepAliveSettingsModal {
         setValue('[name="initial_delay_seconds"]', settings.initial_delay_seconds ?? 10);
         setValue('[name="request_timeout_seconds"]', settings.request_timeout_seconds ?? 30);
         setValue('[name="internet_check_timeout_seconds"]', settings.internet_check_timeout_seconds ?? 10);
+        setValue('[name="settings_pin"]', '');
 
         if (this.targetList) {
             this.targetList.innerHTML = '';
@@ -301,11 +309,21 @@ export class KeepAliveSettingsModal {
                 request_timeout_seconds: this._readNumberField('request_timeout_seconds', 30),
                 internet_check_timeout_seconds: this._readNumberField('internet_check_timeout_seconds', 10),
             },
+            security: {},
             targets: this._readTargets(),
         };
 
         if (!strict) {
             return config;
+        }
+
+        const pinInput = this.form?.querySelector('[name="settings_pin"]');
+        const pinValue = pinInput?.value?.trim() || '';
+        if (pinValue) {
+            if (!/^\d{4,6}$/.test(pinValue)) {
+                throw new Error('Пин-код должен состоять только из 4–6 цифр.');
+            }
+            config.security.settings_pin = pinValue;
         }
 
         const settings = config.settings;

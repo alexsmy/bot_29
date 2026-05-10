@@ -109,6 +109,20 @@
                     </div>
                 </section>
 
+                <section class="settings-section">
+                    <div class="section-head">
+                        <h3>Защита настроек</h3>
+                        <p>Пин-код требуется перед открытием окна настроек. Оставьте поле пустым, чтобы не менять текущий пин-код.</p>
+                    </div>
+
+                    <div class="settings-grid settings-grid--security">
+                        <label class="field-group">
+                            <span>Новый пин-код (4–6 цифр)</span>
+                            <input name="settings_pin" type="password" inputmode="numeric" pattern="\d{4,6}" minlength="4" maxlength="6" autocomplete="new-password" placeholder="Не менять">
+                        </label>
+                    </div>
+                </section>
+
                 <section class="settings-section settings-section--targets">
                     <div class="section-head section-head--inline">
                         <div>
@@ -135,6 +149,33 @@
                     <button id="settings-apply-btn" class="action-btn action-btn--primary" type="button">Сохранить</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <div id="pin-modal" class="modal-overlay pin-modal-overlay is-hidden" aria-hidden="true">
+        <div class="pin-modal-window glass-card" role="dialog" aria-modal="true" aria-labelledby="pin-title">
+            <div class="modal-header pin-modal-header">
+                <div>
+                    <div class="modal-kicker">Защищённый вход</div>
+                    <h2 id="pin-title">Введите пин-код</h2>
+                </div>
+                <button id="pin-close-btn" class="modal-close-btn" type="button" aria-label="Закрыть ввод пин-кода">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <form id="pin-form" class="pin-form" autocomplete="off">
+                <p class="pin-help">Настройки самоподдержки доступны только после проверки пин-кода.</p>
+                <label class="field-group">
+                    <span>Пин-код</span>
+                    <input id="pin-input" type="password" inputmode="numeric" pattern="\d{4,6}" minlength="4" maxlength="6" autocomplete="one-time-code" placeholder="••••">
+                </label>
+                <div id="pin-message" class="settings-message pin-message" data-tone="info"></div>
+                <div class="modal-footer pin-modal-footer">
+                    <button id="pin-cancel-btn" class="action-btn action-btn--secondary" type="button">Отмена</button>
+                    <button id="pin-submit-btn" class="action-btn action-btn--primary" type="submit">Войти</button>
+                </div>
+            </form>
         </div>
     </div>
 

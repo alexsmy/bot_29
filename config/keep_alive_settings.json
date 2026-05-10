@@ -26,5 +26,9 @@
             "env_override": null,
             "enabled": true
         }
-    ]
+    ],
+    "security": {
+        "settings_pin_salt": "uV3MGH_DLtBZy_JiuvfjIg==",
+        "settings_pin_hash": "rzV9nq6BuHPgAOTwii_P0iEEa-7Ev83cpYhcEncWyus="
+    }
 }
