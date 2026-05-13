@@ -4,101 +4,119 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Файловое хранилище</title>
-    <meta name="description" content="Загрузка файлов на сервер, просмотр, копирование ссылок и удаление загруженных файлов.">
+    <meta name="description" content="Минималистичный файловый менеджер для загрузки, просмотра, копирования ссылок и удаления файлов.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/filepond@4.31.4/dist/filepond.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/project/filevault/css/filevault.css">
 </head>
 <body>
-    <main class="app-shell">
-        <section class="hero-card">
-            <div class="hero-topline">
-                <a class="back-link" href="/" aria-label="Вернуться на главную">
-                    <span>←</span>
-                    <span>Хаб проектов</span>
-                </a>
-                <div class="hero-badge">Новый модуль</div>
-            </div>
-
-            <div class="hero-content">
+    <main class="vault-shell">
+        <header class="vault-header">
+            <div class="vault-title-group">
+                <a class="back-link" href="/" aria-label="Вернуться на главную страницу">← Хаб проектов</a>
                 <div>
-                    <p class="eyebrow">Файлы • ссылки • управление</p>
+                    <p class="eyebrow">FilePond upload • file explorer • direct links</p>
                     <h1>Файловое хранилище</h1>
-                    <p class="hero-text">
-                        Загружайте HTML, изображения, документы и другие файлы на сервер, получайте прямую ссылку,
-                        открывайте её в новой вкладке, копируйте адрес и удаляйте лишнее из списка.
-                    </p>
-                </div>
-
-                <div class="hero-stats" id="statsBar">
-                    <div class="stat-card">
-                        <span class="stat-value" id="totalFiles">0</span>
-                        <span class="stat-label">Файлов</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="totalSize">0 Б</span>
-                        <span class="stat-label">Общий размер</span>
-                    </div>
-                    <div class="stat-card">
-                        <span class="stat-value" id="lastUpload">—</span>
-                        <span class="stat-label">Последняя загрузка</span>
-                    </div>
+                    <p class="lead">Компактный файловый менеджер: загрузка пачкой, быстрый поиск, сортировка, просмотр структуры, открытие, копирование полной ссылки и удаление.</p>
                 </div>
             </div>
-        </section>
 
-        <section class="panel-grid">
-            <section class="panel upload-panel">
-                <div class="panel-header">
-                    <div>
-                        <p class="panel-kicker">Шаг 1</p>
-                        <h2>Загрузка файлов</h2>
-                    </div>
-                    <button class="secondary-button" id="refreshButton" type="button">Обновить список</button>
+            <section class="stats-strip" aria-label="Статистика хранилища">
+                <div class="stat-pill">
+                    <span id="totalFiles">0</span>
+                    <small>файлов</small>
                 </div>
-
-                <form id="uploadForm" class="upload-form">
-                    <label class="dropzone" id="dropzone" for="fileInput">
-                        <input id="fileInput" name="files" type="file" multiple hidden>
-                        <div class="dropzone-icon">⇪</div>
-                        <div class="dropzone-copy">
-                            <strong>Перетащите файлы сюда</strong>
-                            <span>или нажмите, чтобы выбрать несколько файлов</span>
-                        </div>
-                    </label>
-
-                    <div class="selected-box">
-                        <div class="selected-header">
-                            <span>Выбрано файлов</span>
-                            <button type="button" class="text-button" id="clearSelectionButton">Очистить</button>
-                        </div>
-                        <div id="selectedFiles" class="selected-files empty-state">Файлы еще не выбраны.</div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="submit" class="primary-button" id="uploadButton">Загрузить на сервер</button>
-                        <p id="uploadHint" class="upload-hint">Поддерживается множественный выбор и загрузка пакетом.</p>
-                    </div>
-                </form>
-
-                <div class="message-box" id="messageBox" hidden></div>
+                <div class="stat-pill">
+                    <span id="totalSize">0 Б</span>
+                    <small>занято</small>
+                </div>
+                <div class="stat-pill wide">
+                    <span id="lastUpload">—</span>
+                    <small>последняя загрузка</small>
+                </div>
             </section>
+        </header>
 
-            <section class="panel files-panel">
-                <div class="panel-header">
-                    <div>
-                        <p class="panel-kicker">Шаг 2</p>
-                        <h2>Загруженные файлы</h2>
+        <section class="manager-layout">
+            <aside class="sidebar-panel" aria-label="Навигация и загрузка">
+                <section class="panel compact-upload">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="panel-kicker">Загрузка</p>
+                            <h2>Добавить файлы</h2>
+                        </div>
+                        <button class="ghost-button" id="clearSelectionButton" type="button">Очистить</button>
                     </div>
-                    <div class="list-meta" id="listMeta">Список пока пуст.</div>
+
+                    <form id="uploadForm" class="upload-form">
+                        <input id="fileInput" name="files" type="file" multiple>
+                        <button class="primary-button" id="uploadButton" type="submit">Загрузить</button>
+                    </form>
+
+                    <div class="message-box" id="messageBox" hidden></div>
+                </section>
+
+                <section class="panel tree-panel">
+                    <div class="panel-heading slim">
+                        <div>
+                            <p class="panel-kicker">Структура</p>
+                            <h2>Папки</h2>
+                        </div>
+                    </div>
+                    <nav class="folder-tree" aria-label="Дерево папок">
+                        <button class="folder-node active" type="button">
+                            <span class="folder-icon">▾</span>
+                            <span class="folder-name">Корень хранилища</span>
+                            <span class="folder-count" id="folderCount">0</span>
+                        </button>
+                    </nav>
+                    <p class="tree-note">Текущий сервер хранит файлы в едином корне. Интерфейс готов к расширению папок без изменения клиентской логики.</p>
+                </section>
+            </aside>
+
+            <section class="panel explorer-panel" aria-label="Файловый менеджер">
+                <div class="explorer-toolbar">
+                    <div>
+                        <p class="panel-kicker">Менеджер</p>
+                        <h2>Файлы</h2>
+                        <p class="list-meta" id="listMeta">Список пока пуст.</p>
+                    </div>
+
+                    <div class="toolbar-actions">
+                        <label class="search-field">
+                            <span>⌕</span>
+                            <input id="searchInput" type="search" placeholder="Поиск по имени, типу, ссылке" autocomplete="off">
+                        </label>
+                        <select id="sortSelect" class="select-field" aria-label="Сортировка файлов">
+                            <option value="date-desc">Сначала новые</option>
+                            <option value="date-asc">Сначала старые</option>
+                            <option value="name-asc">Имя A → Я</option>
+                            <option value="name-desc">Имя Я → A</option>
+                            <option value="size-desc">Размер ↓</option>
+                            <option value="size-asc">Размер ↑</option>
+                        </select>
+                        <button class="ghost-button" id="refreshButton" type="button">Обновить</button>
+                    </div>
                 </div>
 
-                <div id="filesList" class="files-list"></div>
+                <div class="content-grid">
+                    <div id="filesList" class="files-list" aria-live="polite"></div>
+
+                    <aside class="details-panel" id="detailsPanel" aria-label="Действия с выбранным файлом">
+                        <div class="details-empty">
+                            <div class="details-icon">📄</div>
+                            <h3>Выберите файл</h3>
+                            <p>Кликните по карточке, чтобы открыть минимальную панель действий: открыть, копировать ссылку или удалить.</p>
+                        </div>
+                    </aside>
+                </div>
             </section>
         </section>
     </main>
 
+    <script src="https://cdn.jsdelivr.net/npm/filepond@4.31.4/dist/filepond.min.js"></script>
     <script type="module" src="/project/filevault/js/app.js"></script>
 </body>
 </html>
