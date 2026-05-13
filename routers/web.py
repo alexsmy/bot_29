@@ -37,6 +37,17 @@ async def keepalive_page():
     return HTMLResponse(content=read_template(template_path))
 
 
+@router.get("/files")
+async def filevault_page():
+    """Отдает страницу файлового хранилища."""
+    template_path = os.path.join("project", "filevault", "filevault.html")
+
+    if not os.path.exists(template_path):
+        return HTMLResponse(content="<h1>Ошибка: Файл project/filevault/filevault.html не найден.</h1>", status_code=404)
+
+    return HTMLResponse(content=read_template(template_path))
+
+
 @router.get("/radio")
 async def radio_redirect():
     return RedirectResponse(url="/project/radio/radio_18.html")
@@ -53,5 +64,5 @@ async def sbor_redirect():
 
 
 @router.get("/time")
-async def sbor_redirect():
+async def time_redirect():
     return RedirectResponse(url="/project/time/3dtime.html")

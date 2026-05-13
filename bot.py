@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from routers.keepalive_api import router as keepalive_router
 from routers.crpt_api import router as crpt_router
+from routers.filevault_api import router as filevault_router, public_router as filevault_public_router
 from routers.web import router as web_router
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
@@ -21,6 +22,8 @@ app.mount("/project", StaticFiles(directory="project"), name="project")
 app.include_router(web_router)
 app.include_router(keepalive_router)
 app.include_router(crpt_router)
+app.include_router(filevault_router)
+app.include_router(filevault_public_router)
 
 
 async def main():

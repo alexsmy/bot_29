@@ -9,7 +9,16 @@ export const projects =[
         actionText: 'Открыть статистику',
         theme: themes.blue,
         iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>`,
-        hasStatus: true // <-- Новое свойство
+        hasStatus: true
+    },
+    {
+        id: 'filevault',
+        title: 'Файловое хранилище',
+        description: 'Загрузка HTML, изображений и других файлов на сервер, просмотр списка, удаление и быстрый доступ по ссылке.',
+        url: '/files',
+        actionText: 'Открыть загрузчик',
+        theme: themes.emerald,
+        iconSvg: `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16.5A4.5 4.5 0 018.5 12H9a5 5 0 1110 0h.5a4.5 4.5 0 010 9H8.5A4.5 4.5 0 014 16.5zM12 12v6m-3-3h6"></path>`
     },
     {
         id: 'radio',
