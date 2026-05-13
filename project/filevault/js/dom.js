@@ -1,4 +1,4 @@
-function escapeHTML(value) {
+export function escapeHTML(value) {
     return String(value ?? '')
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
@@ -11,7 +11,7 @@ export function formatBytes(bytes) {
     const value = Number(bytes) || 0;
     if (value < 1024) return `${value} Б`;
 
-    const units = ['КБ', 'МБ', 'ГБ', 'ТБ'];
+    const units = ['КБ', 'МБ', 'ГБ', 'ТБ', 'ПБ'];
     let size = value / 1024;
     let unitIndex = 0;
 
@@ -20,7 +20,8 @@ export function formatBytes(bytes) {
         unitIndex += 1;
     }
 
-    return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+    const precision = size >= 10 ? 0 : 1;
+    return `${size.toFixed(precision)} ${units[unitIndex]}`;
 }
 
 export function formatDateTime(value) {
@@ -79,24 +80,89 @@ export function detectFileType(file) {
     return { label: 'Файл', icon: '📄', kind: 'file' };
 }
 
-export function renderFileCard(file, selectedFileId = null) {
-    const type = detectFileType(file);
-    const fileId = escapeHTML(file.file_id);
-    const fileName = escapeHTML(file.original_name || file.file_id);
-    const publicUrl = escapeHTML(file.public_url);
-    const selectedClass = file.file_id === selectedFileId ? ' selected' : '';
+function renderFolderBranch(node, activeFolderId) {
+    const children = Array.isArray(node.children) ? node.children : [];
+    const isActive = (node.folder_id ?? null) === (activeFolderId ?? null);
+    const level = Number(node.level) || 0;
+    const folderId = node.folder_id ? escapeHTML(node.folder_id) : '';
+    const name = escapeHTML(node.name || 'Папка');
+    const path = escapeHTML(node.path || node.name || 'Корень');
+    const count = Number(node.file_count) || 0;
+    const size = formatBytes(node.size_bytes);
 
     return `
-        <article class="file-card${selectedClass}" data-action="select" data-file-id="${fileId}" tabindex="0" aria-label="Выбрать файл ${fileName}">
-            <div class="file-icon ${escapeHTML(type.kind)}" aria-hidden="true">${escapeHTML(type.icon)}</div>
-            <div class="file-card-body">
+        <div class="folder-branch level-${level}">
+            <button class="folder-node${isActive ? ' active' : ''}" type="button" data-action="select-folder" data-folder-id="${folderId}" aria-label="Открыть папку ${path}">
+                <span class="folder-dot" aria-hidden="true"></span>
+                <span class="folder-name" title="${path}">${name}</span>
+                <span class="folder-badge">${count}</span>
+                <span class="folder-size" title="Занято">${escapeHTML(size)}</span>
+            </button>
+            ${children.length ? children.map((child) => renderFolderBranch(child, activeFolderId)).join('') : ''}
+        </div>
+    `;
+}
+
+export function renderFolderTree(tree, activeFolderId = null, rootCount = null) {
+    const rootActive = activeFolderId === null || activeFolderId === '' || typeof activeFolderId === 'undefined';
+    const rootBadge = rootCount === null || typeof rootCount === 'undefined'
+        ? (Array.isArray(tree) ? tree.reduce((sum, node) => sum + (Number(node.file_count) || 0), 0) : 0)
+        : Number(rootCount) || 0;
+
+    return `
+        <div class="folder-branch root">
+            <button class="folder-node${rootActive ? ' active' : ''}" type="button" data-action="select-folder" data-folder-id="" aria-label="Открыть корень хранилища">
+                <span class="folder-dot" aria-hidden="true"></span>
+                <span class="folder-name">Корень хранилища</span>
+                <span class="folder-badge">${rootBadge}</span>
+                <span class="folder-size">—</span>
+            </button>
+            ${Array.isArray(tree) ? tree.map((node) => renderFolderBranch(node, activeFolderId)).join('') : ''}
+        </div>
+    `;
+}
+
+export function renderFolderOptions(tree, activeFolderId = null, excludeFolderId = null, depth = 0) {
+    const indent = depth ? `${'— '.repeat(depth)}` : '';
+    const exclude = excludeFolderId ?? null;
+    const active = activeFolderId ?? null;
+
+    const renderNode = (node, level = 0) => {
+        const folderId = node.folder_id ?? null;
+        const isExcluded = folderId && exclude && folderId === exclude;
+        if (isExcluded) return '';
+
+        const selected = folderId === active ? ' selected' : '';
+        const label = `${'— '.repeat(level)}${node.name || 'Папка'}`;
+        const options = [
+            `<option value="${folderId ? escapeHTML(folderId) : ''}"${selected}>${escapeHTML(label || 'Корень')}</option>`
+        ];
+
+        const children = Array.isArray(node.children) ? node.children : [];
+        for (const child of children) {
+            options.push(renderNode(child, level + 1));
+        }
+        return options.join('');
+    };
+
+    const rootOption = `<option value=""${active === null ? ' selected' : ''}>Корень хранилища</option>`;
+    const nodes = Array.isArray(tree) ? tree.map((node) => renderNode(node, 1)).join('') : '';
+    return rootOption + nodes;
+}
+
+export function renderFileCard(file, isSelected = false) {
+    const fileId = escapeHTML(file.file_id);
+    const fileName = escapeHTML(file.original_name || file.file_id);
+    const checked = isSelected ? ' checked' : '';
+
+    return `
+        <article class="file-card${isSelected ? ' selected' : ''}" tabindex="0" data-action="select-file" data-file-id="${fileId}" aria-label="Файл ${fileName}">
+            <label class="file-check" aria-label="Выбрать файл ${fileName}">
+                <input type="checkbox" data-action="toggle-file" data-file-id="${fileId}"${checked}>
+                <span></span>
+            </label>
+            <div class="file-card-main">
                 <h3 class="file-title" title="${fileName}">${fileName}</h3>
-                <div class="file-meta-line">
-                    <span>${escapeHTML(type.label)}</span>
-                    <span>${formatBytes(file.size_bytes)}</span>
-                    <span>${formatDateTime(file.uploaded_at)}</span>
-                </div>
-                <a class="file-link" href="${publicUrl}" target="_blank" rel="noopener noreferrer" title="${publicUrl}">${publicUrl}</a>
             </div>
         </article>
     `;
@@ -106,9 +172,9 @@ export function renderSelectedDetails(file) {
     if (!file) {
         return `
             <div class="details-empty">
-                <div class="details-icon">📄</div>
-                <h3>Выберите файл</h3>
-                <p>Кликните по карточке, чтобы открыть минимальную панель действий: открыть, копировать ссылку или удалить.</p>
+                <div class="details-icon" aria-hidden="true">📄</div>
+                <h3>Ничего не выбрано</h3>
+                <p>Клик по карточке открывает компактные действия: открыть, копировать, переименовать, переместить или удалить.</p>
             </div>
         `;
     }
@@ -118,12 +184,13 @@ export function renderSelectedDetails(file) {
     const fileName = escapeHTML(file.original_name || file.file_id);
     const publicUrl = escapeHTML(file.public_url);
     const contentType = escapeHTML(file.content_type || 'application/octet-stream');
+    const folderPath = escapeHTML(file.folder_path || 'Корень');
 
     return `
         <article class="selected-file-card">
             <div class="selected-file-head">
-                <div class="details-icon ${escapeHTML(type.kind)}">${escapeHTML(type.icon)}</div>
-                <div>
+                <div class="details-icon ${escapeHTML(type.kind)}" aria-hidden="true">${escapeHTML(type.icon)}</div>
+                <div class="selected-file-title">
                     <p class="panel-kicker">Выбранный файл</p>
                     <h3 title="${fileName}">${fileName}</h3>
                 </div>
@@ -132,29 +199,54 @@ export function renderSelectedDetails(file) {
             <dl class="details-list">
                 <div><dt>Тип</dt><dd>${escapeHTML(type.label)}</dd></div>
                 <div><dt>Размер</dt><dd>${formatBytes(file.size_bytes)}</dd></div>
+                <div><dt>Путь</dt><dd title="${folderPath}">${folderPath}</dd></div>
                 <div><dt>Загружен</dt><dd>${formatDateTime(file.uploaded_at)}</dd></div>
-                <div><dt>MIME</dt><dd>${contentType}</dd></div>
+                <div><dt>MIME</dt><dd title="${contentType}">${contentType}</dd></div>
             </dl>
 
-            <a class="direct-link" href="${publicUrl}" target="_blank" rel="noopener noreferrer">${publicUrl}</a>
+            <a class="direct-link" href="${publicUrl}" target="_blank" rel="noopener noreferrer" title="${publicUrl}">${publicUrl}</a>
 
             <div class="details-actions">
-                <a class="action-button open" href="${publicUrl}" target="_blank" rel="noopener noreferrer">Открыть</a>
-                <button class="action-button copy" type="button" data-action="copy" data-file-url="${publicUrl}">Копировать</button>
-                <button class="action-button delete" type="button" data-action="delete" data-file-id="${fileId}">Удалить</button>
+                <button class="action-button open" type="button" data-action="open-file" data-file-url="${publicUrl}">Открыть</button>
+                <button class="action-button copy" type="button" data-action="copy-link" data-file-url="${publicUrl}">Копировать</button>
+                <button class="action-button rename" type="button" data-action="rename-file" data-file-id="${fileId}" data-file-name="${fileName}">Переименовать</button>
+                <button class="action-button move" type="button" data-action="move-file" data-file-id="${fileId}">Переместить</button>
+                <button class="action-button delete" type="button" data-action="delete-file" data-file-id="${fileId}" data-file-name="${fileName}">Удалить</button>
             </div>
         </article>
     `;
 }
 
-export function renderEmptyFilesState(hasFilters = false) {
-    const title = hasFilters ? 'Ничего не найдено.' : 'Пока нет загруженных файлов.';
-    const text = hasFilters ? 'Измените поисковый запрос или сортировку.' : 'Добавьте файлы через панель загрузки слева.';
-
+export function renderEmptyFilesState(message = 'Пока нет файлов.') {
     return `
         <div class="file-empty">
-            <strong>${title}</strong>
-            <span>${text}</span>
+            <strong>${escapeHTML(message)}</strong>
+            <span>Добавьте файлы через загрузчик слева или смените папку.</span>
         </div>
     `;
+}
+
+export function renderBulkSummary(selectedCount, folderLabel = 'Корень') {
+    const label = selectedCount === 1 ? 'файл выбран' : 'файлов выбрано';
+    return `
+        <div class="bulk-summary">
+            <strong>${selectedCount} ${label}</strong>
+            <span>Текущая папка: ${escapeHTML(folderLabel)}</span>
+        </div>
+    `;
+}
+
+export function renderDashboardValue(value, label, hint = '') {
+    return `
+        <div class="dashboard-card">
+            <span class="dashboard-label">${escapeHTML(label)}</span>
+            <strong class="dashboard-value">${escapeHTML(value)}</strong>
+            <small class="dashboard-hint">${escapeHTML(hint)}</small>
+        </div>
+    `;
+}
+
+export function toFolderSelectLabel(folder) {
+    const path = folder.path || folder.name || 'Папка';
+    return path === 'Корень' ? 'Корень' : path.replace(/^Корень\s*\/\s*/, '');
 }
