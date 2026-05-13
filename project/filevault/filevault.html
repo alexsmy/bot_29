@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Файловое хранилище</title>
+    <meta name="description" content="Загрузка файлов на сервер, просмотр, копирование ссылок и удаление загруженных файлов.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/project/filevault/css/filevault.css">
+</head>
+<body>
+    <main class="app-shell">
+        <section class="hero-card">
+            <div class="hero-topline">
+                <a class="back-link" href="/" aria-label="Вернуться на главную">
+                    <span>←</span>
+                    <span>Хаб проектов</span>
+                </a>
+                <div class="hero-badge">Новый модуль</div>
+            </div>
+
+            <div class="hero-content">
+                <div>
+                    <p class="eyebrow">Файлы • ссылки • управление</p>
+                    <h1>Файловое хранилище</h1>
+                    <p class="hero-text">
+                        Загружайте HTML, изображения, документы и другие файлы на сервер, получайте прямую ссылку,
+                        открывайте её в новой вкладке, копируйте адрес и удаляйте лишнее из списка.
+                    </p>
+                </div>
+
+                <div class="hero-stats" id="statsBar">
+                    <div class="stat-card">
+                        <span class="stat-value" id="totalFiles">0</span>
+                        <span class="stat-label">Файлов</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="totalSize">0 Б</span>
+                        <span class="stat-label">Общий размер</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="lastUpload">—</span>
+                        <span class="stat-label">Последняя загрузка</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="panel-grid">
+            <section class="panel upload-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Шаг 1</p>
+                        <h2>Загрузка файлов</h2>
+                    </div>
+                    <button class="secondary-button" id="refreshButton" type="button">Обновить список</button>
+                </div>
+
+                <form id="uploadForm" class="upload-form">
+                    <label class="dropzone" id="dropzone" for="fileInput">
+                        <input id="fileInput" name="files" type="file" multiple hidden>
+                        <div class="dropzone-icon">⇪</div>
+                        <div class="dropzone-copy">
+                            <strong>Перетащите файлы сюда</strong>
+                            <span>или нажмите, чтобы выбрать несколько файлов</span>
+                        </div>
+                    </label>
+
+                    <div class="selected-box">
+                        <div class="selected-header">
+                            <span>Выбрано файлов</span>
+                            <button type="button" class="text-button" id="clearSelectionButton">Очистить</button>
+                        </div>
+                        <div id="selectedFiles" class="selected-files empty-state">Файлы еще не выбраны.</div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="primary-button" id="uploadButton">Загрузить на сервер</button>
+                        <p id="uploadHint" class="upload-hint">Поддерживается множественный выбор и загрузка пакетом.</p>
+                    </div>
+                </form>
+
+                <div class="message-box" id="messageBox" hidden></div>
+            </section>
+
+            <section class="panel files-panel">
+                <div class="panel-header">
+                    <div>
+                        <p class="panel-kicker">Шаг 2</p>
+                        <h2>Загруженные файлы</h2>
+                    </div>
+                    <div class="list-meta" id="listMeta">Список пока пуст.</div>
+                </div>
+
+                <div id="filesList" class="files-list"></div>
+            </section>
+        </section>
+    </main>
+
+    <script type="module" src="/project/filevault/js/app.js"></script>
+</body>
+</html>
