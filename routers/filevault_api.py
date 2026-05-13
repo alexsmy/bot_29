@@ -8,7 +8,7 @@ from typing import List
 from urllib.parse import quote
 from uuid import uuid4
 
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
 
 router = APIRouter(prefix="/api/filevault", tags=["filevault"])
@@ -50,11 +50,14 @@ def _load_meta(file_id: str) -> dict:
         raise HTTPException(status_code=500, detail="Ошибка чтения метаданных файла")
 
 
-def _build_public_url(file_id: str) -> str:
-    return f"/files/open/{quote(file_id)}"
+def _build_public_url(file_id: str, request: Request | None = None) -> str:
+    public_path = f"/files/open/{quote(file_id)}"
+    if request is None:
+        return public_path
+    return str(request.base_url).rstrip("/") + public_path
 
 
-def _to_client_record(meta: dict) -> dict:
+def _to_client_record(meta: dict, request: Request | None = None) -> dict:
     file_id = meta["file_id"]
     blob_path = _blob_path(file_id)
     stat = blob_path.stat() if blob_path.exists() else None
@@ -66,12 +69,12 @@ def _to_client_record(meta: dict) -> dict:
         "content_type": meta.get("content_type", "application/octet-stream"),
         "size_bytes": stat.st_size if stat else int(meta.get("size_bytes", 0)),
         "uploaded_at": meta.get("uploaded_at"),
-        "public_url": _build_public_url(file_id),
+        "public_url": _build_public_url(file_id, request),
     }
 
 
 @router.get("/files")
-async def list_files():
+async def list_files(request: Request):
     files = []
 
     for meta_path in sorted(UPLOAD_DIR.glob("*.json"), key=lambda item: item.stat().st_mtime, reverse=True):
@@ -83,7 +86,7 @@ async def list_files():
             blob = _blob_path(file_id)
             if not blob.exists():
                 continue
-            files.append(_to_client_record(meta))
+            files.append(_to_client_record(meta, request))
         except Exception:
             continue
 
@@ -91,7 +94,7 @@ async def list_files():
 
 
 @router.post("/upload")
-async def upload_files(files: List[UploadFile] = File(...)):
+async def upload_files(request: Request, files: List[UploadFile] = File(...)):
     if not files:
         return JSONResponse({"success": False, "error": "Файлы не переданы"}, status_code=400)
 
@@ -120,7 +123,7 @@ async def upload_files(files: List[UploadFile] = File(...)):
             "uploaded_at": datetime.now(timezone.utc).isoformat(),
         }
         meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
-        created.append(_to_client_record(meta))
+        created.append(_to_client_record(meta, request))
 
     if not created:
         return JSONResponse({"success": False, "error": "Не удалось сохранить ни одного файла"}, status_code=400)
@@ -129,12 +132,12 @@ async def upload_files(files: List[UploadFile] = File(...)):
 
 
 @router.get("/files/info/{file_id}")
-async def get_file_info(file_id: str):
+async def get_file_info(file_id: str, request: Request):
     if not file_id or not re.fullmatch(r"[a-f0-9]{32}", file_id):
         raise HTTPException(status_code=400, detail="Неверный идентификатор файла")
 
     meta = _load_meta(file_id)
-    return JSONResponse({"success": True, "file": _to_client_record(meta)})
+    return JSONResponse({"success": True, "file": _to_client_record(meta, request)})
 
 
 @router.delete("/files/{file_id}")

@@ -4,7 +4,7 @@ async function parseJsonResponse(response) {
     const payload = await response.json().catch(() => null);
 
     if (!response.ok) {
-        const message = payload?.error || `HTTP ${response.status}`;
+        const message = payload?.error || payload?.detail || `HTTP ${response.status}`;
         throw new Error(message);
     }
 
@@ -18,7 +18,7 @@ async function parseJsonResponse(response) {
 export async function fetchFiles() {
     const response = await fetch(`${API_BASE}/files`, {
         method: 'GET',
-        headers: { 'Accept': 'application/json' }
+        headers: { Accept: 'application/json' }
     });
 
     const payload = await parseJsonResponse(response);
@@ -44,7 +44,7 @@ export async function uploadFiles(fileList) {
 export async function deleteFile(fileId) {
     const response = await fetch(`${API_BASE}/files/${encodeURIComponent(fileId)}`, {
         method: 'DELETE',
-        headers: { 'Accept': 'application/json' }
+        headers: { Accept: 'application/json' }
     });
 
     return parseJsonResponse(response);
@@ -53,6 +53,6 @@ export async function deleteFile(fileId) {
 function augmentFileRecord(file) {
     return {
         ...file,
-        public_url: file.public_url || buildPublicUrl(file.file_id)
+        public_url: buildPublicUrl(file.public_url || file.file_id)
     };
 }
