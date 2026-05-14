@@ -1,3 +1,5 @@
+import { getFileIcon, getFileColor } from './ui.js';
+
 export function escapeHTML(value) {
     return String(value ?? '')
         .replaceAll('&', '&amp;')
@@ -33,51 +35,6 @@ export function formatDateTime(value) {
         dateStyle: 'medium',
         timeStyle: 'short'
     }).format(date);
-}
-
-export function detectFileType(file) {
-    const original = file.original_name || '';
-    const ext = original.includes('.') ? original.split('.').pop().toLowerCase() : '';
-    const contentType = file.content_type || '';
-
-    const byExtension = {
-        html: { label: 'HTML', icon: '🌐', kind: 'code' },
-        htm: { label: 'HTML', icon: '🌐', kind: 'code' },
-        css: { label: 'CSS', icon: '🎨', kind: 'code' },
-        js: { label: 'JavaScript', icon: '⚙️', kind: 'code' },
-        json: { label: 'JSON', icon: '🧩', kind: 'code' },
-        py: { label: 'Python', icon: '🐍', kind: 'code' },
-        png: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        jpg: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        jpeg: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        gif: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        webp: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        svg: { label: 'SVG', icon: '🖼️', kind: 'image' },
-        pdf: { label: 'PDF', icon: '📕', kind: 'document' },
-        txt: { label: 'Текст', icon: '📝', kind: 'document' },
-        md: { label: 'Markdown', icon: '📝', kind: 'document' },
-        doc: { label: 'Word', icon: '📘', kind: 'document' },
-        docx: { label: 'Word', icon: '📘', kind: 'document' },
-        xls: { label: 'Excel', icon: '📗', kind: 'document' },
-        xlsx: { label: 'Excel', icon: '📗', kind: 'document' },
-        zip: { label: 'Архив', icon: '🗜️', kind: 'archive' },
-        rar: { label: 'Архив', icon: '🗜️', kind: 'archive' },
-        '7z': { label: 'Архив', icon: '🗜️', kind: 'archive' },
-        mp4: { label: 'Видео', icon: '🎬', kind: 'media' },
-        mov: { label: 'Видео', icon: '🎬', kind: 'media' },
-        mp3: { label: 'Аудио', icon: '🎧', kind: 'media' },
-        wav: { label: 'Аудио', icon: '🎧', kind: 'media' }
-    };
-
-    if (ext && byExtension[ext]) return byExtension[ext];
-    if (contentType.startsWith('image/')) return { label: 'Изображение', icon: '🖼️', kind: 'image' };
-    if (contentType.startsWith('text/html')) return { label: 'HTML', icon: '🌐', kind: 'code' };
-    if (contentType.startsWith('text/')) return { label: 'Текст', icon: '📝', kind: 'document' };
-    if (contentType.includes('pdf')) return { label: 'PDF', icon: '📕', kind: 'document' };
-    if (contentType.startsWith('audio/')) return { label: 'Аудио', icon: '🎧', kind: 'media' };
-    if (contentType.startsWith('video/')) return { label: 'Видео', icon: '🎬', kind: 'media' };
-
-    return { label: 'Файл', icon: '📄', kind: 'file' };
 }
 
 function renderFolderBranch(node, activeFolderId) {
@@ -154,15 +111,19 @@ export function renderFileCard(file, isSelected = false) {
     const fileId = escapeHTML(file.file_id);
     const fileName = escapeHTML(file.original_name || file.file_id);
     const checked = isSelected ? ' checked' : '';
+    const iconClass = getFileIcon(file);
+    const iconColor = getFileColor(file);
 
     return `
         <article class="file-card${isSelected ? ' selected' : ''}" tabindex="0" data-action="select-file" data-file-id="${fileId}" aria-label="Файл ${fileName}">
             <label class="file-check" aria-label="Выбрать файл ${fileName}">
                 <input type="checkbox" data-action="toggle-file" data-file-id="${fileId}"${checked}>
-                <span></span>
             </label>
             <div class="file-card-main">
-                <h3 class="file-title" title="${fileName}">${fileName}</h3>
+                <h3 class="file-title" title="${fileName}">
+                    <i class="${iconClass}" style="color: ${iconColor}; margin-right: 6px;"></i>
+                    ${fileName}
+                </h3>
             </div>
         </article>
     `;
@@ -172,56 +133,120 @@ export function renderSelectedDetails(file) {
     if (!file) {
         return `
             <div class="details-empty">
-                <div class="details-icon" aria-hidden="true">📄</div>
+                <div class="details-icon"><i class="fa-solid fa-file-circle-question"></i></div>
                 <h3>Ничего не выбрано</h3>
-                <p>Клик по карточке открывает компактные действия: открыть, копировать, переименовать, переместить или удалить.</p>
+                <p>Кликните на карточку файла, чтобы увидеть подробности и действия</p>
             </div>
         `;
     }
 
-    const type = detectFileType(file);
+    const typeInfo = detectFileType(file);
     const fileId = escapeHTML(file.file_id);
     const fileName = escapeHTML(file.original_name || file.file_id);
     const publicUrl = escapeHTML(file.public_url);
     const contentType = escapeHTML(file.content_type || 'application/octet-stream');
     const folderPath = escapeHTML(file.folder_path || 'Корень');
+    const iconClass = getFileIcon(file);
+    const iconColor = getFileColor(file);
 
     return `
         <article class="selected-file-card">
             <div class="selected-file-head">
-                <div class="details-icon ${escapeHTML(type.kind)}" aria-hidden="true">${escapeHTML(type.icon)}</div>
+                <div class="details-icon" style="color: ${iconColor}">
+                    <i class="${iconClass}"></i>
+                </div>
                 <div class="selected-file-title">
-                    <p class="panel-kicker">Выбранный файл</p>
+                    <p class="panel-kicker">Файл</p>
                     <h3 title="${fileName}">${fileName}</h3>
                 </div>
             </div>
 
             <dl class="details-list">
-                <div><dt>Тип</dt><dd>${escapeHTML(type.label)}</dd></div>
+                <div><dt>Тип</dt><dd>${escapeHTML(typeInfo.label)}</dd></div>
                 <div><dt>Размер</dt><dd>${formatBytes(file.size_bytes)}</dd></div>
-                <div><dt>Путь</dt><dd title="${folderPath}">${folderPath}</dd></div>
+                <div><dt>Папка</dt><dd title="${folderPath}">${folderPath}</dd></div>
                 <div><dt>Загружен</dt><dd>${formatDateTime(file.uploaded_at)}</dd></div>
                 <div><dt>MIME</dt><dd title="${contentType}">${contentType}</dd></div>
             </dl>
 
-            <a class="direct-link" href="${publicUrl}" target="_blank" rel="noopener noreferrer" title="${publicUrl}">${publicUrl}</a>
+            <a class="direct-link" href="#" data-action="copy-link" data-file-url="${publicUrl}" title="${publicUrl}">
+                <i class="fa-solid fa-link" style="margin-right: 6px;"></i>
+                ${publicUrl}
+            </a>
 
             <div class="details-actions">
-                <button class="action-button open" type="button" data-action="open-file" data-file-url="${publicUrl}">Открыть</button>
-                <button class="action-button copy" type="button" data-action="copy-link" data-file-url="${publicUrl}">Копировать</button>
-                <button class="action-button rename" type="button" data-action="rename-file" data-file-id="${fileId}" data-file-name="${fileName}">Переименовать</button>
-                <button class="action-button move" type="button" data-action="move-file" data-file-id="${fileId}">Переместить</button>
-                <button class="action-button delete" type="button" data-action="delete-file" data-file-id="${fileId}" data-file-name="${fileName}">Удалить</button>
+                <button class="action-button open" type="button" data-action="open-file" data-file-url="${publicUrl}" title="Открыть в новой вкладке">
+                    <i class="fa-solid fa-up-right-from-square"></i>
+                    Открыть
+                </button>
+                <button class="action-button copy" type="button" data-action="copy-link" data-file-url="${publicUrl}" title="Скопировать ссылку">
+                    <i class="fa-solid fa-copy"></i>
+                    Копия
+                </button>
+                <button class="action-button rename" type="button" data-action="rename-file" data-file-id="${fileId}" data-file-name="${fileName}" title="Переименовать файл">
+                    <i class="fa-solid fa-pen"></i>
+                </button>
+                <button class="action-button move" type="button" data-action="move-file" data-file-id="${fileId}" title="Переместить в другую папку">
+                    <i class="fa-solid fa-folder-open"></i>
+                </button>
+                <button class="action-button delete" type="button" data-action="delete-file" data-file-id="${fileId}" data-file-name="${fileName}" title="Удалить файл">
+                    <i class="fa-solid fa-trash-can"></i>
+                </button>
             </div>
         </article>
     `;
+}
+
+export function detectFileType(file) {
+    const original = file.original_name || '';
+    const ext = original.includes('.') ? original.split('.').pop().toLowerCase() : '';
+    const contentType = file.content_type || '';
+
+    const byExtension = {
+        html: { label: 'HTML', kind: 'code' },
+        htm: { label: 'HTML', kind: 'code' },
+        css: { label: 'CSS', kind: 'code' },
+        js: { label: 'JavaScript', kind: 'code' },
+        json: { label: 'JSON', kind: 'code' },
+        py: { label: 'Python', kind: 'code' },
+        png: { label: 'Изображение', kind: 'image' },
+        jpg: { label: 'Изображение', kind: 'image' },
+        jpeg: { label: 'Изображение', kind: 'image' },
+        gif: { label: 'Изображение', kind: 'image' },
+        webp: { label: 'Изображение', kind: 'image' },
+        svg: { label: 'SVG', kind: 'image' },
+        pdf: { label: 'PDF', kind: 'document' },
+        txt: { label: 'Текст', kind: 'document' },
+        md: { label: 'Markdown', kind: 'document' },
+        doc: { label: 'Word', kind: 'document' },
+        docx: { label: 'Word', kind: 'document' },
+        xls: { label: 'Excel', kind: 'document' },
+        xlsx: { label: 'Excel', kind: 'document' },
+        zip: { label: 'Архив', kind: 'archive' },
+        rar: { label: 'Архив', kind: 'archive' },
+        '7z': { label: 'Архив', kind: 'archive' },
+        mp4: { label: 'Видео', kind: 'media' },
+        mov: { label: 'Видео', kind: 'media' },
+        mp3: { label: 'Аудио', kind: 'media' },
+        wav: { label: 'Аудио', kind: 'media' }
+    };
+
+    if (ext && byExtension[ext]) return byExtension[ext];
+    if (contentType.startsWith('image/')) return { label: 'Изображение', kind: 'image' };
+    if (contentType.startsWith('text/html')) return { label: 'HTML', kind: 'code' };
+    if (contentType.startsWith('text/')) return { label: 'Текст', kind: 'document' };
+    if (contentType.includes('pdf')) return { label: 'PDF', kind: 'document' };
+    if (contentType.startsWith('audio/')) return { label: 'Аудио', kind: 'media' };
+    if (contentType.startsWith('video/')) return { label: 'Видео', kind: 'media' };
+
+    return { label: 'Файл', kind: 'file' };
 }
 
 export function renderEmptyFilesState(message = 'Пока нет файлов.') {
     return `
         <div class="file-empty">
             <strong>${escapeHTML(message)}</strong>
-            <span>Добавьте файлы через загрузчик слева или смените папку.</span>
+            <span>Добавьте файлы через загрузчик слева или смените папку</span>
         </div>
     `;
 }
@@ -231,17 +256,7 @@ export function renderBulkSummary(selectedCount, folderLabel = 'Корень') {
     return `
         <div class="bulk-summary">
             <strong>${selectedCount} ${label}</strong>
-            <span>Текущая папка: ${escapeHTML(folderLabel)}</span>
-        </div>
-    `;
-}
-
-export function renderDashboardValue(value, label, hint = '') {
-    return `
-        <div class="dashboard-card">
-            <span class="dashboard-label">${escapeHTML(label)}</span>
-            <strong class="dashboard-value">${escapeHTML(value)}</strong>
-            <small class="dashboard-hint">${escapeHTML(hint)}</small>
+            <span>Папка: ${escapeHTML(folderLabel)}</span>
         </div>
     `;
 }

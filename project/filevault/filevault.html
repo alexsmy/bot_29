@@ -9,45 +9,58 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/filepond@4.31.4/dist/filepond.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="/project/filevault/css/filevault.css">
 </head>
 <body>
     <main class="vault-shell">
         <header class="vault-header">
             <div class="vault-title-group">
-                <a class="back-link" href="/" aria-label="Вернуться на главную страницу">← Хаб проектов</a>
+                <a class="back-link" href="/" aria-label="Вернуться на главную страницу">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Хаб проектов</span>
+                </a>
                 <div class="title-copy">
-                    <p class="eyebrow">filevault • compact manager</p>
+                    <p class="eyebrow">filevault</p>
                     <h1>Файловое хранилище</h1>
-                    <p class="lead">Загрузка, папки, групповой выбор, переименование, перенос и удаление — в одном тихом и быстром интерфейсе без лишнего шума.</p>
                 </div>
             </div>
 
             <section class="dashboard-grid" aria-label="Дашборд хранилища">
                 <div class="dashboard-card">
-                    <span class="dashboard-label">Файлы</span>
-                    <strong id="dashboardFiles">0</strong>
-                    <small>всего в хранилище</small>
+                    <div class="dash-icon"><i class="fa-solid fa-file"></i></div>
+                    <div class="dash-content">
+                        <span class="dashboard-label">Файлы</span>
+                        <strong id="dashboardFiles">0</strong>
+                    </div>
                 </div>
                 <div class="dashboard-card">
-                    <span class="dashboard-label">Папки</span>
-                    <strong id="dashboardFolders">0</strong>
-                    <small>пользовательских</small>
+                    <div class="dash-icon"><i class="fa-solid fa-folder"></i></div>
+                    <div class="dash-content">
+                        <span class="dashboard-label">Папки</span>
+                        <strong id="dashboardFolders">0</strong>
+                    </div>
                 </div>
                 <div class="dashboard-card">
-                    <span class="dashboard-label">Занято</span>
-                    <strong id="dashboardUsed">0 Б</strong>
-                    <small>серверное пространство</small>
+                    <div class="dash-icon"><i class="fa-solid fa-database"></i></div>
+                    <div class="dash-content">
+                        <span class="dashboard-label">Занято</span>
+                        <strong id="dashboardUsed">0 Б</strong>
+                    </div>
                 </div>
                 <div class="dashboard-card">
-                    <span class="dashboard-label">Свободно</span>
-                    <strong id="dashboardFree">0 Б</strong>
-                    <small>диск сервера</small>
+                    <div class="dash-icon"><i class="fa-solid fa-drive"></i></div>
+                    <div class="dash-content">
+                        <span class="dashboard-label">Свободно</span>
+                        <strong id="dashboardFree">0 Б</strong>
+                    </div>
                 </div>
                 <div class="dashboard-card">
-                    <span class="dashboard-label">Всего</span>
-                    <strong id="dashboardTotal">0 Б</strong>
-                    <small>ёмкость диска</small>
+                    <div class="dash-icon"><i class="fa-solid fa-hard-drive"></i></div>
+                    <div class="dash-content">
+                        <span class="dashboard-label">Всего</span>
+                        <strong id="dashboardTotal">0 Б</strong>
+                    </div>
                 </div>
             </section>
         </header>
@@ -60,12 +73,17 @@
                             <p class="panel-kicker">Загрузка</p>
                             <h2>Добавить файлы</h2>
                         </div>
-                        <button class="ghost-button" id="clearUploadButton" type="button">Очистить</button>
+                        <button class="icon-button" id="clearUploadButton" type="button" title="Очистить">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
                     </div>
 
                     <form id="uploadForm" class="upload-form">
                         <input id="fileInput" name="files" type="file" multiple>
-                        <button class="primary-button" id="uploadButton" type="submit">Загрузить</button>
+                        <button class="primary-button" id="uploadButton" type="submit">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                            <span>Загрузить</span>
+                        </button>
                     </form>
 
                     <p class="inline-note" id="uploadFolderLabel">Корень хранилища</p>
@@ -78,17 +96,25 @@
                             <p class="panel-kicker">Папки</p>
                             <h2>Структура</h2>
                         </div>
-                        <button class="ghost-button" id="folderRefreshButton" type="button">Обновить</button>
+                        <button class="icon-button" id="folderRefreshButton" type="button" title="Обновить">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
                     </div>
 
                     <div class="folder-actions">
-                        <button class="ghost-button" id="createFolderButton" type="button">Создать</button>
-                        <button class="ghost-button" id="renameFolderButton" type="button">Переименовать</button>
-                        <button class="ghost-button" id="deleteFolderButton" type="button">Удалить</button>
+                        <button class="icon-button" id="createFolderButton" type="button" title="Создать папку">
+                            <i class="fa-solid fa-folder-plus"></i>
+                        </button>
+                        <button class="icon-button" id="renameFolderButton" type="button" title="Переименовать папку">
+                            <i class="fa-solid fa-pen"></i>
+                        </button>
+                        <button class="icon-button danger" id="deleteFolderButton" type="button" title="Удалить папку">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
                     </div>
 
                     <nav class="folder-tree" id="folderTree" aria-label="Дерево папок"></nav>
-                    <p class="tree-note">Удаление папки удаляет и все вложенные файлы. Переход по дереву не ломает текущую логику загрузки.</p>
+                    <p class="tree-note">Удаление папки удаляет и все вложенные файлы.</p>
                 </section>
             </aside>
 
@@ -97,15 +123,15 @@
                     <div class="toolbar-copy">
                         <p class="panel-kicker">Менеджер</p>
                         <h2>Файлы</h2>
-                        <p class="list-meta">Рабочая папка: <span id="currentFolderLabel">Корень хранилища</span></p>
+                        <p class="list-meta">Папка: <span id="currentFolderLabel">Корень хранилища</span></p>
                     </div>
 
                     <div class="toolbar-actions">
                         <label class="search-field">
-                            <span>⌕</span>
-                            <input id="searchInput" type="search" placeholder="Поиск по имени, типу, ссылке" autocomplete="off">
+                            <i class="fa-solid fa-magnifying-glass"></i>
+                            <input id="searchInput" type="search" placeholder="Поиск..." autocomplete="off">
                         </label>
-                        <select id="sortSelect" class="select-field" aria-label="Сортировка файлов">
+                        <select id="sortSelect" class="select-field" aria-label="Сортировка файлов" title="Сортировка">
                             <option value="date-desc">Сначала новые</option>
                             <option value="date-asc">Сначала старые</option>
                             <option value="name-asc">Имя A → Я</option>
@@ -113,17 +139,27 @@
                             <option value="size-desc">Размер ↓</option>
                             <option value="size-asc">Размер ↑</option>
                         </select>
-                        <button class="ghost-button" id="refreshButton" type="button">Обновить</button>
+                        <button class="icon-button" id="refreshButton" type="button" title="Обновить">
+                            <i class="fa-solid fa-rotate-right"></i>
+                        </button>
                     </div>
                 </div>
 
                 <div class="bulk-bar" id="bulkBar" hidden>
                     <div id="bulkSummary"></div>
                     <div class="bulk-actions">
-                        <button class="ghost-button" id="bulkSelectVisibleButton" type="button">Выбрать все</button>
-                        <button class="ghost-button" id="bulkMoveButton" type="button">Переместить</button>
-                        <button class="ghost-button danger" id="bulkDeleteButton" type="button">Удалить</button>
-                        <button class="ghost-button" id="bulkClearButton" type="button">Снять выбор</button>
+                        <button class="icon-button" id="bulkSelectVisibleButton" type="button" title="Выбрать все">
+                            <i class="fa-solid fa-check-double"></i>
+                        </button>
+                        <button class="icon-button" id="bulkMoveButton" type="button" title="Переместить">
+                            <i class="fa-solid fa-folder-open"></i>
+                        </button>
+                        <button class="icon-button danger" id="bulkDeleteButton" type="button" title="Удалить">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                        <button class="icon-button" id="bulkClearButton" type="button" title="Снять выделение">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
                     </div>
                 </div>
 
@@ -136,6 +172,11 @@
         </section>
     </main>
 
+    <div class="toast-notification" id="toastNotification" hidden>
+        <i class="fa-solid fa-check-circle"></i>
+        <span id="toastMessage">Скопировано</span>
+    </div>
+
     <dialog class="vault-dialog" id="actionDialog">
         <form class="dialog-card" id="actionDialogForm">
             <div class="dialog-head">
@@ -143,7 +184,9 @@
                     <p class="panel-kicker" id="actionDialogSubtitle"></p>
                     <h3 id="actionDialogTitle"></h3>
                 </div>
-                <button class="dialog-close" type="button" id="actionDialogClose" aria-label="Закрыть окно">×</button>
+                <button class="dialog-close" type="button" id="actionDialogClose" aria-label="Закрыть окно">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
             </div>
             <div class="dialog-body" id="actionDialogBody"></div>
             <div class="dialog-actions">
