@@ -1,0 +1,234 @@
+/* project/filevault/css/layout.css */
+.vault-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.9rem;
+  align-items: start;
+  margin-bottom: 1rem;
+}
+
+.vault-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.vault-title-group h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2vw, 2.15rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: fit-content;
+  padding: 0.6rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid var(--vault-border);
+  background: rgba(15, 23, 42, 0.55);
+  color: var(--vault-text-soft);
+  text-decoration: none;
+  font-size: 0.88rem;
+  transition:
+    transform var(--vault-fast),
+    border-color var(--vault-fast),
+    color var(--vault-fast),
+    background var(--vault-fast);
+}
+
+.back-link:hover {
+  transform: translateY(-1px);
+  border-color: var(--vault-border-accent);
+  color: #fff;
+  background: rgba(17, 24, 39, 0.72);
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.dashboard-card {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 18px;
+  border: 1px solid var(--vault-border);
+  background:
+    linear-gradient(180deg, rgba(19, 29, 46, 0.94), rgba(13, 20, 35, 0.80));
+  box-shadow: var(--vault-shadow-soft);
+}
+
+.dashboard-card > span:last-child,
+.dashboard-card > #dashboardFiles,
+.dashboard-card > #dashboardFolders,
+.dashboard-card > #dashboardUsed,
+.dashboard-card > #dashboardFree,
+.dashboard-card > #dashboardTotal {
+  margin-left: auto;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.dashboard-label {
+  color: var(--vault-text-soft);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.manager-layout {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.sidebar-panel,
+.explorer-panel {
+  position: relative;
+  border-radius: var(--vault-radius-xl);
+  border: 1px solid var(--vault-border);
+  background:
+    linear-gradient(180deg, rgba(19, 29, 46, 0.90), rgba(11, 16, 32, 0.78));
+  box-shadow: var(--vault-shadow);
+  overflow: hidden;
+}
+
+.sidebar-panel::before,
+.explorer-panel::before,
+.details-panel::before,
+.vault-dialog::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px rgba(91, 156, 255, 0.04);
+}
+
+.panel {
+  position: relative;
+  padding: 1rem;
+}
+
+.panel + .panel {
+  border-top: 1px solid rgba(148, 163, 184, 0.10);
+}
+
+.panel-heading,
+.explorer-toolbar,
+.bulk-bar,
+.dialog-head,
+.dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-heading,
+.explorer-toolbar {
+  flex-wrap: wrap;
+}
+
+.panel-heading {
+  margin-bottom: 1rem;
+}
+
+.panel-kicker,
+.list-meta,
+.inline-note,
+.message-box {
+  font-size: 0.82rem;
+  color: var(--vault-text-soft);
+}
+
+.panel-kicker {
+  margin: 0 0 0.2rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 1.03rem;
+}
+
+.explorer-panel {
+  padding: 1rem;
+}
+
+.explorer-toolbar {
+  margin-bottom: 0.95rem;
+  padding: 0.15rem 0.15rem 0.3rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.bulk-bar {
+  margin-bottom: 0.95rem;
+  padding: 0.85rem 1rem;
+  border-radius: 20px;
+  border: 1px solid rgba(91, 156, 255, 0.18);
+  background: linear-gradient(180deg, rgba(19, 29, 46, 0.92), rgba(13, 20, 35, 0.80));
+  flex-wrap: wrap;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.72fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.files-list {
+  min-width: 0;
+  display: block;
+}
+
+.details-panel {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem;
+  border-radius: var(--vault-radius-xl);
+  border: 1px solid var(--vault-border);
+  background:
+    linear-gradient(180deg, rgba(19, 29, 46, 0.88), rgba(13, 20, 35, 0.78));
+  box-shadow: var(--vault-shadow-soft);
+}
+
+.details-empty,
+.file-empty {
+  border-radius: 20px;
+  border: 1px dashed rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.32);
+  color: var(--vault-text-soft);
+  text-align: center;
+  padding: 1.4rem 1rem;
+}

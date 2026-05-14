@@ -79,7 +79,7 @@ export function renderFileCard(file, selected) {
       <div class="file-title" title="${escapeHTML(file.original_name)}">${escapeHTML(file.original_name)}</div>
       <div class="file-size">${formatBytes(file.size_bytes)}</div>
       <div class="file-date">${formatDateTime(file.uploaded_at)}</div>
-      ${isCrpt ? `<button class="action-button delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}" style="margin-top:0.5rem;">Удалить</button>` : ''}
+      ${isCrpt ? `<button type="button" class="action-button delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}
     </div>
   `;
 }
@@ -93,7 +93,7 @@ export function renderFileTableRow(file, selected) {
       <div class="file-title">${type.icon} ${escapeHTML(file.original_name)}</div>
       <div class="file-size">${formatBytes(file.size_bytes)}</div>
       <div class="file-date">${formatDateTime(file.uploaded_at)}</div>
-      <div class="file-actions">${isCrpt ? `<button class="delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}</div>
+      <div class="file-actions">${isCrpt ? `<button type="button" class="action-button delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}</div>
     </div>
   `;
 }
@@ -106,7 +106,7 @@ export function renderFileListItem(file, selected) {
       <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
       <span class="file-icon">${type.icon}</span>
       <span class="file-title">${escapeHTML(file.original_name)}</span>
-      ${isCrpt ? `<button class="delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}
+      ${isCrpt ? `<button type="button" class="action-button delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}
     </div>
   `;
 }
