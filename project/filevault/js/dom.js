@@ -1,252 +1,137 @@
 export function escapeHTML(value) {
-    return String(value ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#39;');
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 export function formatBytes(bytes) {
-    const value = Number(bytes) || 0;
-    if (value < 1024) return `${value} Б`;
-
-    const units = ['КБ', 'МБ', 'ГБ', 'ТБ', 'ПБ'];
-    let size = value / 1024;
-    let unitIndex = 0;
-
-    while (size >= 1024 && unitIndex < units.length - 1) {
-        size /= 1024;
-        unitIndex += 1;
-    }
-
-    const precision = size >= 10 ? 0 : 1;
-    return `${size.toFixed(precision)} ${units[unitIndex]}`;
+  if (!+bytes) return '0 Б';
+  const k = 1024;
+  const sizes = ['Б', 'КБ', 'МБ', 'ГБ'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`;
 }
 
 export function formatDateTime(value) {
-    if (!value) return '—';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return '—';
-
-    return new Intl.DateTimeFormat('ru-RU', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-    }).format(date);
+  if (!value) return '—';
+  const d = new Date(value);
+  return isNaN(d) ? '—' : d.toLocaleString();
 }
 
 export function detectFileType(file) {
-    const original = file.original_name || '';
-    const ext = original.includes('.') ? original.split('.').pop().toLowerCase() : '';
-    const contentType = file.content_type || '';
-
-    const byExtension = {
-        html: { label: 'HTML', icon: '🌐', kind: 'code' },
-        htm: { label: 'HTML', icon: '🌐', kind: 'code' },
-        css: { label: 'CSS', icon: '🎨', kind: 'code' },
-        js: { label: 'JavaScript', icon: '⚙️', kind: 'code' },
-        json: { label: 'JSON', icon: '🧩', kind: 'code' },
-        py: { label: 'Python', icon: '🐍', kind: 'code' },
-        png: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        jpg: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        jpeg: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        gif: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        webp: { label: 'Изображение', icon: '🖼️', kind: 'image' },
-        svg: { label: 'SVG', icon: '🖼️', kind: 'image' },
-        pdf: { label: 'PDF', icon: '📕', kind: 'document' },
-        txt: { label: 'Текст', icon: '📝', kind: 'document' },
-        md: { label: 'Markdown', icon: '📝', kind: 'document' },
-        doc: { label: 'Word', icon: '📘', kind: 'document' },
-        docx: { label: 'Word', icon: '📘', kind: 'document' },
-        xls: { label: 'Excel', icon: '📗', kind: 'document' },
-        xlsx: { label: 'Excel', icon: '📗', kind: 'document' },
-        zip: { label: 'Архив', icon: '🗜️', kind: 'archive' },
-        rar: { label: 'Архив', icon: '🗜️', kind: 'archive' },
-        '7z': { label: 'Архив', icon: '🗜️', kind: 'archive' },
-        mp4: { label: 'Видео', icon: '🎬', kind: 'media' },
-        mov: { label: 'Видео', icon: '🎬', kind: 'media' },
-        mp3: { label: 'Аудио', icon: '🎧', kind: 'media' },
-        wav: { label: 'Аудио', icon: '🎧', kind: 'media' }
-    };
-
-    if (ext && byExtension[ext]) return byExtension[ext];
-    if (contentType.startsWith('image/')) return { label: 'Изображение', icon: '🖼️', kind: 'image' };
-    if (contentType.startsWith('text/html')) return { label: 'HTML', icon: '🌐', kind: 'code' };
-    if (contentType.startsWith('text/')) return { label: 'Текст', icon: '📝', kind: 'document' };
-    if (contentType.includes('pdf')) return { label: 'PDF', icon: '📕', kind: 'document' };
-    if (contentType.startsWith('audio/')) return { label: 'Аудио', icon: '🎧', kind: 'media' };
-    if (contentType.startsWith('video/')) return { label: 'Видео', icon: '🎬', kind: 'media' };
-
-    return { label: 'Файл', icon: '📄', kind: 'file' };
+  const ext = (file.original_name || '').split('.').pop().toLowerCase();
+  const map = {
+    html: '🌐', htm: '🌐', css: '🎨', js: '⚙️', py: '🐍', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', pdf: '📕', txt: '📝', md: '📝', zip: '🗜️', mp3: '🎧', mp4: '🎬'
+  };
+  return { icon: map[ext] || '📄', label: ext.toUpperCase() || 'Файл' };
 }
 
 function renderFolderBranch(node, activeFolderId) {
-    const children = Array.isArray(node.children) ? node.children : [];
-    const isActive = (node.folder_id ?? null) === (activeFolderId ?? null);
-    const level = Number(node.level) || 0;
-    const folderId = node.folder_id ? escapeHTML(node.folder_id) : '';
-    const name = escapeHTML(node.name || 'Папка');
-    const path = escapeHTML(node.path || node.name || 'Корень');
-    const count = Number(node.file_count) || 0;
-    const size = formatBytes(node.size_bytes);
-
-    return `
-        <div class="folder-branch level-${level}">
-            <button class="folder-node${isActive ? ' active' : ''}" type="button" data-action="select-folder" data-folder-id="${folderId}" aria-label="Открыть папку ${path}">
-                <span class="folder-dot" aria-hidden="true"></span>
-                <span class="folder-name" title="${path}">${name}</span>
-                <span class="folder-badge">${count}</span>
-                <span class="folder-size" title="Занято">${escapeHTML(size)}</span>
-            </button>
-            ${children.length ? children.map((child) => renderFolderBranch(child, activeFolderId)).join('') : ''}
-        </div>
-    `;
+  const children = node.children || [];
+  const isActive = (node.folder_id ?? null) === (activeFolderId ?? null);
+  return `
+    <div class="folder-branch level-${node.level||0}">
+      <button class="folder-node${isActive ? ' active' : ''}" data-action="select-folder" data-folder-id="${escapeHTML(node.folder_id??'')}">
+        <span class="folder-dot"></span>
+        <span class="folder-name">${escapeHTML(node.name)}</span>
+        <span class="folder-badge">${node.file_count||0}</span>
+        <span class="folder-size">${formatBytes(node.size_bytes)}</span>
+      </button>
+      ${children.map(c => renderFolderBranch(c, activeFolderId)).join('')}
+    </div>
+  `;
 }
 
-export function renderFolderTree(tree, activeFolderId = null, rootCount = null) {
-    const rootActive = activeFolderId === null || activeFolderId === '' || typeof activeFolderId === 'undefined';
-    const rootBadge = rootCount === null || typeof rootCount === 'undefined'
-        ? (Array.isArray(tree) ? tree.reduce((sum, node) => sum + (Number(node.file_count) || 0), 0) : 0)
-        : Number(rootCount) || 0;
-
-    return `
-        <div class="folder-branch root">
-            <button class="folder-node${rootActive ? ' active' : ''}" type="button" data-action="select-folder" data-folder-id="" aria-label="Открыть корень хранилища">
-                <span class="folder-dot" aria-hidden="true"></span>
-                <span class="folder-name">Корень хранилища</span>
-                <span class="folder-badge">${rootBadge}</span>
-                <span class="folder-size">—</span>
-            </button>
-            ${Array.isArray(tree) ? tree.map((node) => renderFolderBranch(node, activeFolderId)).join('') : ''}
-        </div>
-    `;
+export function renderFolderTree(tree, activeFolderId, rootCount) {
+  return `
+    <div class="folder-branch root">
+      <button class="folder-node${activeFolderId === null ? ' active' : ''}" data-action="select-folder" data-folder-id="">
+        <span class="folder-dot"></span><span>Корень</span><span class="folder-badge">${rootCount||0}</span>
+      </button>
+      ${tree.filter(n => n.parent_id === null).map(n => renderFolderBranch(n, activeFolderId)).join('')}
+    </div>
+  `;
 }
 
-export function renderFolderOptions(tree, activeFolderId = null, excludeFolderId = null, depth = 0) {
-    const indent = depth ? `${'— '.repeat(depth)}` : '';
-    const exclude = excludeFolderId ?? null;
-    const active = activeFolderId ?? null;
-
-    const renderNode = (node, level = 0) => {
-        const folderId = node.folder_id ?? null;
-        const isExcluded = folderId && exclude && folderId === exclude;
-        if (isExcluded) return '';
-
-        const selected = folderId === active ? ' selected' : '';
-        const label = `${'— '.repeat(level)}${node.name || 'Папка'}`;
-        const options = [
-            `<option value="${folderId ? escapeHTML(folderId) : ''}"${selected}>${escapeHTML(label || 'Корень')}</option>`
-        ];
-
-        const children = Array.isArray(node.children) ? node.children : [];
-        for (const child of children) {
-            options.push(renderNode(child, level + 1));
-        }
-        return options.join('');
-    };
-
-    const rootOption = `<option value=""${active === null ? ' selected' : ''}>Корень хранилища</option>`;
-    const nodes = Array.isArray(tree) ? tree.map((node) => renderNode(node, 1)).join('') : '';
-    return rootOption + nodes;
+export function renderFolderOptions(tree, selectedId) {
+  const opts = ['<option value="">Корень</option>'];
+  const walk = (nodes, depth=0) => {
+    nodes.forEach(n => {
+      opts.push(`<option value="${escapeHTML(n.folder_id)}" ${selectedId===n.folder_id?'selected':''}>${'—'.repeat(depth)} ${escapeHTML(n.name)}</option>`);
+      if (n.children) walk(n.children, depth+1);
+    });
+  };
+  walk(tree.filter(n => n.parent_id === null));
+  return opts.join('');
 }
 
-export function renderFileCard(file, isSelected = false) {
-    const fileId = escapeHTML(file.file_id);
-    const fileName = escapeHTML(file.original_name || file.file_id);
-    const checked = isSelected ? ' checked' : '';
+export function renderFileCard(file, selected) {
+  const type = detectFileType(file);
+  return `
+    <div class="file-card ${selected ? 'selected' : ''}" data-file-id="${escapeHTML(file.file_id)}">
+      <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
+      <div class="file-icon">${type.icon}</div>
+      <div class="file-title" title="${escapeHTML(file.original_name)}">${escapeHTML(file.original_name)}</div>
+      <div class="file-size">${formatBytes(file.size_bytes)}</div>
+      <div class="file-date">${formatDateTime(file.uploaded_at)}</div>
+    </div>
+  `;
+}
 
-    return `
-        <article class="file-card${isSelected ? ' selected' : ''}" tabindex="0" data-action="select-file" data-file-id="${fileId}" aria-label="Файл ${fileName}">
-            <label class="file-check" aria-label="Выбрать файл ${fileName}">
-                <input type="checkbox" data-action="toggle-file" data-file-id="${fileId}"${checked}>
-                <span></span>
-            </label>
-            <div class="file-card-main">
-                <h3 class="file-title" title="${fileName}">${fileName}</h3>
-            </div>
-        </article>
-    `;
+export function renderFileTableRow(file, selected) {
+  const type = detectFileType(file);
+  return `
+    <div class="file-card ${selected ? 'selected' : ''}" data-file-id="${escapeHTML(file.file_id)}">
+      <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
+      <div class="file-title">${type.icon} ${escapeHTML(file.original_name)}</div>
+      <div class="file-size">${formatBytes(file.size_bytes)}</div>
+      <div class="file-date">${formatDateTime(file.uploaded_at)}</div>
+      <div class="file-actions"></div>
+    </div>
+  `;
+}
+
+export function renderFileListItem(file, selected) {
+  return `
+    <div class="file-card ${selected ? 'selected' : ''}" data-file-id="${escapeHTML(file.file_id)}">
+      <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
+      <span class="file-icon">${detectFileType(file).icon}</span>
+      <span class="file-title">${escapeHTML(file.original_name)}</span>
+    </div>
+  `;
 }
 
 export function renderSelectedDetails(file) {
-    if (!file) {
-        return `
-            <div class="details-empty">
-                <div class="details-icon" aria-hidden="true">📄</div>
-                <h3>Ничего не выбрано</h3>
-                <p>Клик по карточке открывает компактные действия: открыть, копировать, переименовать, переместить или удалить.</p>
-            </div>
-        `;
-    }
-
-    const type = detectFileType(file);
-    const fileId = escapeHTML(file.file_id);
-    const fileName = escapeHTML(file.original_name || file.file_id);
-    const publicUrl = escapeHTML(file.public_url);
-    const contentType = escapeHTML(file.content_type || 'application/octet-stream');
-    const folderPath = escapeHTML(file.folder_path || 'Корень');
-
-    return `
-        <article class="selected-file-card">
-            <div class="selected-file-head">
-                <div class="details-icon ${escapeHTML(type.kind)}" aria-hidden="true">${escapeHTML(type.icon)}</div>
-                <div class="selected-file-title">
-                    <p class="panel-kicker">Выбранный файл</p>
-                    <h3 title="${fileName}">${fileName}</h3>
-                </div>
-            </div>
-
-            <dl class="details-list">
-                <div><dt>Тип</dt><dd>${escapeHTML(type.label)}</dd></div>
-                <div><dt>Размер</dt><dd>${formatBytes(file.size_bytes)}</dd></div>
-                <div><dt>Путь</dt><dd title="${folderPath}">${folderPath}</dd></div>
-                <div><dt>Загружен</dt><dd>${formatDateTime(file.uploaded_at)}</dd></div>
-                <div><dt>MIME</dt><dd title="${contentType}">${contentType}</dd></div>
-            </dl>
-
-            <a class="direct-link" href="${publicUrl}" target="_blank" rel="noopener noreferrer" title="${publicUrl}">${publicUrl}</a>
-
-            <div class="details-actions">
-                <button class="action-button open" type="button" data-action="open-file" data-file-url="${publicUrl}">Открыть</button>
-                <button class="action-button copy" type="button" data-action="copy-link" data-file-url="${publicUrl}">Копировать</button>
-                <button class="action-button rename" type="button" data-action="rename-file" data-file-id="${fileId}" data-file-name="${fileName}">Переименовать</button>
-                <button class="action-button move" type="button" data-action="move-file" data-file-id="${fileId}">Переместить</button>
-                <button class="action-button delete" type="button" data-action="delete-file" data-file-id="${fileId}" data-file-name="${fileName}">Удалить</button>
-            </div>
-        </article>
-    `;
+  const type = detectFileType(file);
+  return `
+    <div class="selected-file-card">
+      <div class="selected-file-head">
+        <div class="details-icon">${type.icon}</div>
+        <div><h3>${escapeHTML(file.original_name)}</h3></div>
+      </div>
+      <dl class="details-list">
+        <div><dt>Размер</dt><dd>${formatBytes(file.size_bytes)}</dd></div>
+        <div><dt>Загружен</dt><dd>${formatDateTime(file.uploaded_at)}</dd></div>
+        <div><dt>Тип</dt><dd>${type.label}</dd></div>
+      </dl>
+      <div class="details-actions">
+        <button class="action-button" data-action="open-file">Открыть</button>
+        <button class="action-button" data-action="copy-link">Копировать ссылку</button>
+        <button class="action-button" data-action="rename-file">Переименовать</button>
+        <button class="action-button" data-action="move-file">Переместить</button>
+        <button class="action-button danger" data-action="delete-file">Удалить</button>
+      </div>
+    </div>
+  `;
 }
 
-export function renderEmptyFilesState(message = 'Пока нет файлов.') {
-    return `
-        <div class="file-empty">
-            <strong>${escapeHTML(message)}</strong>
-            <span>Добавьте файлы через загрузчик слева или смените папку.</span>
-        </div>
-    `;
+export function renderEmptyFilesState(message) {
+  return `<div class="file-empty">${escapeHTML(message)}</div>`;
 }
 
-export function renderBulkSummary(selectedCount, folderLabel = 'Корень') {
-    const label = selectedCount === 1 ? 'файл выбран' : 'файлов выбрано';
-    return `
-        <div class="bulk-summary">
-            <strong>${selectedCount} ${label}</strong>
-            <span>Текущая папка: ${escapeHTML(folderLabel)}</span>
-        </div>
-    `;
-}
-
-export function renderDashboardValue(value, label, hint = '') {
-    return `
-        <div class="dashboard-card">
-            <span class="dashboard-label">${escapeHTML(label)}</span>
-            <strong class="dashboard-value">${escapeHTML(value)}</strong>
-            <small class="dashboard-hint">${escapeHTML(hint)}</small>
-        </div>
-    `;
-}
-
-export function toFolderSelectLabel(folder) {
-    const path = folder.path || folder.name || 'Папка';
-    return path === 'Корень' ? 'Корень' : path.replace(/^Корень\s*\/\s*/, '');
+export function renderBulkSummary(selectedCount, folderLabel) {
+  return `<strong>${selectedCount} файлов выбрано</strong><span>Папка: ${escapeHTML(folderLabel)}</span>`;
 }

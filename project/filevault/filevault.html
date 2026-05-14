@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FileVault</title>
-    <meta name="description" content="Компактный файловый менеджер для загрузки, папок, переименования, переноса и удаления файлов.">
+    <title>FileVault — Облачный диск</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -12,148 +11,63 @@
     <link rel="stylesheet" href="/project/filevault/css/filevault.css">
 </head>
 <body>
-    <main class="vault-shell">
-        <header class="vault-header">
-            <div class="vault-title-group">
-                <a class="back-link" href="/" aria-label="Вернуться на главную страницу">← Хаб проектов</a>
-                <div class="title-copy">
-                    <p class="eyebrow">filevault • compact manager</p>
-                    <h1>Файловое хранилище</h1>
-                    <p class="lead">Загрузка, папки, групповой выбор, переименование, перенос и удаление — в одном тихом и быстром интерфейсе без лишнего шума.</p>
+<main class="vault-shell">
+    <header class="vault-header">
+        <div class="vault-title-group">
+            <a class="back-link" href="/">← Хаб проектов</a>
+            <div><h1>Файловое хранилище</h1></div>
+        </div>
+        <div class="dashboard-grid" id="dashboardGrid">
+            <div class="dashboard-card"><span class="dashboard-label">Файлы</span><span id="dashboardFiles">0</span></div>
+            <div class="dashboard-card"><span class="dashboard-label">Папки</span><span id="dashboardFolders">0</span></div>
+            <div class="dashboard-card"><span class="dashboard-label">Занято</span><span id="dashboardUsed">0</span></div>
+            <div class="dashboard-card"><span class="dashboard-label">Свободно</span><span id="dashboardFree">0</span></div>
+            <div class="dashboard-card"><span class="dashboard-label">Всего</span><span id="dashboardTotal">0</span></div>
+        </div>
+    </header>
+
+    <div class="manager-layout">
+        <aside class="sidebar-panel">
+            <div class="panel">
+                <div class="panel-heading"><div><p class="panel-kicker">Загрузка</p><h2>Добавить файлы</h2></div><button class="ghost-button" id="clearUploadButton">Очистить</button></div>
+                <form id="uploadForm" class="upload-form"><input id="fileInput" type="file" multiple><button class="primary-button" id="uploadButton">Загрузить</button></form>
+                <div id="uploadProgressContainer" hidden></div>
+                <p class="inline-note" id="uploadFolderLabel">Корень</p>
+                <div id="messageBox" class="message-box" hidden></div>
+            </div>
+            <div class="panel">
+                <div class="panel-heading"><div><p class="panel-kicker">Папки</p><h2>Структура</h2></div><button class="ghost-button" id="folderRefreshButton">Обновить</button></div>
+                <div class="folder-actions"><button class="ghost-button" id="createFolderButton">Создать</button><button class="ghost-button" id="renameFolderButton">Переименовать</button><button class="ghost-button" id="deleteFolderButton">Удалить</button></div>
+                <nav class="folder-tree" id="folderTree"></nav>
+            </div>
+        </aside>
+
+        <section class="explorer-panel">
+            <div class="explorer-toolbar">
+                <div><p class="panel-kicker">Менеджер</p><h2>Файлы</h2><p class="list-meta">Папка: <span id="currentFolderLabel">Корень</span></p></div>
+                <div class="toolbar-actions">
+                    <label class="search-field"><span>🔍</span><input id="searchInput" type="search" placeholder="Поиск"></label>
+                    <select id="sortSelect" class="select-field"><option value="date-desc">Новые</option><option value="date-asc">Старые</option><option value="name-asc">Имя А→Я</option><option value="name-desc">Имя Я→А</option><option value="size-desc">Размер ↓</option><option value="size-asc">Размер ↑</option></select>
+                    <button class="ghost-button" id="refreshButton">Обновить</button>
                 </div>
             </div>
 
-            <section class="dashboard-grid" aria-label="Дашборд хранилища">
-                <div class="dashboard-card">
-                    <span class="dashboard-label">Файлы</span>
-                    <strong id="dashboardFiles">0</strong>
-                    <small>всего в хранилище</small>
-                </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-label">Папки</span>
-                    <strong id="dashboardFolders">0</strong>
-                    <small>пользовательских</small>
-                </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-label">Занято</span>
-                    <strong id="dashboardUsed">0 Б</strong>
-                    <small>серверное пространство</small>
-                </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-label">Свободно</span>
-                    <strong id="dashboardFree">0 Б</strong>
-                    <small>диск сервера</small>
-                </div>
-                <div class="dashboard-card">
-                    <span class="dashboard-label">Всего</span>
-                    <strong id="dashboardTotal">0 Б</strong>
-                    <small>ёмкость диска</small>
-                </div>
-            </section>
-        </header>
+            <div class="bulk-bar" id="bulkBar" hidden>
+                <div id="bulkSummary"></div>
+                <div class="bulk-actions"><button class="ghost-button" id="bulkMoveButton">Переместить</button><button class="ghost-button danger" id="bulkDeleteButton">Удалить</button><button class="ghost-button" id="bulkClearButton">Снять выделение</button></div>
+            </div>
 
-        <section class="manager-layout">
-            <aside class="sidebar-panel" aria-label="Загрузка и папки">
-                <section class="panel panel-tight">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="panel-kicker">Загрузка</p>
-                            <h2>Добавить файлы</h2>
-                        </div>
-                        <button class="ghost-button" id="clearUploadButton" type="button">Очистить</button>
-                    </div>
-
-                    <form id="uploadForm" class="upload-form">
-                        <input id="fileInput" name="files" type="file" multiple>
-                        <button class="primary-button" id="uploadButton" type="submit">Загрузить</button>
-                    </form>
-
-                    <p class="inline-note" id="uploadFolderLabel">Корень хранилища</p>
-                    <div class="message-box" id="messageBox" hidden></div>
-                </section>
-
-                <section class="panel panel-tight">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="panel-kicker">Папки</p>
-                            <h2>Структура</h2>
-                        </div>
-                        <button class="ghost-button" id="folderRefreshButton" type="button">Обновить</button>
-                    </div>
-
-                    <div class="folder-actions">
-                        <button class="ghost-button" id="createFolderButton" type="button">Создать</button>
-                        <button class="ghost-button" id="renameFolderButton" type="button">Переименовать</button>
-                        <button class="ghost-button" id="deleteFolderButton" type="button">Удалить</button>
-                    </div>
-
-                    <nav class="folder-tree" id="folderTree" aria-label="Дерево папок"></nav>
-                    <p class="tree-note">Удаление папки удаляет и все вложенные файлы. Переход по дереву не ломает текущую логику загрузки.</p>
-                </section>
-            </aside>
-
-            <section class="panel explorer-panel" aria-label="Файловый менеджер">
-                <div class="explorer-toolbar">
-                    <div class="toolbar-copy">
-                        <p class="panel-kicker">Менеджер</p>
-                        <h2>Файлы</h2>
-                        <p class="list-meta">Рабочая папка: <span id="currentFolderLabel">Корень хранилища</span></p>
-                    </div>
-
-                    <div class="toolbar-actions">
-                        <label class="search-field">
-                            <span>⌕</span>
-                            <input id="searchInput" type="search" placeholder="Поиск по имени, типу, ссылке" autocomplete="off">
-                        </label>
-                        <select id="sortSelect" class="select-field" aria-label="Сортировка файлов">
-                            <option value="date-desc">Сначала новые</option>
-                            <option value="date-asc">Сначала старые</option>
-                            <option value="name-asc">Имя A → Я</option>
-                            <option value="name-desc">Имя Я → A</option>
-                            <option value="size-desc">Размер ↓</option>
-                            <option value="size-asc">Размер ↑</option>
-                        </select>
-                        <button class="ghost-button" id="refreshButton" type="button">Обновить</button>
-                    </div>
-                </div>
-
-                <div class="bulk-bar" id="bulkBar" hidden>
-                    <div id="bulkSummary"></div>
-                    <div class="bulk-actions">
-                        <button class="ghost-button" id="bulkSelectVisibleButton" type="button">Выбрать все</button>
-                        <button class="ghost-button" id="bulkMoveButton" type="button">Переместить</button>
-                        <button class="ghost-button danger" id="bulkDeleteButton" type="button">Удалить</button>
-                        <button class="ghost-button" id="bulkClearButton" type="button">Снять выбор</button>
-                    </div>
-                </div>
-
-                <div class="content-grid">
-                    <div id="filesList" class="files-list" aria-live="polite"></div>
-
-                    <aside class="details-panel" id="detailsPanel" aria-label="Действия с выбранным файлом"></aside>
-                </div>
-            </section>
+            <div class="content-grid">
+                <div id="filesList" class="files-list"></div>
+                <aside class="details-panel" id="detailsPanel"></aside>
+            </div>
         </section>
-    </main>
+    </div>
+</main>
 
-    <dialog class="vault-dialog" id="actionDialog">
-        <form class="dialog-card" id="actionDialogForm">
-            <div class="dialog-head">
-                <div>
-                    <p class="panel-kicker" id="actionDialogSubtitle"></p>
-                    <h3 id="actionDialogTitle"></h3>
-                </div>
-                <button class="dialog-close" type="button" id="actionDialogClose" aria-label="Закрыть окно">×</button>
-            </div>
-            <div class="dialog-body" id="actionDialogBody"></div>
-            <div class="dialog-actions">
-                <button class="ghost-button" type="button" id="actionDialogCancelButton">Отмена</button>
-                <button class="primary-button" type="submit" id="actionDialogConfirm">Сохранить</button>
-            </div>
-        </form>
-    </dialog>
+<dialog class="vault-dialog" id="actionDialog"><form class="dialog-card" id="actionDialogForm"><div class="dialog-head"><div><p id="actionDialogSubtitle"></p><h3 id="actionDialogTitle"></h3></div><button class="dialog-close" type="button" id="actionDialogClose">×</button></div><div id="actionDialogBody"></div><div class="dialog-actions"><button class="ghost-button" type="button" id="actionDialogCancelButton">Отмена</button><button class="primary-button" type="submit" id="actionDialogConfirm">Сохранить</button></div></form></dialog>
 
-    <script src="https://cdn.jsdelivr.net/npm/filepond@4.31.4/dist/filepond.min.js"></script>
-    <script type="module" src="/project/filevault/js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/filepond@4.31.4/dist/filepond.min.js"></script>
+<script type="module" src="/project/filevault/js/app.js"></script>
 </body>
 </html>

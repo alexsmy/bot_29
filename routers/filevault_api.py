@@ -8,6 +8,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 from uuid import uuid4
+from pathlib import Path
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import FileResponse, JSONResponse
 
 from fastapi import APIRouter, Body, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse
@@ -738,3 +741,30 @@ async def open_file(file_id: str):
         filename=original_name,
         headers={"Content-Disposition": f"inline; filename*=UTF-8''{inline_name}"},
     )
+
+CRPT_UPLOAD_DIR = Path("data/crpt_uploads")
+
+@router.get("/crpt/files")
+async def list_crpt_files():
+    """Возвращает список файлов из облака CRPT"""
+    if not CRPT_UPLOAD_DIR.exists():
+        return JSONResponse({"files": []})
+    files = []
+    for file_path in CRPT_UPLOAD_DIR.glob("*.crpt"):
+        file_id = file_path.stem
+        stat = file_path.stat()
+        files.append({
+            "id": file_id,
+            "size": stat.st_size,
+            "uploaded_at": stat.st_mtime,
+            "original_name": f"{file_id}.crpt"
+        })
+    return JSONResponse({"files": files})
+
+@router.get("/crpt/open/{file_id}")
+async def open_crpt_file(file_id: str):
+    """Открывает файл из CRPT хранилища"""
+    file_path = CRPT_UPLOAD_DIR / f"{file_id}.crpt"
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(path=file_path, media_type="application/octet-stream", filename=f"{file_id}.crpt")
