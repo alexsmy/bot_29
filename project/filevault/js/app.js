@@ -1,3 +1,4 @@
+// project/filevault/js/app.js
 import {
   createFolder,
   deleteFiles,
@@ -9,7 +10,8 @@ import {
   moveFiles,
   renameFolder,
   updateFile,
-  uploadFiles
+  uploadFiles,
+  deleteCrptFile
 } from './api.js';
 import {
   escapeHTML,
@@ -19,7 +21,6 @@ import {
   renderFileCard,
   renderFileTableRow,
   renderFileListItem,
-  renderFolderOptions,
   renderFolderTree,
   renderSelectedDetails
 } from './dom.js';
@@ -35,11 +36,11 @@ const state = {
   selectedFileIds: new Set(),
   query: '',
   sort: 'date-desc',
-  viewMode: 'grid', // 'grid', 'list', 'table'
+  viewMode: 'grid',
   pond: null,
   busy: false,
   dialogAction: null,
-  crptFiles: [], // виртуальные файлы из CRPT
+  crptFiles: [],
 };
 
 const elements = {};
@@ -135,7 +136,7 @@ function getVisibleFiles() {
   const folderId = normalizeFolderId(state.currentFolderId);
 
   let filtered = state.files.filter(file => normalizeFolderId(file.folder_id) === folderId);
-  // добавим виртуальные файлы CRPT, если мы в корне или в специальной папке "CRPT Cloud"
+
   if (folderId === '__crpt__') {
     filtered = state.crptFiles.map(f => ({ ...f, isCrpt: true, file_id: `crpt_${f.id}`, original_name: f.id + '.crpt', size_bytes: f.size || 0, uploaded_at: f.uploaded_at, public_url: `/api/filevault/crpt/open/${f.id}` }));
   }
@@ -188,7 +189,6 @@ function updateDashboard() {
 
 function renderFolders() {
   const tree = state.folders;
-  // добавим виртуальную папку CRPT
   const crptVirtual = { folder_id: '__crpt__', name: 'CRPT Cloud', parent_id: null, level: 0, path: 'CRPT Cloud', file_count: state.crptFiles.length, size_bytes: 0, has_children: false, children: [] };
   const fullTree = [crptVirtual, ...tree];
   elements.folderTree.innerHTML = renderFolderTree(fullTree, state.currentFolderId, state.dashboard?.root_files_count ?? 0);
@@ -217,17 +217,20 @@ function renderDetails() {
     return;
   }
   elements.detailsPanel.innerHTML = renderSelectedDetails(file);
-  // привязываем события к кнопкам в деталях
+
   const openBtn = elements.detailsPanel.querySelector('[data-action="open-file"]');
   if (openBtn) openBtn.addEventListener('click', () => { if (file.public_url) window.open(file.public_url, '_blank'); });
   const copyBtn = elements.detailsPanel.querySelector('[data-action="copy-link"]');
   if (copyBtn) copyBtn.addEventListener('click', () => navigator.clipboard.writeText(file.public_url).then(() => setMessage('Ссылка скопирована')));
   const renameBtn = elements.detailsPanel.querySelector('[data-action="rename-file"]');
-  if (renameBtn) renameBtn.addEventListener('click', () => openRenameFileDialog(file.file_id));
+  if (renameBtn && !file.isCrpt) renameBtn.addEventListener('click', () => openRenameFileDialog(file.file_id));
   const moveBtn = elements.detailsPanel.querySelector('[data-action="move-file"]');
-  if (moveBtn) moveBtn.addEventListener('click', () => openMoveFileDialog([file.file_id]));
+  if (moveBtn && !file.isCrpt) moveBtn.addEventListener('click', () => openMoveFileDialog([file.file_id]));
   const deleteBtn = elements.detailsPanel.querySelector('[data-action="delete-file"]');
-  if (deleteBtn) deleteBtn.addEventListener('click', () => confirmDeleteFiles([file.file_id], `Удалить файл «${file.original_name}»?`));
+  if (deleteBtn) deleteBtn.addEventListener('click', () => {
+    if (file.isCrpt) confirmDeleteCrptFile(file.id);
+    else confirmDeleteFiles([file.file_id], `Удалить файл «${file.original_name}»?`);
+  });
 }
 
 function renderFiles() {
@@ -246,10 +249,10 @@ function renderFiles() {
     }
   }
   elements.filesList.innerHTML = html;
-  // привязываем события к карточкам
+
   document.querySelectorAll('.file-card').forEach(card => {
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.file-check input')) return;
+      if (e.target.closest('.file-check input') || e.target.closest('.delete-crpt-btn')) return;
       const fileId = card.dataset.fileId;
       if (fileId) {
         if (e.ctrlKey || e.metaKey) {
@@ -276,8 +279,31 @@ function renderFiles() {
       renderAll();
     });
   });
+  // Кнопки удаления CRPT файлов
+  document.querySelectorAll('.delete-crpt-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const fileId = btn.dataset.crptId;
+      if (fileId && confirm('Удалить этот файл из CRPT Cloud?')) {
+        confirmDeleteCrptFile(fileId);
+      }
+    });
+  });
   renderBulkBar();
   renderDetails();
+}
+
+async function confirmDeleteCrptFile(crptId) {
+  setBusy(true);
+  try {
+    await deleteCrptFile(crptId);
+    await syncData({ quiet: true });
+    setMessage('Файл удалён из CRPT Cloud', 'success');
+  } catch (error) {
+    setMessage(`Ошибка удаления: ${error.message}`, 'error');
+  } finally {
+    setBusy(false);
+  }
 }
 
 function renderAll() {
@@ -402,7 +428,7 @@ async function init() {
   initFilePond();
   wireEvents();
   await syncData();
-  // инициализация переключателей вида
+
   new FileView((mode) => { state.viewMode = mode; renderFiles(); });
   setMessage('Готово', 'success');
 }

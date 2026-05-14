@@ -1,3 +1,4 @@
+// project/filevault/js/api.js
 import { API_BASE, OPEN_BASE, buildPublicUrl } from './config.js';
 
 async function requestJson(url, options = {}) {
@@ -35,7 +36,7 @@ export async function uploadFiles(fileList, folderId = null, onProgress) {
   const formData = new FormData();
   fileList.forEach(f => formData.append('files', f, f.name));
   if (folderId) formData.append('folder_id', folderId);
-  // Простейший прогресс – через xhr
+
   const xhr = new XMLHttpRequest();
   const promise = new Promise((resolve, reject) => {
     xhr.upload.addEventListener('progress', (e) => {
@@ -73,4 +74,7 @@ export async function renameFolder(folderId, name) {
 }
 export async function deleteFolder(folderId) {
   return requestJson(`${API_BASE}/folders/${encodeURIComponent(folderId)}`, { method: 'DELETE' });
+}
+export async function deleteCrptFile(fileId) {
+  return requestJson(`/api/crpt/delete/${encodeURIComponent(fileId)}`, { method: 'DELETE' });
 }

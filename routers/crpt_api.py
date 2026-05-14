@@ -61,3 +61,18 @@ async def load_data(id: str):
             return JSONResponse({"success": False, "error": "Ошибка чтения файла"})
     else:
         return JSONResponse({"success": False, "error": "Файл не найден или удален"})
+
+@router.delete("/delete/{file_id}")
+async def delete_crpt_file(file_id: str):
+    """Удаляет файл из CRPT облака по его ID."""
+    if not file_id or not file_id.isalnum():
+        return JSONResponse({"success": False, "error": "Неверный формат ID файла"}, status_code=400)
+    file_path = os.path.join(UPLOAD_DIR, f"{file_id}.crpt")
+    if os.path.exists(file_path):
+        try:
+            os.remove(file_path)
+            return JSONResponse({"success": True})
+        except Exception as e:
+            return JSONResponse({"success": False, "error": "Ошибка удаления файла"}, status_code=500)
+    else:
+        return JSONResponse({"success": False, "error": "Файл не найден"}, status_code=404)

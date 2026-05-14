@@ -1,3 +1,4 @@
+// project/filevault/js/dom.js
 export function escapeHTML(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -24,7 +25,7 @@ export function formatDateTime(value) {
 export function detectFileType(file) {
   const ext = (file.original_name || '').split('.').pop().toLowerCase();
   const map = {
-    html: '🌐', htm: '🌐', css: '🎨', js: '⚙️', py: '🐍', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', pdf: '📕', txt: '📝', md: '📝', zip: '🗜️', mp3: '🎧', mp4: '🎬'
+    html: '🌐', htm: '🌐', css: '🎨', js: '⚙️', py: '🐍', png: '🖼️', jpg: '🖼️', jpeg: '🖼️', pdf: '📕', txt: '📝', md: '📝', zip: '🗜️', mp3: '🎧', mp4: '🎬', crpt: '🔒'
   };
   return { icon: map[ext] || '📄', label: ext.toUpperCase() || 'Файл' };
 }
@@ -70,6 +71,7 @@ export function renderFolderOptions(tree, selectedId) {
 
 export function renderFileCard(file, selected) {
   const type = detectFileType(file);
+  const isCrpt = file.isCrpt;
   return `
     <div class="file-card ${selected ? 'selected' : ''}" data-file-id="${escapeHTML(file.file_id)}">
       <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
@@ -77,29 +79,34 @@ export function renderFileCard(file, selected) {
       <div class="file-title" title="${escapeHTML(file.original_name)}">${escapeHTML(file.original_name)}</div>
       <div class="file-size">${formatBytes(file.size_bytes)}</div>
       <div class="file-date">${formatDateTime(file.uploaded_at)}</div>
+      ${isCrpt ? `<button class="action-button delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}" style="margin-top:0.5rem;">Удалить</button>` : ''}
     </div>
   `;
 }
 
 export function renderFileTableRow(file, selected) {
   const type = detectFileType(file);
+  const isCrpt = file.isCrpt;
   return `
     <div class="file-card ${selected ? 'selected' : ''}" data-file-id="${escapeHTML(file.file_id)}">
       <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
       <div class="file-title">${type.icon} ${escapeHTML(file.original_name)}</div>
       <div class="file-size">${formatBytes(file.size_bytes)}</div>
       <div class="file-date">${formatDateTime(file.uploaded_at)}</div>
-      <div class="file-actions"></div>
+      <div class="file-actions">${isCrpt ? `<button class="delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}</div>
     </div>
   `;
 }
 
 export function renderFileListItem(file, selected) {
+  const type = detectFileType(file);
+  const isCrpt = file.isCrpt;
   return `
     <div class="file-card ${selected ? 'selected' : ''}" data-file-id="${escapeHTML(file.file_id)}">
       <label class="file-check"><input type="checkbox" ${selected ? 'checked' : ''}></label>
-      <span class="file-icon">${detectFileType(file).icon}</span>
+      <span class="file-icon">${type.icon}</span>
       <span class="file-title">${escapeHTML(file.original_name)}</span>
+      ${isCrpt ? `<button class="delete-crpt-btn" data-crpt-id="${escapeHTML(file.id)}">Удалить</button>` : ''}
     </div>
   `;
 }
@@ -120,8 +127,8 @@ export function renderSelectedDetails(file) {
       <div class="details-actions">
         <button class="action-button" data-action="open-file">Открыть</button>
         <button class="action-button" data-action="copy-link">Копировать ссылку</button>
-        <button class="action-button" data-action="rename-file">Переименовать</button>
-        <button class="action-button" data-action="move-file">Переместить</button>
+        ${!file.isCrpt ? `<button class="action-button" data-action="rename-file">Переименовать</button>
+        <button class="action-button" data-action="move-file">Переместить</button>` : ''}
         <button class="action-button danger" data-action="delete-file">Удалить</button>
       </div>
     </div>
