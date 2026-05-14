@@ -1,0 +1,147 @@
+/* project/filevault/css/views.css */
+.files-list.view-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 0.9rem;
+}
+
+.files-list.view-grid .file-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto auto;
+  gap: 0.6rem;
+  padding: 0.95rem;
+  border-radius: 22px;
+}
+
+.files-list.view-grid .file-card .file-check {
+  justify-self: start;
+}
+
+.files-list.view-grid .file-icon {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 18px;
+}
+
+.files-list.view-grid .file-title {
+  font-size: 0.92rem;
+  line-height: 1.35;
+}
+
+.files-list.view-grid .file-size,
+.files-list.view-grid .file-date {
+  font-size: 0.78rem;
+}
+
+.files-list.view-grid .delete-crpt-btn {
+  justify-self: start;
+  width: fit-content;
+  margin-top: 0.2rem;
+}
+
+.files-list.view-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.files-list.view-list .file-card {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.85rem 0.95rem;
+  border-radius: 18px;
+}
+
+.files-list.view-list .file-icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 14px;
+}
+
+.files-list.view-list .file-title {
+  font-size: 0.92rem;
+}
+
+.files-list.view-list .file-size,
+.files-list.view-list .file-date {
+  justify-self: end;
+}
+
+.files-list.view-list .delete-crpt-btn {
+  justify-self: end;
+}
+
+.files-list.view-table {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.files-list.view-table .file-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 2.2fr) minmax(100px, 0.7fr) minmax(120px, 0.9fr) auto;
+  gap: 0.8rem;
+  align-items: center;
+  padding: 0.75rem 0.9rem;
+  border-radius: 18px;
+}
+
+.files-list.view-table .file-title {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.files-list.view-table .file-size,
+.files-list.view-table .file-date {
+  text-align: right;
+}
+
+.files-list.view-table .file-card:hover {
+  border-color: var(--vault-border-accent);
+  box-shadow: 0 16px 28px rgba(91, 156, 255, 0.08);
+}
+
+.files-list.view-table .delete-crpt-btn {
+  justify-self: end;
+}
+
+.file-card,
+.folder-node,
+.button,
+.primary-button,
+.ghost-button,
+.action-button {
+  transform: translateZ(0);
+}
+
+.file-card:hover {
+  border-color: rgba(91, 156, 255, 0.30);
+}
+
+.file-card:hover .file-icon,
+.file-card:hover .details-icon {
+  background: rgba(91, 156, 255, 0.18);
+  border-color: rgba(91, 156, 255, 0.18);
+}
+
+.folder-node:hover {
+  border-color: rgba(91, 156, 255, 0.22);
+}
+
+.folder-node:focus-visible,
+.primary-button:focus-visible,
+.ghost-button:focus-visible,
+.action-button:focus-visible,
+.dialog-close:focus-visible,
+.view-switch button:focus-visible,
+.search-field:focus-within,
+.select-field:focus-visible,
+.upload-form input[type="file"]:focus-visible,
+.file-card:focus-within {
+  outline: 2px solid rgba(91, 156, 255, 0.45);
+  outline-offset: 2px;
+}
