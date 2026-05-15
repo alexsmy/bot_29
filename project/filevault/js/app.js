@@ -1,258 +1,102 @@
-// project/filevault/js/app.js
-import {
-  createFolder,
-  deleteFiles,
-  deleteFolder,
-  fetchCrptFiles,
-  fetchDashboard,
-  fetchFiles,
-  fetchFolders,
-  moveFiles,
-  renameFolder,
-  updateFile,
-  uploadFiles,
-  deleteCrptFile
-} from './api.js';
-import {
-  escapeHTML,
-  formatBytes,
-  renderBulkSummary,
-  renderEmptyFilesState,
-  renderFileCard,
-  renderFileTableRow,
-  renderFileListItem,
-  renderFolderTree,
-  renderSelectedDetails
-} from './dom.js';
-import { uploadProgress } from './upload-progress.js';
+// project/filevault/js/app.js (facade)
+
+import { createFolder, renameFolder, deleteFolder } from './api.js';
+import { state, elements, cacheElements } from './modules/state.js';
+import { selectFolder, toggleFileSelection, clearFileSelection, getSelectedFile } from './modules/navigation.js';
+import { setMessage, hideMessage, setBusy, renderFiles, renderAll } from './modules/ui.js';
+import { syncData } from './modules/sync.js';
+import { handleUpload, openRenameFileDialog, openMoveFileDialog, confirmDeleteFiles, confirmDeleteCrptFile } from './modules/file-operations.js';
 import { FileView } from './file-view.js';
 
-const state = {
-  files: [],
-  folders: [],
-  dashboard: null,
-  currentFolderId: null,
-  activeFileId: null,
-  selectedFileIds: new Set(),
-  query: '',
-  sort: 'date-desc',
-  viewMode: 'grid',
-  pond: null,
-  busy: false,
-  dialogAction: null,
-  crptFiles: [],
-};
+function wireEvents() {
+  elements.form.addEventListener('submit', handleUpload);
 
-const elements = {};
-
-function cacheElements() {
-  elements.form = document.getElementById('uploadForm');
-  elements.input = document.getElementById('fileInput');
-  elements.uploadButton = document.getElementById('uploadButton');
-  elements.clearUploadButton = document.getElementById('clearUploadButton');
-  elements.refreshButton = document.getElementById('refreshButton');
-  elements.searchInput = document.getElementById('searchInput');
-  elements.sortSelect = document.getElementById('sortSelect');
-  elements.filesList = document.getElementById('filesList');
-  elements.detailsPanel = document.getElementById('detailsPanel');
-  elements.bulkBar = document.getElementById('bulkBar');
-  elements.bulkSummary = document.getElementById('bulkSummary');
-  elements.bulkMoveButton = document.getElementById('bulkMoveButton');
-  elements.bulkDeleteButton = document.getElementById('bulkDeleteButton');
-  elements.bulkClearButton = document.getElementById('bulkClearButton');
-  elements.folderTree = document.getElementById('folderTree');
-  elements.currentFolderLabel = document.getElementById('currentFolderLabel');
-  elements.uploadFolderLabel = document.getElementById('uploadFolderLabel');
-  elements.createFolderButton = document.getElementById('createFolderButton');
-  elements.renameFolderButton = document.getElementById('renameFolderButton');
-  elements.deleteFolderButton = document.getElementById('deleteFolderButton');
-  elements.folderRefreshButton = document.getElementById('folderRefreshButton');
-  elements.messageBox = document.getElementById('messageBox');
-
-  elements.dashboardFiles = document.getElementById('dashboardFiles');
-  elements.dashboardFolders = document.getElementById('dashboardFolders');
-  elements.dashboardUsed = document.getElementById('dashboardUsed');
-  elements.dashboardFree = document.getElementById('dashboardFree');
-  elements.dashboardTotal = document.getElementById('dashboardTotal');
-
-  elements.actionDialog = document.getElementById('actionDialog');
-  elements.actionDialogForm = document.getElementById('actionDialogForm');
-  elements.actionDialogTitle = document.getElementById('actionDialogTitle');
-  elements.actionDialogSubtitle = document.getElementById('actionDialogSubtitle');
-  elements.actionDialogBody = document.getElementById('actionDialogBody');
-  elements.actionDialogConfirm = document.getElementById('actionDialogConfirm');
-  elements.actionDialogClose = document.getElementById('actionDialogClose');
-  elements.actionDialogCancelButton = document.getElementById('actionDialogCancelButton');
-
-  elements.uploadProgressContainer = document.getElementById('uploadProgressContainer');
-}
-
-function setMessage(text, type = 'success') {
-  elements.messageBox.hidden = false;
-  elements.messageBox.className = `message-box ${type}`;
-  elements.messageBox.textContent = text;
-}
-
-function hideMessage() {
-  elements.messageBox.hidden = true;
-  elements.messageBox.textContent = '';
-  elements.messageBox.className = 'message-box';
-}
-
-function setBusy(isBusy) {
-  state.busy = isBusy;
-  const btns = [elements.uploadButton, elements.clearUploadButton, elements.refreshButton, elements.createFolderButton, elements.renameFolderButton, elements.deleteFolderButton, elements.folderRefreshButton, elements.bulkMoveButton, elements.bulkDeleteButton, elements.bulkClearButton];
-  btns.forEach(btn => { if (btn) btn.disabled = isBusy; });
-  elements.searchInput.disabled = isBusy;
-  elements.sortSelect.disabled = isBusy;
-  elements.input.disabled = isBusy;
-  if (state.pond) state.pond.setOptions({ disabled: isBusy });
-  elements.uploadButton.textContent = isBusy ? 'Загрузка...' : 'Загрузить';
-}
-
-function normalizeFolderId(folderId) {
-  return folderId ? String(folderId) : null;
-}
-
-function getCurrentFolderNode(nodes = state.folders, folderId = state.currentFolderId) {
-  if (folderId === null || folderId === '') {
-    return { folder_id: null, name: 'Корень хранилища', path: 'Корень хранилища' };
-  }
-  for (const node of nodes) {
-    if ((node.folder_id ?? null) === folderId) return node;
-    const children = Array.isArray(node.children) ? node.children : [];
-    const match = getCurrentFolderNode(children, folderId);
-    if (match) return match;
-  }
-  return null;
-}
-
-function getCurrentFolderLabel() {
-  return getCurrentFolderNode()?.path || 'Корень хранилища';
-}
-
-function getVisibleFiles() {
-  const query = state.query.trim().toLowerCase();
-  const folderId = normalizeFolderId(state.currentFolderId);
-
-  let filtered = state.files.filter(file => normalizeFolderId(file.folder_id) === folderId);
-
-  if (folderId === '__crpt__') {
-    filtered = state.crptFiles.map(f => ({ ...f, isCrpt: true, file_id: `crpt_${f.id}`, original_name: f.id + '.crpt', size_bytes: f.size || 0, uploaded_at: f.uploaded_at, public_url: `/api/filevault/crpt/open/${f.id}` }));
-  }
-
-  if (query) {
-    filtered = filtered.filter(file => (file.original_name || '').toLowerCase().includes(query));
-  }
-  return sortFiles(filtered);
-}
-
-function sortFiles(files) {
-  const sorted = [...files];
-  const byDate = (a,b) => new Date(a.uploaded_at||0) - new Date(b.uploaded_at||0);
-  const byName = (a,b) => (a.original_name||'').localeCompare(b.original_name||'');
-  const bySize = (a,b) => (a.size_bytes||0) - (b.size_bytes||0);
-  const map = {
-    'date-desc': (a,b) => byDate(b,a),
-    'date-asc': byDate,
-    'name-asc': byName,
-    'name-desc': (a,b) => byName(b,a),
-    'size-desc': (a,b) => bySize(b,a),
-    'size-asc': bySize,
-  };
-  return sorted.sort(map[state.sort] || map['date-desc']);
-}
-
-function getSelectedFile() {
-  return state.files.find(f => f.file_id === state.activeFileId) ||
-         (state.activeFileId?.startsWith('crpt_') ? state.crptFiles.find(f => `crpt_${f.id}` === state.activeFileId) : null);
-}
-
-function getVisibleFileIds() {
-  return getVisibleFiles().map(f => f.file_id);
-}
-
-function syncSelectionWithFiles() {
-  const fileIds = new Set(state.files.map(f => f.file_id));
-  state.selectedFileIds = new Set([...state.selectedFileIds].filter(id => fileIds.has(id) || id.startsWith('crpt_')));
-  if (state.activeFileId && !fileIds.has(state.activeFileId) && !state.activeFileId.startsWith('crpt_')) state.activeFileId = null;
-}
-
-function updateDashboard() {
-  const dashboard = state.dashboard || { files_count: state.files.length, folders_count: 0, total_size_bytes: 0, disk_free_bytes: 0, disk_total_bytes: 0 };
-  elements.dashboardFiles.textContent = dashboard.files_count ?? state.files.length;
-  elements.dashboardFolders.textContent = dashboard.folders_count ?? 0;
-  elements.dashboardUsed.textContent = formatBytes(dashboard.disk_used_bytes ?? 0);
-  elements.dashboardFree.textContent = formatBytes(dashboard.disk_free_bytes ?? 0);
-  elements.dashboardTotal.textContent = formatBytes(dashboard.disk_total_bytes ?? 0);
-}
-
-function renderFolders() {
-  const tree = state.folders;
-  const crptVirtual = { folder_id: '__crpt__', name: 'CRPT Cloud', parent_id: null, level: 0, path: 'CRPT Cloud', file_count: state.crptFiles.length, size_bytes: 0, has_children: false, children: [] };
-  const fullTree = [crptVirtual, ...tree];
-  elements.folderTree.innerHTML = renderFolderTree(fullTree, state.currentFolderId, state.dashboard?.root_files_count ?? 0);
-  const isRoot = state.currentFolderId === null || state.currentFolderId === '';
-  const isCrpt = state.currentFolderId === '__crpt__';
-  elements.renameFolderButton.disabled = state.busy || (isRoot && !isCrpt);
-  elements.deleteFolderButton.disabled = state.busy || isRoot || isCrpt;
-  elements.currentFolderLabel.textContent = isCrpt ? 'CRPT Cloud' : getCurrentFolderLabel();
-  if (elements.uploadFolderLabel) elements.uploadFolderLabel.textContent = isCrpt ? 'CRPT Cloud (только чтение)' : getCurrentFolderLabel();
-}
-
-function renderBulkBar() {
-  const selectedCount = state.selectedFileIds.size;
-  elements.bulkBar.hidden = selectedCount === 0;
-  if (!selectedCount) {
-    elements.bulkSummary.innerHTML = '';
-    return;
-  }
-  elements.bulkSummary.innerHTML = renderBulkSummary(selectedCount, getCurrentFolderLabel());
-}
-
-function renderDetails() {
-  const file = getSelectedFile();
-  if (!file || state.selectedFileIds.size > 1) {
-    elements.detailsPanel.innerHTML = `<div class="details-empty">${state.selectedFileIds.size > 1 ? 'Выбрано несколько файлов' : 'Ничего не выбрано'}</div>`;
-    return;
-  }
-  elements.detailsPanel.innerHTML = renderSelectedDetails(file);
-
-  const openBtn = elements.detailsPanel.querySelector('[data-action="open-file"]');
-  if (openBtn) openBtn.addEventListener('click', () => { if (file.public_url) window.open(file.public_url, '_blank'); });
-  const copyBtn = elements.detailsPanel.querySelector('[data-action="copy-link"]');
-  if (copyBtn) copyBtn.addEventListener('click', () => navigator.clipboard.writeText(file.public_url).then(() => setMessage('Ссылка скопирована')));
-  const renameBtn = elements.detailsPanel.querySelector('[data-action="rename-file"]');
-  if (renameBtn && !file.isCrpt) renameBtn.addEventListener('click', () => openRenameFileDialog(file.file_id));
-  const moveBtn = elements.detailsPanel.querySelector('[data-action="move-file"]');
-  if (moveBtn && !file.isCrpt) moveBtn.addEventListener('click', () => openMoveFileDialog([file.file_id]));
-  const deleteBtn = elements.detailsPanel.querySelector('[data-action="delete-file"]');
-  if (deleteBtn) deleteBtn.addEventListener('click', () => {
-    if (file.isCrpt) confirmDeleteCrptFile(file.id);
-    else confirmDeleteFiles([file.file_id], `Удалить файл «${file.original_name}»?`);
+  elements.clearUploadButton.addEventListener('click', () => {
+    if (state.pond) state.pond.removeFiles();
+    else elements.input.value = '';
+    hideMessage();
   });
-}
 
-function renderFiles() {
-  const visibleFiles = getVisibleFiles();
-  const view = state.viewMode;
-  let html = '';
-  if (visibleFiles.length === 0) {
-    html = renderEmptyFilesState('Нет файлов в этой папке');
-  } else {
-    if (view === 'table') {
-      html = `<div class="view-table">${visibleFiles.map(f => renderFileTableRow(f, state.selectedFileIds.has(f.file_id))).join('')}</div>`;
-    } else if (view === 'list') {
-      html = `<div class="view-list">${visibleFiles.map(f => renderFileListItem(f, state.selectedFileIds.has(f.file_id))).join('')}</div>`;
-    } else {
-      html = `<div class="view-grid files-list">${visibleFiles.map(f => renderFileCard(f, state.selectedFileIds.has(f.file_id))).join('')}</div>`;
+  elements.refreshButton.addEventListener('click', () => syncData());
+  elements.folderRefreshButton.addEventListener('click', () => syncData());
+
+  elements.searchInput.addEventListener('input', (e) => {
+    state.query = e.target.value;
+    renderFiles();
+  });
+
+  elements.sortSelect.addEventListener('change', (e) => {
+    state.sort = e.target.value;
+    renderFiles();
+  });
+
+  elements.bulkMoveButton.addEventListener('click', () => openMoveFileDialog([...state.selectedFileIds]));
+  elements.bulkDeleteButton.addEventListener('click', () => confirmDeleteFiles([...state.selectedFileIds], `Удалить ${state.selectedFileIds.size} файлов?`));
+  elements.bulkClearButton.addEventListener('click', clearFileSelection);
+
+  elements.createFolderButton.addEventListener('click', async () => {
+    const name = prompt('Название папки');
+    if (name) {
+      setBusy(true);
+      await createFolder(name, state.currentFolderId);
+      await syncData({ quiet: true });
+      setBusy(false);
     }
-  }
-  elements.filesList.innerHTML = html;
+  });
 
-  document.querySelectorAll('.file-card').forEach(card => {
-    card.addEventListener('click', (e) => {
-      if (e.target.closest('.file-check input') || e.target.closest('.delete-crpt-btn')) return;
+  elements.renameFolderButton.addEventListener('click', async () => {
+    if (state.currentFolderId === '__crpt__') return;
+    const name = prompt('Новое имя папки');
+    if (name) {
+      setBusy(true);
+      await renameFolder(state.currentFolderId, name);
+      await syncData();
+      setBusy(false);
+    }
+  });
+
+  elements.deleteFolderButton.addEventListener('click', async () => {
+    if (state.currentFolderId && state.currentFolderId !== '__crpt__' && confirm('Удалить папку со всем содержимым?')) {
+      setBusy(true);
+      await deleteFolder(state.currentFolderId);
+      state.currentFolderId = null;
+      await syncData();
+      setBusy(false);
+    }
+  });
+
+  elements.folderTree.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="select-folder"]');
+    if (btn) {
+      selectFolder(btn.dataset.folderId || null);
+      renderAll();
+    }
+  });
+
+  elements.filesList.addEventListener('click', (e) => {
+    const deleteBtn = e.target.closest('.delete-crpt-btn');
+    if (deleteBtn) {
+      e.stopPropagation();
+      const fileId = deleteBtn.dataset.crptId;
+      if (fileId && confirm('Удалить этот файл из CRPT Cloud?')) {
+        confirmDeleteCrptFile(fileId);
+      }
+      return;
+    }
+
+    const checkbox = e.target.closest('.file-check input');
+    if (checkbox) {
+      const fileId = checkbox.closest('.file-card').dataset.fileId;
+      if (checkbox.checked) state.selectedFileIds.add(fileId);
+      else state.selectedFileIds.delete(fileId);
+      if (state.selectedFileIds.size === 1) state.activeFileId = [...state.selectedFileIds][0];
+      else if (state.selectedFileIds.size === 0) state.activeFileId = null;
+      renderAll();
+      return;
+    }
+
+    const card = e.target.closest('.file-card');
+    if (card) {
       const fileId = card.dataset.fileId;
       if (fileId) {
         if (e.ctrlKey || e.metaKey) {
@@ -263,156 +107,38 @@ function renderFiles() {
             state.selectedFileIds.clear();
             state.selectedFileIds.add(fileId);
           }
-          renderAll();
         }
+        renderAll();
       }
-    });
-  });
-  document.querySelectorAll('.file-check input').forEach(cb => {
-    cb.addEventListener('change', (e) => {
-      e.stopPropagation();
-      const fileId = cb.closest('.file-card').dataset.fileId;
-      if (cb.checked) state.selectedFileIds.add(fileId);
-      else state.selectedFileIds.delete(fileId);
-      if (state.selectedFileIds.size === 1) state.activeFileId = [...state.selectedFileIds][0];
-      else if (state.selectedFileIds.size === 0) state.activeFileId = null;
-      renderAll();
-    });
-  });
-  // Кнопки удаления CRPT файлов
-  document.querySelectorAll('.delete-crpt-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const fileId = btn.dataset.crptId;
-      if (fileId && confirm('Удалить этот файл из CRPT Cloud?')) {
-        confirmDeleteCrptFile(fileId);
-      }
-    });
-  });
-  renderBulkBar();
-  renderDetails();
-}
-
-async function confirmDeleteCrptFile(crptId) {
-  setBusy(true);
-  try {
-    await deleteCrptFile(crptId);
-    await syncData({ quiet: true });
-    setMessage('Файл удалён из CRPT Cloud', 'success');
-  } catch (error) {
-    setMessage(`Ошибка удаления: ${error.message}`, 'error');
-  } finally {
-    setBusy(false);
-  }
-}
-
-function renderAll() {
-  updateDashboard();
-  renderFolders();
-  renderFiles();
-}
-
-async function syncData({ quiet = false } = {}) {
-  try {
-    const [dashboard, folders, files, crpt] = await Promise.all([
-      fetchDashboard(),
-      fetchFolders(),
-      fetchFiles(),
-      fetchCrptFiles()
-    ]);
-    state.dashboard = dashboard;
-    state.folders = Array.isArray(folders) ? folders : [];
-    state.files = Array.isArray(files) ? files : [];
-    state.crptFiles = Array.isArray(crpt) ? crpt : [];
-    syncSelectionWithFiles();
-    renderAll();
-    if (!quiet) setMessage('Данные обновлены', 'success');
-  } catch (error) {
-    setMessage(`Ошибка: ${error.message}`, 'error');
-  }
-}
-
-function toggleFileSelection(fileId) {
-  if (state.selectedFileIds.has(fileId)) state.selectedFileIds.delete(fileId);
-  else state.selectedFileIds.add(fileId);
-  if (state.selectedFileIds.size === 1) state.activeFileId = [...state.selectedFileIds][0];
-  else if (state.selectedFileIds.size === 0) state.activeFileId = null;
-  renderAll();
-}
-
-function clearFileSelection() {
-  state.selectedFileIds.clear();
-  state.activeFileId = null;
-  renderAll();
-}
-
-function selectFolder(folderId) {
-  state.currentFolderId = folderId === '__crpt__' ? '__crpt__' : (folderId || null);
-  state.activeFileId = null;
-  state.selectedFileIds.clear();
-  renderAll();
-}
-
-async function handleUpload(event) {
-  event.preventDefault();
-  const files = state.pond ? state.pond.getFiles().map(f => f.file).filter(Boolean) : Array.from(elements.input.files || []);
-  if (!files.length) { setMessage('Выберите файлы', 'error'); return; }
-  setBusy(true);
-  hideMessage();
-  uploadProgress.show(elements.uploadProgressContainer);
-  try {
-    for (const file of files) {
-      uploadProgress.addFile(file.name);
-      await uploadFiles([file], state.currentFolderId === '__crpt__' ? null : state.currentFolderId, (progress) => uploadProgress.update(file.name, progress));
-      uploadProgress.complete(file.name);
     }
-    uploadProgress.hideAfterDelay(2000);
-    await syncData({ quiet: true });
-    setMessage(`Загружено файлов: ${files.length}`, 'success');
-    if (state.pond) state.pond.removeFiles();
-    else elements.input.value = '';
-  } catch (error) {
-    setMessage(`Ошибка загрузки: ${error.message}`, 'error');
-  } finally {
-    setBusy(false);
-  }
-}
+  });
 
-function openRenameFileDialog(fileId) {
-  const file = state.files.find(f => f.file_id === fileId);
-  if (!file) return;
-  const newName = prompt('Новое имя файла', file.original_name);
-  if (!newName) return;
-  setBusy(true);
-  updateFile(fileId, { original_name: newName }).then(() => syncData({ quiet: true })).finally(() => setBusy(false));
-}
+  elements.detailsPanel.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const file = getSelectedFile();
+    if (!file) return;
+    const action = btn.dataset.action;
+    switch (action) {
+      case 'open-file':
+        if (file.public_url) window.open(file.public_url, '_blank');
+        break;
+      case 'copy-link':
+        navigator.clipboard.writeText(file.public_url).then(() => setMessage('Ссылка скопирована'));
+        break;
+      case 'rename-file':
+        if (!file.isCrpt) openRenameFileDialog(file.file_id);
+        break;
+      case 'move-file':
+        if (!file.isCrpt) openMoveFileDialog([file.file_id]);
+        break;
+      case 'delete-file':
+        if (file.isCrpt) confirmDeleteCrptFile(file.id);
+        else confirmDeleteFiles([file.file_id], `Удалить файл «${file.original_name}»?`);
+        break;
+    }
+  });
 
-function openMoveFileDialog(fileIds) {
-  const folderId = prompt('ID папки назначения (оставьте пустым для корня)');
-  setBusy(true);
-  moveFiles(fileIds, folderId || null).then(() => { clearFileSelection(); return syncData({ quiet: true }); }).finally(() => setBusy(false));
-}
-
-function confirmDeleteFiles(fileIds, message) {
-  if (!confirm(message)) return;
-  setBusy(true);
-  deleteFiles(fileIds).then(() => { clearFileSelection(); return syncData({ quiet: true }); }).finally(() => setBusy(false));
-}
-
-function wireEvents() {
-  elements.form.addEventListener('submit', handleUpload);
-  elements.clearUploadButton.addEventListener('click', () => { if (state.pond) state.pond.removeFiles(); else elements.input.value = ''; hideMessage(); });
-  elements.refreshButton.addEventListener('click', () => syncData());
-  elements.searchInput.addEventListener('input', (e) => { state.query = e.target.value; renderFiles(); });
-  elements.sortSelect.addEventListener('change', (e) => { state.sort = e.target.value; renderFiles(); });
-  elements.bulkMoveButton.addEventListener('click', () => openMoveFileDialog([...state.selectedFileIds]));
-  elements.bulkDeleteButton.addEventListener('click', () => confirmDeleteFiles([...state.selectedFileIds], `Удалить ${state.selectedFileIds.size} файлов?`));
-  elements.bulkClearButton.addEventListener('click', clearFileSelection);
-  elements.createFolderButton.addEventListener('click', async () => { const name = prompt('Название папки'); if (name) { setBusy(true); await createFolder(name, state.currentFolderId); await syncData({ quiet: true }); setBusy(false); } });
-  elements.renameFolderButton.addEventListener('click', async () => { if (state.currentFolderId === '__crpt__') return; const name = prompt('Новое имя папки'); if (name) { setBusy(true); await renameFolder(state.currentFolderId, name); await syncData(); setBusy(false); } });
-  elements.deleteFolderButton.addEventListener('click', async () => { if (state.currentFolderId && state.currentFolderId !== '__crpt__' && confirm('Удалить папку со всем содержимым?')) { setBusy(true); await deleteFolder(state.currentFolderId); state.currentFolderId = null; await syncData(); setBusy(false); } });
-  elements.folderRefreshButton.addEventListener('click', () => syncData());
-  elements.folderTree.addEventListener('click', (e) => { const btn = e.target.closest('[data-action="select-folder"]'); if (btn) selectFolder(btn.dataset.folderId || null); });
   elements.actionDialogClose?.addEventListener('click', () => elements.actionDialog.close());
   elements.actionDialogCancelButton?.addEventListener('click', () => elements.actionDialog.close());
 }
