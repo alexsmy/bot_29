@@ -23,10 +23,6 @@
     order: 1;
   }
 
-  .dashboard-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
   .folder-actions {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
@@ -49,10 +45,6 @@
 @media (max-width: 720px) {
   .vault-shell {
     padding: 0.65rem;
-  }
-
-  .dashboard-grid {
-    grid-template-columns: 1fr;
   }
 
   .panel,
@@ -131,16 +123,21 @@
 }
 
 @media (max-width: 520px) {
-  .vault-title-group h1 {
-    font-size: 1.2rem;
+  .vault-title-row h1 {
+    font-size: 1.1rem;
   }
 
   .dashboard-card {
-    padding: 0.62rem 0.8rem;
-    border-radius: 16px;
+    padding: 0.2rem 0.4rem;
+    border-radius: 10px;
+    gap: 0.15rem;
   }
 
   .dashboard-label {
+    font-size: 0.55rem;
+  }
+
+  .dashboard-card > span:last-child {
     font-size: 0.7rem;
   }
 
@@ -156,6 +153,14 @@
   .dialog-head,
   .dialog-actions {
     padding: 0.85rem;
+  }
+}
+
+@media (min-width: 981px) {
+  .vault-title-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
   }
 }
 
