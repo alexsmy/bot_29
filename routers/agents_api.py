@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import hmac
+import json
+import re
 from typing import Any, Dict
 
-from fastapi import APIRouter, Request, Response
+from fastapi import APIRouter, HTTPException, Request, Response
 
-from services.agents.tunnel import get_agent_tunnel_status, handle_agent_request, read_agent_payload
+from services.agents.registry import DYNAMIC_AGENTS_DIR, import_and_register_dynamic_agent, is_builtin, list_agents, unregister_dynamic_agent
+from services.agents.storage import FILEVAULT_ROOT, save_agent_code_to_filevault
+from services.agents.tunnel import get_agent_tunnel_status, handle_agent_request, load_tunnel_secret, read_agent_payload
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -14,9 +19,18 @@ def _no_store(response: Response) -> None:
     response.headers["Pragma"] = "no-cache"
 
 
+def _check_secret(request: Request) -> None:
+    secret = load_tunnel_secret()
+    if not secret:
+        return
+    provided = request.headers.get("x-agents-tunnel-secret") or ""
+    if not hmac.compare_digest(str(provided), secret):
+        raise HTTPException(status_code=403, detail="Неверный секрет агентов")
+
+
 @router.api_route("/inbox", methods=["GET", "POST"])
 async def agent_inbox(request: Request, response: Response) -> Dict[str, Any]:
-    """Приёмник команд для будущих серверных агентов."""
+    """Приёмник команд для серверных агентов."""
     _no_store(response)
     payload = await read_agent_payload(request)
     return await handle_agent_request(request, payload)
@@ -26,3 +40,126 @@ async def agent_inbox(request: Request, response: Response) -> Dict[str, Any]:
 async def agent_health(response: Response) -> Dict[str, Any]:
     _no_store(response)
     return await get_agent_tunnel_status()
+
+
+@router.get("/list")
+async def agent_list(request: Request, response: Response) -> Dict[str, Any]:
+    """Список всех зарегистрированных агентов."""
+    _no_store(response)
+    _check_secret(request)
+    return {
+        "ok": True,
+        "agents": list_agents(),
+    }
+
+
+@router.post("/upload")
+async def agent_upload(request: Request, response: Response) -> Dict[str, Any]:
+    """Загрузить и зарегистрировать нового динамического агента.
+    Body JSON: { "name": "...", "code": "..." }
+    """
+    _no_store(response)
+    _check_secret(request)
+
+    body = await request.json()
+    name = str(body.get("name", "")).strip()
+    code = str(body.get("code", "")).strip()
+
+    if not name or not code:
+        raise HTTPException(status_code=422, detail="Поля 'name' и 'code' обязательны")
+
+    if not re.match(r"^[a-zA-Z_][a-zA-Z0-9_]*$", name):
+        raise HTTPException(status_code=422, detail="Некорректное имя агента. Только буквы, цифры, underscore.")
+
+    if is_builtin(name):
+        raise HTTPException(status_code=409, detail=f"Агент '{name}' встроенный — нельзя перезаписать")
+
+    file_path = DYNAMIC_AGENTS_DIR / f"{name}.py"
+    file_path.write_text(code, encoding="utf-8")
+
+    ok = import_and_register_dynamic_agent(file_path)
+    if not ok:
+        if file_path.exists():
+            file_path.unlink()
+        raise HTTPException(status_code=422, detail="Не удалось загрузить агента: в коде не найден NAME + run(query, args)")
+
+    code_artifact = save_agent_code_to_filevault(name, code)
+
+    return {
+        "ok": True,
+        "action": "uploaded",
+        "agent": name,
+        "path": str(file_path),
+        "filevault": {
+            "file_id": code_artifact.file_id,
+            "original_name": code_artifact.original_name,
+        },
+    }
+
+
+@router.get("/responses")
+async def agent_responses(request: Request, response: Response) -> Dict[str, Any]:
+    """Список ответов агентов из FileVault (папка Agents)."""
+    _no_store(response)
+    _check_secret(request)
+
+    records = []
+    for meta_path in sorted(FILEVAULT_ROOT.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True):
+        if meta_path.name == "_folders.json":
+            continue
+        try:
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(meta, dict):
+            continue
+        name = meta.get("original_name", "")
+        if name.startswith("agent-response-") or name.startswith("agent-code-"):
+            records.append({
+                "file_id": meta.get("file_id"),
+                "original_name": name,
+                "size_bytes": meta.get("size_bytes", 0),
+                "uploaded_at": meta.get("uploaded_at"),
+            })
+
+    return {"ok": True, "responses": records}
+
+
+@router.get("/responses/{file_id}")
+async def agent_response_detail(file_id: str, request: Request, response: Response) -> Dict[str, Any]:
+    """Детальный ответ агента по file_id."""
+    _no_store(response)
+    _check_secret(request)
+
+    blob_path = FILEVAULT_ROOT / f"{file_id}.bin"
+    meta_path = FILEVAULT_ROOT / f"{file_id}.json"
+
+    if not blob_path.exists() or not meta_path.exists():
+        raise HTTPException(status_code=404, detail="Ответ не найден")
+
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        data = json.loads(blob_path.read_bytes().decode("utf-8"))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Ошибка чтения: {e}")
+
+    return {"ok": True, "meta": meta, "data": data}
+
+
+@router.delete("/dynamic/{name}")
+async def agent_delete(name: str, request: Request, response: Response) -> Dict[str, Any]:
+    """Удалить динамического агента."""
+    _no_store(response)
+    _check_secret(request)
+
+    if is_builtin(name):
+        raise HTTPException(status_code=400, detail="Нельзя удалить встроенного агента")
+
+    file_path = DYNAMIC_AGENTS_DIR / f"{name}.py"
+    if file_path.exists():
+        file_path.unlink()
+
+    if not unregister_dynamic_agent(name):
+        raise HTTPException(status_code=404, detail=f"Агент '{name}' не найден")
+
+    return {"ok": True, "action": "deleted", "agent": name}

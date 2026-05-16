@@ -14,9 +14,9 @@ from .base import AgentCommand
 from .registry import get_agent, has_agent, list_agents, normalize_agent_name
 from .storage import (
     archive_agent_payload,
+    save_agent_response_to_filevault,
     store_agent_job,
     store_agent_outbox,
-    store_json_as_filevault_record,
     utc_now_iso,
 )
 
@@ -204,8 +204,7 @@ async def handle_agent_request(request: Request, raw_payload: dict[str, Any]) ->
         "response": response_payload,
     })
 
-    file_name = f"agent-response-{payload['agent']}-{payload['request_id']}.json"
-    stored_file = store_json_as_filevault_record(response_payload, original_name=file_name, folder_id=None)
+    stored_file = save_agent_response_to_filevault(payload["agent"], payload["request_id"], response_payload)
 
     return {
         "ok": True,
@@ -242,6 +241,8 @@ async def get_agent_tunnel_status() -> dict[str, Any]:
             "inbox_dir": str(Path("data/agents/inbox")),
             "outbox_dir": str(Path("data/agents/outbox")),
             "archive_dir": str(Path("data/agents/archive")),
+            "dynamic_dir": str(Path("data/agents/dynamic")),
             "filevault_root": str(Path("data/filevault_uploads")),
+            "agents_filevault_folder": "Agents (доступ через /files)",
         },
     }
