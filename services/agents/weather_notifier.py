@@ -80,6 +80,7 @@ class WeatherNotifierAgent:
 
     async def _call_telegram(self, text: str, message_id: int | None = None) -> dict:
         secret = os.environ.get("TELEGRAM_TUNNEL_SECRET", "")
+        port = os.environ.get("PORT", "8000")
         payload = {
             "text": text,
             "format": "html",
@@ -91,7 +92,7 @@ class WeatherNotifierAgent:
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.post(
-                    "http://localhost:8000/mytelegram",
+                    f"http://localhost:{port}/mytelegram",
                     json=payload,
                     headers={"x-telegram-tunnel-secret": secret},
                 )
