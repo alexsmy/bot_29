@@ -8,7 +8,6 @@ import httpx
 
 from .base import AgentCommand
 
-TELEGRAM_API_BASE = "https://api.telegram.org"
 WEATHER_DATA_DIR = Path("data/weather")
 MESSAGE_ID_FILE = WEATHER_DATA_DIR / "telegram_message_id.txt"
 
@@ -41,21 +40,16 @@ class WeatherNotifierAgent:
                 except Exception as e:
                     return {"ok": False, "error": f"Не удалось получить погоду: {e}"}
 
-        bot_token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
-        chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
-        if not bot_token or not chat_id:
-            return {"ok": False, "error": "TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID не заданы."}
-
         text = self._format_message(weather)
         stored_message_id = self._read_message_id()
 
         if stored_message_id and query != "send":
-            result = await self._edit_message(bot_token, chat_id, stored_message_id, text)
+            result = await self._edit_message(stored_message_id, text)
             if result.get("ok"):
                 return result
             self._reset_message_id()
 
-        result = await self._send_message(bot_token, chat_id, text)
+        result = await self._send_message(text)
         if result.get("ok"):
             mid = result.get("message_id")
             if mid:
@@ -84,32 +78,36 @@ class WeatherNotifierAgent:
             f"\U0001f916 <i>weather_notifier agent</i>"
         )
 
-    async def _send_message(self, token: str, chat_id: str, text: str) -> dict:
+    async def _call_telegram(self, text: str, message_id: int | None = None) -> dict:
+        secret = os.environ.get("TELEGRAM_TUNNEL_SECRET", "")
+        payload = {
+            "text": text,
+            "format": "html",
+            "kind": "replace" if message_id else "single",
+            "disable_web_page_preview": True,
+        }
+        if message_id:
+            payload["message_id"] = message_id
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(f"{TELEGRAM_API_BASE}/bot{token}/sendMessage", json={
-                    "chat_id": chat_id, "text": text, "parse_mode": "HTML",
-                })
+                resp = await client.post(
+                    "http://localhost:8000/mytelegram",
+                    json=payload,
+                    headers={"x-telegram-tunnel-secret": secret},
+                )
                 data = resp.json()
-                if data.get("ok"):
-                    mid = data["result"]["message_id"]
-                    return {"ok": True, "action": "sent", "message_id": mid}
-                return {"ok": False, "error": data.get("description", "Unknown")}
+            if data.get("ok"):
+                action = "edited" if message_id else "sent"
+                return {"ok": True, "action": action, "message_id": data.get("message_id")}
+            return {"ok": False, "error": data.get("detail", str(data))}
         except Exception as e:
-            return {"ok": False, "error": f"Ошибка отправки: {e}"}
+            return {"ok": False, "error": f"Ошибка вызова туннеля: {e}"}
 
-    async def _edit_message(self, token: str, chat_id: str, message_id: int, text: str) -> dict:
-        try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(f"{TELEGRAM_API_BASE}/bot{token}/editMessageText", json={
-                    "chat_id": chat_id, "message_id": message_id, "text": text, "parse_mode": "HTML",
-                })
-                data = resp.json()
-                if data.get("ok"):
-                    return {"ok": True, "action": "edited", "message_id": message_id}
-                return {"ok": False, "detail": data.get("description", "Unknown"), "message_id": message_id}
-        except Exception as e:
-            return {"ok": False, "detail": f"Ошибка редактирования: {e}", "message_id": message_id}
+    async def _send_message(self, text: str) -> dict:
+        return await self._call_telegram(text)
+
+    async def _edit_message(self, message_id: int, text: str) -> dict:
+        return await self._call_telegram(text, message_id)
 
     def _weather_description(self, code: int) -> str:
         codes = {
