@@ -9,6 +9,7 @@ from routers.crpt_api import router as crpt_router
 from routers.filevault_api import router as filevault_router, public_router as filevault_public_router
 from routers.web import router as web_router
 from routers.telegram_tunnel_api import router as telegram_tunnel_router
+from routers.agents_api import router as agents_router
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 
@@ -26,6 +27,7 @@ app.include_router(crpt_router)
 app.include_router(filevault_router)
 app.include_router(filevault_public_router)
 app.include_router(telegram_tunnel_router)
+app.include_router(agents_router)
 
 
 async def main():
