@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import importlib.util
+import sys
+from pathlib import Path
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -47,3 +50,146 @@ async def send_weather_to_telegram(action: str = "update") -> dict:
     cmd.raw = {"args": {}}
     result = await weather_notifier.run(cmd)  # type: ignore[arg-type]
     return result
+
+
+# --- Динамические MCP-инструменты (загрузка через API без передеплоя) ---
+# Позволяет добавлять новые MCP-тулы на лету через POST /api/agents/mcp-tools/register
+# Код сохраняется в data/agents/mcp_tools/ и восстанавливается при рестарте
+#
+# Формат кода:
+#   async def tool_name(param1: str, param2: int = 0) -> str:
+#       """Описание инструмента"""
+#       return f"Результат: {param1}, {param2}"
+
+MCP_TOOLS_DIR = Path("data/agents/mcp_tools")
+MCP_TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+
+_dynamic_tools: dict[str, dict[str, Any]] = {}
+
+_BUILTIN_TOOLS = frozenset({"get_weather", "send_weather_to_telegram"})
+
+
+def register_dynamic_tool(name: str, code: str, description: str | None = None) -> dict:
+    """Зарегистрировать новый MCP-инструмент из Python-кода.
+
+    Код должен содержать async-функцию с именем, совпадающим с name.
+    Параметры функции автоматически становятся inputSchema MCP.
+    """
+    if not name.isidentifier():
+        return {"ok": False, "error": f"Некорректное имя тула: '{name}'. Допустимы только буквы, цифры, underscore."}
+
+    if name in _BUILTIN_TOOLS:
+        return {"ok": False, "error": f"Нельзя перезаписать встроенный инструмент: '{name}'"}
+
+    filepath = MCP_TOOLS_DIR / f"{name}.py"
+    filepath.write_text(code, encoding="utf-8")
+
+    module_name = f"_mcp_tool_{name}"
+
+    if module_name in sys.modules:
+        del sys.modules[module_name]
+
+    try:
+        spec = importlib.util.spec_from_file_location(module_name, filepath)
+        if not spec or not spec.loader:
+            return {"ok": False, "error": "Не удалось создать spec модуля"}
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        spec.loader.exec_module(module)
+    except SyntaxError as e:
+        filepath.unlink()
+        return {"ok": False, "error": f"Синтаксическая ошибка в коде тула: {e}"}
+    except Exception as e:
+        filepath.unlink()
+        return {"ok": False, "error": f"Не удалось загрузить модуль тула: {e}"}
+
+    fn = getattr(module, name, None)
+    if fn is None or not callable(fn):
+        filepath.unlink()
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+        return {"ok": False, "error": f"Модуль должен содержать вызываемую функцию с именем '{name}'"}
+
+    if description is None:
+        description = getattr(module, "TOOL_DESCRIPTION", fn.__doc__ or f"Динамический MCP-инструмент: {name}")
+
+    try:
+        mcp.remove_tool(name)
+    except Exception:
+        pass
+
+    try:
+        mcp.add_tool(fn, name=name, description=description)
+    except Exception as e:
+        filepath.unlink()
+        if module_name in sys.modules:
+            del sys.modules[module_name]
+        return {"ok": False, "error": f"Не удалось зарегистрировать тул в MCP-сервере: {e}"}
+
+    _dynamic_tools[name] = {"filepath": str(filepath), "description": description}
+    return {"ok": True, "result": f"Инструмент '{name}' зарегистрирован"}
+
+
+def remove_dynamic_tool(name: str) -> dict:
+    """Удалить динамический MCP-инструмент."""
+    if name in _BUILTIN_TOOLS:
+        return {"ok": False, "error": f"Нельзя удалить встроенный инструмент: '{name}'"}
+
+    if name not in _dynamic_tools:
+        return {"ok": False, "error": f"Динамический инструмент '{name}' не найден"}
+
+    try:
+        mcp.remove_tool(name)
+    except Exception:
+        pass
+
+    filepath = MCP_TOOLS_DIR / f"{name}.py"
+    if filepath.exists():
+        filepath.unlink()
+
+    module_name = f"_mcp_tool_{name}"
+    if module_name in sys.modules:
+        del sys.modules[module_name]
+
+    del _dynamic_tools[name]
+    return {"ok": True, "result": f"Инструмент '{name}' удалён"}
+
+
+def list_dynamic_tools() -> list[dict]:
+    """Список всех загруженных динамических MCP-инструментов."""
+    result = []
+    for name in sorted(_dynamic_tools):
+        info = _dynamic_tools[name]
+        tool = None
+        try:
+            tool = mcp._tool_manager.get_tool(name)
+        except Exception:
+            pass
+        entry = {"name": name, "description": info["description"]}
+        if tool and hasattr(tool, "inputSchema"):
+            entry["input_schema"] = tool.inputSchema
+        result.append(entry)
+    return result
+
+
+def load_dynamic_tools() -> None:
+    """Восстановить все сохранённые MCP-инструменты с диска (вызывается при старте)."""
+    if not MCP_TOOLS_DIR.exists():
+        MCP_TOOLS_DIR.mkdir(parents=True, exist_ok=True)
+        return
+
+    for filepath in sorted(MCP_TOOLS_DIR.glob("*.py")):
+        name = filepath.stem
+        if name.startswith("_") or name in _BUILTIN_TOOLS:
+            continue
+        try:
+            code = filepath.read_text(encoding="utf-8")
+            result = register_dynamic_tool(name, code)
+            if not result.get("ok"):
+                print(f"[MCP] Не удалось восстановить инструмент '{name}': {result.get('error')}")
+        except Exception as e:
+            print(f"[MCP] Ошибка восстановления инструмента '{name}': {e}")
+
+
+# Восстанавливаем динамические инструменты после предыдущих сессий
+load_dynamic_tools()

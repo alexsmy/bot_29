@@ -10,6 +10,11 @@ from fastapi import APIRouter, HTTPException, Request, Response
 from services.agents.registry import DYNAMIC_AGENTS_DIR, import_and_register_dynamic_agent, is_builtin, list_agents, unregister_dynamic_agent
 from services.agents.storage import FILEVAULT_ROOT, save_agent_code_to_filevault
 from services.agents.tunnel import get_agent_tunnel_status, handle_agent_request, load_tunnel_secret, read_agent_payload
+from services.agents.mcp_server import (
+    register_dynamic_tool as _register_mcp_tool,
+    remove_dynamic_tool as _remove_mcp_tool,
+    list_dynamic_tools as _list_mcp_tools,
+)
 
 router = APIRouter(prefix="/api/agents", tags=["agents"])
 
@@ -95,6 +100,63 @@ async def agent_upload(request: Request, response: Response) -> Dict[str, Any]:
             "original_name": code_artifact.original_name,
         },
     }
+
+
+@router.post("/mcp-tools/register")
+async def register_mcp_tool(request: Request, response: Response) -> Dict[str, Any]:
+    """Загрузить и зарегистрировать новый MCP-инструмент (через MCP без передеплоя).
+    Body JSON: { "name": "...", "code": "...", "description": "..." }
+
+    Код должен содержать async-функцию с именем, совпадающим с name.
+    Параметры функции автоматически становятся inputSchema MCP.
+
+    Пример кода:
+        async def hello(name: str) -> str:
+            return f"Hello, {name}!"
+    """
+    _no_store(response)
+    _check_secret(request)
+
+    body = await request.json()
+    name = str(body.get("name", "")).strip()
+    code = str(body.get("code", "")).strip()
+    description = body.get("description")
+
+    if not name or not code:
+        raise HTTPException(status_code=422, detail="Поля 'name' и 'code' обязательны")
+
+    result = _register_mcp_tool(name, code, description)
+
+    if not result.get("ok"):
+        raise HTTPException(status_code=422, detail=result.get("error", "Неизвестная ошибка"))
+
+    return result
+
+
+@router.get("/mcp-tools/list")
+async def list_mcp_tools(request: Request, response: Response) -> Dict[str, Any]:
+    """Список всех загруженных MCP-инструментов."""
+    _no_store(response)
+    _check_secret(request)
+
+    return {
+        "ok": True,
+        "tools": _list_mcp_tools(),
+    }
+
+
+@router.delete("/mcp-tools/{name}")
+async def remove_mcp_tool(name: str, request: Request, response: Response) -> Dict[str, Any]:
+    """Удалить загруженный MCP-инструмент."""
+    _no_store(response)
+    _check_secret(request)
+
+    result = _remove_mcp_tool(name)
+
+    if not result.get("ok"):
+        raise HTTPException(status_code=404, detail=result.get("error", "Не найден"))
+
+    return result
 
 
 @router.get("/responses")
