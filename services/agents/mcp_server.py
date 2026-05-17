@@ -7,7 +7,7 @@ from mcp.server.fastmcp import FastMCP
 from .weather_monitor import WeatherMonitorAgent
 from .weather_notifier import WeatherNotifierAgent
 
-mcp = FastMCP("weather_agents", json_response=True)
+mcp = FastMCP("weather_agents", json_response=True, streamable_http_path="/")
 
 weather_monitor = WeatherMonitorAgent()
 weather_notifier = WeatherNotifierAgent()

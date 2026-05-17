@@ -1,5 +1,7 @@
 import os
 import asyncio
+import contextlib
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -14,7 +16,16 @@ from services.agents.mcp_server import mcp as weather_mcp
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 
-app = FastAPI()
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    log("APP_LIFECYCLE", "MCP session manager запущен")
+    async with weather_mcp.session_manager.run():
+        yield
+    log("APP_LIFECYCLE", "MCP session manager остановлен")
+
+
+app = FastAPI(lifespan=lifespan)
 
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -29,7 +40,7 @@ app.include_router(filevault_router)
 app.include_router(filevault_public_router)
 app.include_router(telegram_tunnel_router)
 app.include_router(agents_router)
-app.mount("/mcp", weather_mcp.get_app())
+app.mount("/mcp", weather_mcp.streamable_http_app())
 
 
 async def main():
