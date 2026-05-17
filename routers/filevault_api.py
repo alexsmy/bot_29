@@ -449,13 +449,55 @@ async def list_files(request: Request):
 
 
 @router.post("/upload")
-async def upload_files(request: Request, files: list[UploadFile] = File(...), folder_id: str | None = Form(None)):
+async def upload_files(request: Request, files: list[UploadFile] = File(...), folder_id: str | None = Form(None), folder: str | None = Form(None)):
+    """Загрузка файлов в FileVault.
+
+    Поддерживает два способа указания целевой папки:
+      - folder_id: идентификатор существующей папки (fld_xxx)
+      - folder: имя папки в корне (если нет — создаётся автоматически)
+
+    Если оба параметра не указаны — файл сохраняется в корень.
+    """
     if not files:
         return JSONResponse({"success": False, "error": "Файлы не переданы"}, status_code=400)
 
-    folder_id = _validate_folder_id(folder_id)
     folders = _load_folders()
-    _ensure_folder_exists(folder_id, folders)
+    resolved_folder_id: str | None = None
+
+    # Приоритет 1: явный folder_id (обратная совместимость)
+    if folder_id not in {None, "", "null"}:
+        resolved_folder_id = _validate_folder_id(folder_id)
+        _ensure_folder_exists(resolved_folder_id, folders)
+
+    # Приоритет 2: имя папки — ищем или создаём
+    elif folder not in {None, "", "null"}:
+        folder_name = _validate_folder_name(str(folder))
+        # Ищем папку с таким именем в корне (parent_id is None)
+        existing = None
+        for f in folders:
+            if f.get("parent_id") is None and f["name"].casefold() == folder_name.casefold():
+                existing = f
+                break
+
+        if existing:
+            # Папка уже существует — используем её
+            resolved_folder_id = existing["folder_id"]
+        else:
+            # Создаём новую папку в корне
+            new_folder = {
+                "folder_id": f"fld_{uuid4().hex}",
+                "name": folder_name,
+                "parent_id": None,
+                "created_at": _now_iso(),
+                "updated_at": _now_iso(),
+            }
+            folders.append(new_folder)
+            _save_folders(folders)
+            resolved_folder_id = new_folder["folder_id"]
+            # Перезагружаем folders, чтобы _to_client_record видел новую папку
+            folders = _load_folders()
+
+    # Если ни folder_id, ни folder не указаны — resolved_folder_id остаётся None (корень)
 
     created = []
 
@@ -480,7 +522,7 @@ async def upload_files(request: Request, files: list[UploadFile] = File(...), fo
             "content_type": content_type,
             "size_bytes": len(content),
             "uploaded_at": _now_iso(),
-            "folder_id": folder_id,
+            "folder_id": resolved_folder_id,
         }
         _json_write(meta_path, meta)
         created.append(_to_client_record(meta, request, folders))
