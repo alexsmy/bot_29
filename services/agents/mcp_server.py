@@ -12,6 +12,7 @@ mcp = FastMCP(
     host="0.0.0.0",
     json_response=True,
     transport_security=None,
+    streamable_http_path="/",
 )
 
 weather_monitor = WeatherMonitorAgent()
