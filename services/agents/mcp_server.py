@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
 from mcp.server.fastmcp import FastMCP
 
 from .weather_monitor import WeatherMonitorAgent
@@ -52,6 +54,112 @@ async def send_weather_to_telegram(action: str = "update") -> dict:
     return result
 
 
+# --- Определение типа медиа по расширению/имени ---
+
+_EXT_TO_METHOD = {
+    ".jpg": "sendPhoto", ".jpeg": "sendPhoto", ".png": "sendPhoto",
+    ".gif": "sendPhoto", ".webp": "sendPhoto", ".bmp": "sendPhoto",
+    ".mp4": "sendVideo", ".avi": "sendVideo", ".mov": "sendVideo",
+    ".mkv": "sendVideo", ".webm": "sendVideo",
+    ".mp3": "sendAudio", ".wav": "sendAudio", ".flac": "sendAudio",
+    ".ogg": "sendVoice", ".oga": "sendVoice",
+}
+
+_METHOD_TO_FIELD = {
+    "sendPhoto": "photo", "sendVideo": "video",
+    "sendAudio": "audio", "sendVoice": "voice", "sendDocument": "document",
+}
+
+_SHORT_TO_METHOD = {
+    "photo": "sendPhoto", "image": "sendPhoto",
+    "video": "sendVideo", "audio": "sendAudio", "music": "sendAudio",
+    "voice": "sendVoice", "document": "sendDocument", "file": "sendDocument",
+}
+
+
+def _detect_media_type(url: str, media_type: str = "", file_name: str = "") -> str:
+    if media_type:
+        m = _SHORT_TO_METHOD.get(media_type.lower())
+        if m:
+            return m
+    target = file_name.lower() if file_name else url.lower()
+    for ext, method in _EXT_TO_METHOD.items():
+        if target.endswith(ext):
+            return method
+    for ext, method in _EXT_TO_METHOD.items():
+        if url.lower().endswith(ext):
+            return method
+    return "sendDocument"
+
+
+@mcp.tool()
+async def send_telegram_message(
+    text: str,
+    file_url: str = "",
+    file_name: str = "",
+    parse_mode: str = "html",
+    action: str = "send",
+    media_type: str = "",
+) -> str:
+    """Universal Telegram sender: text, files, photo, video, audio, voice.
+    Parameters:
+      text - message text (HTML supported)
+      file_url - URL to file (PDF, JPG, PNG, MP4, MP3, OGG, etc.)
+      file_name - display filename (used for type detection too)
+      parse_mode - html (default), markdownv2, plain
+      action - 'send' or 'update' (edit last message)
+      media_type - force type: photo/image/video/audio/music/voice/document/file
+    """
+    token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    chat_id = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not token or not chat_id:
+        return "ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set"
+
+    if file_url:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as hx:
+            resp = await hx.get(file_url)
+            resp.raise_for_status()
+            file_bytes = resp.content
+            ct = resp.headers.get("content-type", "")
+
+        file_type = _detect_media_type(file_url, media_type, file_name)
+        field_name = _METHOD_TO_FIELD.get(file_type, "document")
+        if not file_name:
+            file_name = file_url.split("/")[-1].split("?")[0]
+
+        timeout = httpx.Timeout(60.0)
+        data = {"chat_id": chat_id, "caption": text}
+        if parse_mode != "plain":
+            data["parse_mode"] = parse_mode.upper() if parse_mode == "html" else "MarkdownV2"
+
+        files = {field_name: (file_name, file_bytes)}
+
+        async with httpx.AsyncClient(timeout=timeout) as hx:
+            r = await hx.post(f"https://api.telegram.org/bot{token}/{file_type}", data=data, files=files)
+            result = r.json()
+
+        if not result.get("ok") and file_type == "sendPhoto":
+            desc = result.get("description", "")
+            if "can't parse" in desc.lower() or "wrong file" in desc.lower():
+                files = {"document": (file_name, file_bytes)}
+                async with httpx.AsyncClient(timeout=timeout) as hx:
+                    r = await hx.post(f"https://api.telegram.org/bot{token}/sendDocument", data={"chat_id": chat_id, "caption": text}, files=files)
+                    result = r.json()
+
+        if not result.get("ok"):
+            return f"Error: {result.get('description', 'unknown')}"
+
+        return f"Sent | Type: {file_type} | {file_name}"
+
+    payload = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode.upper() if parse_mode != "plain" else ""}
+    async with httpx.AsyncClient(timeout=15.0) as hx:
+        r = await hx.post(f"https://api.telegram.org/bot{token}/sendMessage", json=payload)
+        result = r.json()
+    if not result.get("ok"):
+        return f"Error: {result.get('description', 'unknown')}"
+    return f"Sent (id: {result['result']['message_id']})"
+
+
 # --- Динамические MCP-инструменты (загрузка через API без передеплоя) ---
 # Позволяет добавлять новые MCP-тулы на лету через POST /api/agents/mcp-tools/register
 # Код сохраняется в data/agents/mcp_tools/ и восстанавливается при рестарте
@@ -66,7 +174,7 @@ MCP_TOOLS_DIR.mkdir(parents=True, exist_ok=True)
 
 _dynamic_tools: dict[str, dict[str, Any]] = {}
 
-_BUILTIN_TOOLS = frozenset({"get_weather", "send_weather_to_telegram"})
+_BUILTIN_TOOLS = frozenset({"get_weather", "send_weather_to_telegram", "send_telegram_message"})
 
 
 def register_dynamic_tool(name: str, code: str, description: str | None = None) -> dict:
