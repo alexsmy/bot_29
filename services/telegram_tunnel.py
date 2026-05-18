@@ -1,3 +1,9 @@
+# Сервис отправки сообщений в Telegram через прямой Bot API.
+# Используется эндпоинтом /mytelegram (GET/POST).
+# Поддерживает: single (отправить), replace (редактировать), temporary (отправить + удалить).
+# Форматы: HTML, MarkdownV2, plain.
+# Все параметры (токен, chat_id, секрет) — из переменных окружения.
+
 from __future__ import annotations
 
 import asyncio
