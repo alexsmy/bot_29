@@ -1,4 +1,9 @@
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-httpx==0.27.0
-python-multipart==0.0.9
+# Основной фреймворк
+# fastapi>=0.110.0 — нужен для lifespan-обработчика MCP
+fastapi>=0.110.0
+uvicorn[standard]>=0.24.0
+httpx>=0.27.0
+python-multipart>=0.0.9
+
+# MCP SDK — Model Context Protocol (для погодных агентов и динамических инструментов)
+mcp>=1.0.0

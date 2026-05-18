@@ -1,19 +1,50 @@
+"""
+Точка входа FastAPI-приложения на Render (bot-29).
+
+Собирает все роутеры и сервисы в одно приложение.
+Монтирует MCP-сервер (/mcp) для интеграции с opencode.
+"""
+
 import os
 import asyncio
+import contextlib
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+# --- Роутеры (каждый отвечает за свою группу эндпоинтов) ---
 from routers.keepalive_api import router as keepalive_router
 from routers.crpt_api import router as crpt_router
 from routers.filevault_api import router as filevault_router, public_router as filevault_public_router
 from routers.web import router as web_router
 from routers.telegram_tunnel_api import router as telegram_tunnel_router
 from routers.agents_api import router as agents_router
+
+# --- Сервисы ---
 from services.keep_alive import start_keep_alive_task
 from utils.logger import log
 
-app = FastAPI()
+# --- MCP-сервер (погода + динамические инструменты) ---
+# Подключается к FastAPI через lifespan, чтобы правильно управлять
+# сессиями MCP (SSE + JSON-RPC транспорт)
+from services.agents.mcp_server import mcp as weather_mcp
+
+
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan-обработчик для MCP.
+    FastMCP требует запущенного session_manager для работы
+    с SSE-транспортом. Запускаем при старте, закрываем при остановке.
+    """
+    log("APP_LIFECYCLE", "MCP session manager запущен")
+    async with weather_mcp.session_manager.run():
+        yield
+    log("APP_LIFECYCLE", "MCP session manager остановлен")
+
+
+app = FastAPI(lifespan=lifespan)
 
 os.makedirs("static", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -28,6 +59,11 @@ app.include_router(filevault_router)
 app.include_router(filevault_public_router)
 app.include_router(telegram_tunnel_router)
 app.include_router(agents_router)
+
+# Монтируем MCP-сервер на /mcp
+# Это даёт opencode единую точку подключения к погодным агентам
+# и динамическим инструментам по протоколу MCP (Model Context Protocol)
+app.mount("/mcp", weather_mcp.streamable_http_app())
 
 
 async def main():
