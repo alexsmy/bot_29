@@ -21,7 +21,7 @@ from services.telegram_listener import (
     get_status,
     get_unread_messages,
 )
-from services.agents.tunnel import _require_secret
+from services.agents.tunnel import load_tunnel_secret, _check_secret
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram-inbox"])
 
@@ -31,11 +31,22 @@ def _no_store(response: Response) -> None:
     response.headers["Pragma"] = "no-cache"
 
 
+def _check_auth(request: Request) -> None:
+    """Check X-Agents-Tunnel-Secret header."""
+    secret = load_tunnel_secret()
+    if not secret:
+        return
+    provided = request.headers.get("x-agents-tunnel-secret") or ""
+    import hmac
+    if not hmac.compare_digest(str(provided), secret):
+        raise HTTPException(status_code=403, detail="Invalid secret")
+
+
 @router.get("/inbox")
 async def inbox_list(request: Request, response: Response) -> Dict[str, Any]:
     """Get all unread messages from Telegram inbox."""
     _no_store(response)
-    _require_secret(request)
+    _check_auth(request)
     messages = get_unread_messages()
     return {"ok": True, "messages": messages, "count": len(messages)}
 
@@ -44,7 +55,7 @@ async def inbox_list(request: Request, response: Response) -> Dict[str, Any]:
 async def inbox_ack_all(request: Request, response: Response) -> Dict[str, Any]:
     """Acknowledge all unread messages as read."""
     _no_store(response)
-    _require_secret(request)
+    _check_auth(request)
     count = acknowledge_all()
     return {"ok": True, "acknowledged": count}
 
@@ -53,7 +64,7 @@ async def inbox_ack_all(request: Request, response: Response) -> Dict[str, Any]:
 async def inbox_ack_one(update_id: int, request: Request, response: Response) -> Dict[str, Any]:
     """Acknowledge a specific message by update_id."""
     _no_store(response)
-    _require_secret(request)
+    _check_auth(request)
     if not acknowledge_message(update_id):
         raise HTTPException(status_code=404, detail="Message not found")
     return {"ok": True, "update_id": update_id}
@@ -63,7 +74,7 @@ async def inbox_ack_one(update_id: int, request: Request, response: Response) ->
 async def inbox_status(request: Request, response: Response) -> Dict[str, Any]:
     """Get inbox stats."""
     _no_store(response)
-    _require_secret(request)
+    _check_auth(request)
     status = get_status()
     return {"ok": True, **status}
 
@@ -72,6 +83,6 @@ async def inbox_status(request: Request, response: Response) -> Dict[str, Any]:
 async def inbox_all(request: Request, response: Response) -> Dict[str, Any]:
     """Get ALL messages (including acknowledged), newest first."""
     _no_store(response)
-    _require_secret(request)
+    _check_auth(request)
     messages = get_all_messages()
     return {"ok": True, "messages": messages, "count": len(messages)}

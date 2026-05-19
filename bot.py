@@ -16,6 +16,7 @@ from routers.agents_api import router as agents_router
 from services.agents.mcp_server import mcp as weather_mcp
 from services.keep_alive import start_keep_alive_task
 from services.telegram_listener import listener_loop
+from services.telegram_hub.bot_runner import run_telegram_bot
 from utils.logger import log
 
 
@@ -56,6 +57,7 @@ async def main():
     log("APP_LIFECYCLE", "Запуск изолированного сервиса автоподдержки (Keep-Alive)...")
 
     keep_alive_task = asyncio.create_task(start_keep_alive_task())
+    telegram_hub_task = asyncio.create_task(run_telegram_bot())
 
     port = int(os.environ.get("PORT", 8000))
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_config=None)
@@ -63,7 +65,7 @@ async def main():
 
     server_task = asyncio.create_task(server.serve())
 
-    await asyncio.gather(server_task, keep_alive_task)
+    await asyncio.gather(server_task, keep_alive_task, telegram_hub_task)
 
 
 if __name__ == "__main__":
