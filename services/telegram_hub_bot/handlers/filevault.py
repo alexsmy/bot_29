@@ -79,18 +79,14 @@ def _folder_items(folder_id: str | None, page: int) -> tuple[list[tuple[str, str
     files = [meta for meta in _load_all_file_meta() if meta.get("folder_id") == folder_id]
     children_map = _folder_children_map(folders)
     child_folders = children_map.get(folder_id, [])
-    index = _folder_index(folders)
-
-    folder_objects = []
-    if folder_id is None:
-        folder_objects = child_folders
-    else:
-        folder_objects = child_folders
+    folder_objects = child_folders
 
     items: list[tuple[str, str]] = []
-    for child_id in folder_objects:
-        folder = index[child_id]
-        items.append((f"📁 {fmt_filename(folder['name'], 22)}", FileVaultCB(action="folder", folder_id=child_id, page=0).pack()))
+    for folder in folder_objects:
+        child_id = str(folder.get("folder_id", ""))
+        if not child_id:
+            continue
+        items.append((f"📁 {fmt_filename(str(folder.get('name', 'Папка')), 22)}", FileVaultCB(action="folder", folder_id=child_id, page=0).pack()))
     for record in files:
         items.append((_file_label(record), FileVaultCB(action="file", folder_id=str(folder_id or ""), file_id=str(record.get("file_id", "")), page=page).pack()))
 
@@ -99,7 +95,7 @@ def _folder_items(folder_id: str | None, page: int) -> tuple[list[tuple[str, str
     page = max(0, min(page, pages - 1))
     start = page * PAGE_SIZE
     end = start + PAGE_SIZE
-    return items[start:end], page, pages, {"folder_id": folder_id, "total": total, "folders": child_folders, "files": files}
+    return items[start:end], page, pages, {"folder_id": folder_id, "total": total, "folders": folder_objects, "files": files}
 
 
 def _render_folder_markup(folder_id: str | None, page: int) -> tuple[str, object]:
@@ -118,7 +114,7 @@ def _render_folder_markup(folder_id: str | None, page: int) -> tuple[str, object
         title = "Корневая папка"
         path_label = "Корень хранилища"
         folder_files = [meta for meta in files if meta.get("folder_id") is None]
-        child_folders = [index[fid] for fid in payload["folders"]]
+        child_folders = payload["folders"]
         file_count = metrics.get(None, {}).get("file_count", len(folder_files))
         size_bytes = metrics.get(None, {}).get("size_bytes", sum(int(x.get("size_bytes", 0) or 0) for x in folder_files))
     else:
@@ -129,7 +125,7 @@ def _render_folder_markup(folder_id: str | None, page: int) -> tuple[str, object
         path_label = _folder_path_label(folder_id, folders)
         file_count = metrics.get(folder_id, {}).get("file_count", len(payload["files"]))
         size_bytes = metrics.get(folder_id, {}).get("size_bytes", sum(int(x.get("size_bytes", 0) or 0) for x in payload["files"]))
-        child_folders = [index[fid] for fid in payload["folders"]]
+        child_folders = payload["folders"]
 
     folders_count = len(child_folders)
     text = filevault_folder(title, path_label, file_count, folders_count, fmt_bytes(size_bytes))
@@ -229,7 +225,7 @@ async def filevault_actions(callback: CallbackQuery, callback_data: FileVaultCB,
 
     if action == "upload":
         await state.set_state(FileVaultStates.waiting_upload)
-        await state.update_data(folder_id=folder_id)
+        await state.update_data(folder_id=folder_id, page=page, panel_message_id=callback.message.message_id)
         await callback.message.edit_text(
             "Файл загружается в текущую папку.\n\nОтправьте документ, чтобы сохранить его в этом разделе.",
             reply_markup=build_simple_back_home(FileVaultCB(action="open", folder_id=str(folder_id or ""), page=page).pack()),
@@ -289,7 +285,7 @@ async def filevault_actions(callback: CallbackQuery, callback_data: FileVaultCB,
 
     if action == "rename_file":
         await state.set_state(FileVaultStates.waiting_file_rename)
-        await state.update_data(file_id=callback_data.file_id, folder_id=folder_id, page=page)
+        await state.update_data(file_id=callback_data.file_id, folder_id=folder_id, page=page, panel_message_id=callback.message.message_id)
         await callback.message.edit_text(
             "Введите новое имя файла полностью, включая расширение.",
             reply_markup=build_simple_back_home(FileVaultCB(action="file", folder_id=str(folder_id or ""), file_id=callback_data.file_id, page=page).pack()),
@@ -357,9 +353,9 @@ async def process_file_rename(message: Message, state: FSMContext) -> None:
         await message.answer(f"Не удалось переименовать файл: {error}")
         return
 
+    panel_message_id = data.get("panel_message_id")
     await state.clear()
-    await message.answer("Файл переименован.")
-    await _open_folder_from_message(message, folder_id, page)
+    await _open_folder_from_message(message, folder_id, page, panel_message_id=panel_message_id)
 
 
 @router.message(FileVaultStates.waiting_upload)
@@ -413,17 +409,20 @@ async def process_upload(message: Message, state: FSMContext) -> None:
         await message.answer(f"Не удалось сохранить файл: {error}")
         return
 
+    panel_message_id = data.get("panel_message_id")
     await state.clear()
-    await message.answer("Файл сохранён.")
-    await _open_folder_from_message(message, folder_id, page)
+    await _open_folder_from_message(message, folder_id, page, panel_message_id=panel_message_id)
 
 
 async def _open_folder_from_message(message: Message, folder_id: str | None, page: int = 0, panel_message_id: int | None = None) -> None:
     text, markup = _render_folder_markup(folder_id, page)
     if panel_message_id:
-        await message.bot.edit_message_text(chat_id=message.chat.id, message_id=int(panel_message_id), text=text, reply_markup=markup)
-    else:
-        await message.answer(text, reply_markup=markup)
+        try:
+            await message.bot.edit_message_text(chat_id=message.chat.id, message_id=int(panel_message_id), text=text, reply_markup=markup)
+            return
+        except Exception:
+            pass
+    await message.answer(text, reply_markup=markup)
 def _dashboard_summary_button(dashboard: dict) -> str:
     return (
         f"💾{dashboard['files_count']} · "
