@@ -22,6 +22,7 @@ if AIROGRAM_AVAILABLE:
     from .handlers.support import router as support_router
     from .handlers.time import router as time_router
     from .time_store import clock_update_loop
+    from .middleware import AllowedUsersMiddleware
 else:
     filevault_router = hub_router = media_router = support_router = time_router = None
     clock_update_loop = None
@@ -36,6 +37,9 @@ def build_dispatcher() -> Dispatcher:
     dp.include_router(filevault_router)
     dp.include_router(media_router)
     dp.include_router(time_router)
+    guard = AllowedUsersMiddleware()
+    dp.message.middleware(guard)
+    dp.callback_query.middleware(guard)
     return dp
 
 

@@ -8,7 +8,7 @@ from aiogram import Bot
 from aiogram.exceptions import TelegramBadRequest, TelegramForbiddenError
 
 from .keyboards import build_time_menu
-from .texts import LONDON_TZ, fmt_clock
+from .texts import EKB_TZ, fmt_clock
 
 
 @dataclass(slots=True)
@@ -22,7 +22,7 @@ _clock_lock = asyncio.Lock()
 
 
 def render_clock_text() -> str:
-    return f"<b>{fmt_clock(datetime.now(LONDON_TZ))}</b>"
+    return f"<b>{fmt_clock(datetime.now(EKB_TZ))}</b>"
 
 
 async def register_clock_message(chat_id: int, message_id: int) -> None:
@@ -42,7 +42,7 @@ async def snapshot_clock_messages() -> list[ClockMessage]:
 
 def clock_card_text() -> str:
     return (
-        "<b>🕒 Текущее время</b>\n\n"
+        "<b>🕒 Текущее время (GMT+5, Екатеринбург)</b>\n\n"
         f"{render_clock_text()}\n\n"
         "Часы обновляются автоматически раз в минуту."
     )
@@ -70,7 +70,7 @@ async def update_clock_message(bot: Bot, chat_id: int, message_id: int) -> bool:
 
 async def clock_update_loop(bot: Bot) -> None:
     while True:
-        now = datetime.now(LONDON_TZ)
+        now = datetime.now(EKB_TZ)
         next_minute = now.replace(second=0, microsecond=0) + timedelta(minutes=1)
         delay = max(1.0, (next_minute - now).total_seconds())
         await asyncio.sleep(delay)

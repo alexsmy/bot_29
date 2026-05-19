@@ -36,8 +36,11 @@ def _get_bot_token() -> str:
     return token
 
 
-def _get_allowed_chat_id() -> str | None:
-    return os.environ.get("TELEGRAM_CHAT_ID") or None
+def _get_allowed_chat_ids() -> set[str]:
+    raw = os.environ.get("TELEGRAM_CHAT_ID", "")
+    if not raw.strip():
+        return set()
+    return {item.strip() for item in raw.split(",") if item.strip()}
 
 
 def _now_iso() -> str:
@@ -82,8 +85,8 @@ def _save_message(update: dict) -> dict | None:
         return None
 
     chat_id = str(msg.get("chat", {}).get("id", ""))
-    allowed = _get_allowed_chat_id()
-    if allowed and chat_id != allowed:
+    allowed = _get_allowed_chat_ids()
+    if allowed and chat_id not in allowed:
         return None
 
     # Build stored record

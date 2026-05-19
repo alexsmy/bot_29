@@ -178,8 +178,13 @@ async def open_filevault(callback: CallbackQuery, callback_data: HubCB) -> None:
     if not callback.message:
         return
     dashboard = get_dashboard()
-    text = filevault_dashboard(dashboard["files_count"], dashboard["folders_count"], dashboard["disk_free_label"])
-    await callback.message.edit_text(text, reply_markup=build_filevault_dashboard())
+    text = filevault_dashboard(
+        dashboard["files_count"],
+        dashboard["folders_count"],
+        dashboard["disk_free_label"],
+        dashboard["disk_total_label"],
+    )
+    await callback.message.edit_text(text, reply_markup=build_filevault_dashboard(_dashboard_summary_button(dashboard)))
 
 
 @router.callback_query(FileVaultCB.filter())
@@ -204,7 +209,12 @@ async def filevault_actions(callback: CallbackQuery, callback_data: FileVaultCB,
                 for folder in folders
             ]
             dashboard = get_dashboard()
-            text = filevault_dashboard(dashboard["files_count"], dashboard["folders_count"], dashboard["disk_free_label"])
+            text = filevault_dashboard(
+                dashboard["files_count"],
+                dashboard["folders_count"],
+                dashboard["disk_free_label"],
+                dashboard["disk_total_label"],
+            )
             await callback.message.edit_text(text, reply_markup=build_filevault_folder(items, folder_id=None, has_parent=False, back_callback=HubCB(action="files").pack()))
         return
 
@@ -228,7 +238,7 @@ async def filevault_actions(callback: CallbackQuery, callback_data: FileVaultCB,
 
     if action == "create_folder":
         await state.set_state(FileVaultStates.waiting_folder_create)
-        await state.update_data(parent_id=folder_id, page=page)
+        await state.update_data(parent_id=folder_id, page=page, panel_message_id=callback.message.message_id)
         await callback.message.edit_text(
             "Введите название новой папки.",
             reply_markup=build_simple_back_home(FileVaultCB(action="open", folder_id=str(folder_id or ""), page=page).pack()),
@@ -319,9 +329,9 @@ async def process_folder_create(message: Message, state: FSMContext) -> None:
         await message.answer(f"Не удалось создать папку: {error}")
         return
 
+    panel_message_id = data.get("panel_message_id")
     await state.clear()
-    await message.answer("Папка создана.")
-    await _open_folder_from_message(message, parent_id, page)
+    await _open_folder_from_message(message, parent_id, page, panel_message_id=panel_message_id)
 
 
 @router.message(FileVaultStates.waiting_file_rename)
@@ -408,6 +418,16 @@ async def process_upload(message: Message, state: FSMContext) -> None:
     await _open_folder_from_message(message, folder_id, page)
 
 
-async def _open_folder_from_message(message: Message, folder_id: str | None, page: int = 0) -> None:
+async def _open_folder_from_message(message: Message, folder_id: str | None, page: int = 0, panel_message_id: int | None = None) -> None:
     text, markup = _render_folder_markup(folder_id, page)
-    await message.answer(text, reply_markup=markup)
+    if panel_message_id:
+        await message.bot.edit_message_text(chat_id=message.chat.id, message_id=int(panel_message_id), text=text, reply_markup=markup)
+    else:
+        await message.answer(text, reply_markup=markup)
+def _dashboard_summary_button(dashboard: dict) -> str:
+    return (
+        f"💾{dashboard['files_count']} · "
+        f"📁{dashboard['folders_count']} · "
+        f"💿{dashboard['disk_free_label']} · "
+        f"🧱{dashboard.get('disk_total_label', '-')}"
+    )

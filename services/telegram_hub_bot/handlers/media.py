@@ -1,13 +1,27 @@
 from __future__ import annotations
 
 from aiogram import F, Router
-from aiogram.types import CallbackQuery
+from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup
+import os
 
 from ..callbacks import CryptoCB, HubCB
 from ..keyboards import build_crypto_menu, build_simple_back_home
 from ..texts import code_builder_card, crypto_card, crypto_stub, radio_card
 
 router = Router(name="media")
+
+
+def _public_base() -> str:
+    return os.environ.get("PUBLIC_BASE_URL", "https://localhost").rstrip("/")
+
+
+def _web_card_menu(open_label: str, path: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text=open_label, url=f"{_public_base()}{path}")],
+            [InlineKeyboardButton(text="◀️Назад", callback_data=HubCB(action="main").pack())],
+        ]
+    )
 
 
 _CRYPTO_STUBS = [
@@ -29,14 +43,14 @@ async def open_media(callback: CallbackQuery, callback_data: HubCB) -> None:
     if callback_data.action == "radio":
         await callback.message.edit_text(
             radio_card(),
-            reply_markup=build_simple_back_home(HubCB(action="main").pack()),
+            reply_markup=_web_card_menu("🌐 Открыть радио", "/project/radio/radio_18.html"),
         )
         return
 
     if callback_data.action == "builder":
         await callback.message.edit_text(
             code_builder_card(),
-            reply_markup=build_simple_back_home(HubCB(action="main").pack()),
+            reply_markup=_web_card_menu("🌐 Открыть сборщик", "/project/sbor/sbor.html"),
         )
         return
 
