@@ -15,22 +15,14 @@ from routers.telegram_inbox_api import router as telegram_inbox_router
 from routers.agents_api import router as agents_router
 from services.agents.mcp_server import mcp as weather_mcp
 from services.keep_alive import start_keep_alive_task
-from services.telegram_listener import listener_loop
-from services.telegram_hub.bot_runner import run_telegram_bot
 from utils.logger import log
 
 
 @contextlib.asynccontextmanager
 async def lifespan(app: FastAPI):
     log("APP_LIFECYCLE", "MCP session manager запущен")
-    listener_task = asyncio.create_task(listener_loop())
     async with weather_mcp.session_manager.run():
         yield
-    listener_task.cancel()
-    try:
-        await listener_task
-    except asyncio.CancelledError:
-        pass
     log("APP_LIFECYCLE", "MCP session manager остановлен")
 
 
@@ -50,14 +42,19 @@ app.include_router(filevault_public_router)
 app.include_router(telegram_tunnel_router)
 app.include_router(telegram_inbox_router)
 app.include_router(agents_router)
-app.mount("/mcp", weather_mcp.streamable_http_app())
+if hasattr(weather_mcp, "streamable_http_app"):
+    mcp_app = weather_mcp.streamable_http_app()
+    if mcp_app is not None:
+        app.mount("/mcp", mcp_app)
 
 
 async def main():
     log("APP_LIFECYCLE", "Запуск изолированного сервиса автоподдержки (Keep-Alive)...")
 
+    from services.telegram_hub_bot.app import start_telegram_bot
+
     keep_alive_task = asyncio.create_task(start_keep_alive_task())
-    telegram_hub_task = asyncio.create_task(run_telegram_bot())
+    telegram_task = asyncio.create_task(start_telegram_bot())
 
     port = int(os.environ.get("PORT", 8000))
     config = uvicorn.Config(app, host="0.0.0.0", port=port, log_config=None)
@@ -65,7 +62,7 @@ async def main():
 
     server_task = asyncio.create_task(server.serve())
 
-    await asyncio.gather(server_task, keep_alive_task, telegram_hub_task)
+    await asyncio.gather(server_task, keep_alive_task, telegram_task)
 
 
 if __name__ == "__main__":

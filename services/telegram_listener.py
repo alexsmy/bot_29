@@ -128,6 +128,11 @@ def _save_message(update: dict) -> dict | None:
     return record
 
 
+def save_incoming_update(update: dict) -> dict | None:
+    """Public wrapper used by the aiogram bot to persist incoming updates."""
+    return _save_message(update)
+
+
 async def poll_once(client: httpx.AsyncClient, offset: int) -> list[dict]:
     """Fetch updates from Telegram and return newly saved records."""
     token = _get_bot_token()

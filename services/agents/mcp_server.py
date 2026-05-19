@@ -7,18 +7,58 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from mcp.server.fastmcp import FastMCP
+
+try:
+    from mcp.server.fastmcp import FastMCP
+except ModuleNotFoundError:
+    FastMCP = None  # type: ignore[assignment]
 
 from .weather_monitor import WeatherMonitorAgent
 from .weather_notifier import WeatherNotifierAgent
 
-mcp = FastMCP(
-    "weather_agents",
-    host="0.0.0.0",
-    json_response=True,
-    transport_security=None,
-    streamable_http_path="/",
-)
+if FastMCP is not None:
+    mcp = FastMCP(
+        "weather_agents",
+        host="0.0.0.0",
+        json_response=True,
+        transport_security=None,
+        streamable_http_path="/",
+    )
+else:
+    class _DummyToolManager:
+        def get_tool(self, name: str):
+            return None
+
+    class _DummySessionManager:
+        class _Runner:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return False
+
+        def run(self):
+            return self._Runner()
+
+    class _DummyMCP:
+        _tool_manager = _DummyToolManager()
+        session_manager = _DummySessionManager()
+
+        def tool(self, *args, **kwargs):
+            def decorator(fn):
+                return fn
+            return decorator
+
+        def add_tool(self, *args, **kwargs):
+            return None
+
+        def remove_tool(self, *args, **kwargs):
+            return None
+
+        def streamable_http_app(self):
+            return None
+
+    mcp = _DummyMCP()
 
 weather_monitor = WeatherMonitorAgent()
 weather_notifier = WeatherNotifierAgent()

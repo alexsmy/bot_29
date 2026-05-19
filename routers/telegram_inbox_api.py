@@ -21,7 +21,7 @@ from services.telegram_listener import (
     get_status,
     get_unread_messages,
 )
-from services.agents.tunnel import load_tunnel_secret, _check_secret
+from services.agents.tunnel import load_tunnel_secret
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram-inbox"])
 
