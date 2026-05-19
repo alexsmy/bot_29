@@ -109,6 +109,7 @@ def get_dashboard() -> dict[str, Any]:
         "disk_total_bytes": disk_total,
         "disk_free_bytes": disk_free,
         "disk_free_label": _format_bytes(disk_free),
+        "disk_total_label": _format_bytes(disk_total),
         "disk_used_bytes": disk_used,
         "disk_used_percent": disk_used_percent,
     }

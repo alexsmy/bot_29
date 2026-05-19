@@ -6,7 +6,7 @@ from typing import Any
 
 from zoneinfo import ZoneInfo
 
-LONDON_TZ = ZoneInfo("Europe/London")
+EKB_TZ = ZoneInfo("Asia/Yekaterinburg")
 
 
 def esc(value: Any) -> str:
@@ -28,7 +28,7 @@ def fmt_bytes(value: int | float | None) -> str:
 
 
 def fmt_clock(dt: datetime | None = None) -> str:
-    dt = dt or datetime.now(LONDON_TZ)
+    dt = dt or datetime.now(EKB_TZ)
     return dt.strftime("%H:%M")
 
 
@@ -121,13 +121,14 @@ def support_target_settings(name: str, url: str, enabled: bool, target_id: str, 
     )
 
 
-def filevault_dashboard(files: int, folders: int, free_space: str) -> str:
+def filevault_dashboard(files: int, folders: int, free_space: str, total_space: str) -> str:
     return (
         "<b>🗂️ Файловое хранилище</b>\n\n"
         f"Файлов: <b>{files}</b>\n"
         f"Папок: <b>{folders}</b>\n"
-        f"Свободно: <b>{free_space}</b>\n\n"
-        "Откройте папку, чтобы просматривать содержимое."
+        f"Свободно: <b>{free_space}</b>\n"
+        f"Всего места: <b>{total_space}</b>\n\n"
+        "Откройте хранилище, чтобы просматривать содержимое."
     )
 
 
@@ -193,7 +194,7 @@ def crypto_stub(name: str) -> str:
 
 def time_card(now_text: str) -> str:
     return (
-        "<b>🕒 Текущее время</b>\n\n"
+        "<b>🕒 Текущее время (GMT+5, Екатеринбург)</b>\n\n"
         f"<b>{esc(now_text)}</b>\n\n"
-        "Часы обновляются автоматически раз в минуту."
+        "Часы обновляются автоматически раз в минуту и вручную по кнопке."
     )

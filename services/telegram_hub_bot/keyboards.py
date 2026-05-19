@@ -9,6 +9,19 @@ def _markup(rows: list[list[InlineKeyboardButton]]) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 
+def _compact_rows(items: list[tuple[str, str]], *, row_width: int = 2, max_text_for_compact: int = 18) -> list[list[InlineKeyboardButton]]:
+    if not items:
+        return []
+    compact = all(len(text) <= max_text_for_compact for text, _ in items)
+    if not compact:
+        return [[InlineKeyboardButton(text=text, callback_data=callback)] for text, callback in items]
+    rows: list[list[InlineKeyboardButton]] = []
+    for idx in range(0, len(items), row_width):
+        chunk = items[idx: idx + row_width]
+        rows.append([InlineKeyboardButton(text=text, callback_data=callback) for text, callback in chunk])
+    return rows
+
+
 def nav_row(back_callback: str, home_callback: str | None = None) -> list[InlineKeyboardButton]:
     return [
         InlineKeyboardButton(text="◀️Назад", callback_data=back_callback),
@@ -54,15 +67,14 @@ def build_support_settings(target_buttons: list[tuple[str, str]], pinned: bool) 
 
 
 def build_support_target(target_actions: list[tuple[str, str]]) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(text=text, callback_data=callback)] for text, callback in target_actions]
-    rows.append(nav_row(SupportCB(action="settings").pack()))
+    rows = _compact_rows(target_actions, row_width=2, max_text_for_compact=20)
     return _markup(rows)
 
 
-def build_filevault_dashboard() -> InlineKeyboardMarkup:
+def build_filevault_dashboard(summary: str) -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton(text="Корневая папка", callback_data=FileVaultCB(action="open", folder_id="").pack())],
-        [InlineKeyboardButton(text="Другие папки", callback_data=FileVaultCB(action="roots", folder_id="").pack())],
+        [InlineKeyboardButton(text=summary, callback_data=NoopCB(action="noop").pack())],
+        [InlineKeyboardButton(text="📁 Открыть хранилище", callback_data=FileVaultCB(action="open", folder_id="").pack())],
         nav_row(HubCB(action="main").pack()),
     ]
     return _markup(rows)
@@ -75,9 +87,7 @@ def build_filevault_folder(
     has_parent: bool,
     back_callback: str,
 ) -> InlineKeyboardMarkup:
-    rows: list[list[InlineKeyboardButton]] = []
-    for text, callback in items:
-        rows.append([InlineKeyboardButton(text=text, callback_data=callback)])
+    rows: list[list[InlineKeyboardButton]] = _compact_rows(items, row_width=2)
     rows.append(
         [
             InlineKeyboardButton(text="📤 Загрузить", callback_data=FileVaultCB(action="upload", folder_id=str(folder_id or "")).pack()),

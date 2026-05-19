@@ -52,6 +52,13 @@ def _target_button_text(target: dict, stat: dict) -> str:
     return f"{str(target.get('name', 'Target'))} {icon}, {response_label}, {checks_label}"
 
 
+async def _render_panel(message: Message, text: str, reply_markup) -> None:
+    if message.from_user and message.from_user.is_bot:
+        await message.edit_text(text, reply_markup=reply_markup)
+        return
+    await message.answer(text, reply_markup=reply_markup)
+
+
 async def _render_dashboard(message: Message) -> None:
     snapshot = get_snapshot()
     stats_map = {str(item.get("id")): item for item in snapshot.stats}
@@ -59,9 +66,10 @@ async def _render_dashboard(message: Message) -> None:
         (_target_button_text(target, stats_map.get(str(target.get("id")), {})), SupportCB(action="target", target_id=str(target.get("id"))).pack())
         for target in snapshot.config.get("targets", [])
     ]
-    await message.answer(
+    await _render_panel(
+        message,
         support_dashboard(snapshot.total, snapshot.online, snapshot.offline, snapshot.checks),
-        reply_markup=build_support_dashboard(_stats_cards(snapshot), target_buttons),
+        build_support_dashboard(_stats_cards(snapshot), target_buttons),
     )
 
 
@@ -76,14 +84,15 @@ async def _render_settings(message: Message) -> None:
         )
         for target in snapshot.config.get("targets", [])
     ]
-    await message.answer(
+    await _render_panel(
+        message,
         support_settings_menu(
             int(settings.get("min_wait_minutes", 13)),
             int(settings.get("max_wait_minutes", 14)),
             int(settings.get("request_timeout_seconds", 30)),
             len(snapshot.config.get("targets", [])),
         ),
-        reply_markup=build_support_settings(target_buttons, pinned=True),
+        build_support_settings(target_buttons, pinned=True),
     )
 
 
@@ -107,10 +116,10 @@ async def _render_target(message: Message, target_id: str) -> None:
         ("Пауза/Старт", SupportCB(action="toggle", target_id=str(target_id)).pack()),
         ("Переименовать", SupportCB(action="rename", target_id=str(target_id)).pack()),
         ("Удалить", SupportCB(action="delete", target_id=str(target_id)).pack()),
-        ("◀️Назад", SupportCB(action="settings").pack()),
+        ("◀️Назад", HubCB(action="support").pack()),
         ("🏠Хаб", HubCB(action="main").pack()),
     ]
-    await message.answer(text, reply_markup=build_support_target(actions))
+    await _render_panel(message, text, build_support_target(actions))
 
 
 @router.callback_query(HubCB.filter(F.action == "support"))
@@ -365,14 +374,15 @@ async def _show_settings(message: Message) -> None:
         )
         for target in snapshot.config.get("targets", [])
     ]
-    await message.answer(
+    await _render_panel(
+        message,
         support_settings_menu(
             int(settings.get("min_wait_minutes", 13)),
             int(settings.get("max_wait_minutes", 14)),
             int(settings.get("request_timeout_seconds", 30)),
             len(snapshot.config.get("targets", [])),
         ),
-        reply_markup=build_support_settings(target_buttons, pinned=True),
+        build_support_settings(target_buttons, pinned=True),
     )
 
 
