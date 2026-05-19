@@ -3,7 +3,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.enums import ContentType
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, FSInputFile, Message
@@ -172,10 +172,8 @@ async def _open_folder(callback: CallbackQuery, folder_id: str | None, page: int
     await callback.message.edit_text(text, reply_markup=markup)
 
 
-@router.callback_query(HubCB.filter())
+@router.callback_query(HubCB.filter(F.action == "files"))
 async def open_filevault(callback: CallbackQuery, callback_data: HubCB) -> None:
-    if callback_data.action != "files":
-        return
     await callback.answer()
     if not callback.message:
         return

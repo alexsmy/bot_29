@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from ..callbacks import HubCB, TimeCB
@@ -11,11 +11,8 @@ from ..time_store import clock_card_text, register_clock_message, unregister_clo
 router = Router(name="time")
 
 
-@router.callback_query(HubCB.filter())
+@router.callback_query(HubCB.filter(F.action == "clock"))
 async def open_time(callback: CallbackQuery, callback_data: HubCB) -> None:
-    if callback_data.action != "clock":
-        return
-
     await callback.answer()
     if not callback.message:
         return
@@ -36,9 +33,8 @@ async def time_actions(callback: CallbackQuery, callback_data: TimeCB) -> None:
         return
 
 
-@router.callback_query(HubCB.filter())
+@router.callback_query(HubCB.filter(F.action == "main"))
 async def time_back_home(callback: CallbackQuery, callback_data: HubCB) -> None:
-    if callback_data.action not in {"main"}:
-        return
+    await callback.answer()
     if callback.message:
         await unregister_clock_message(callback.message.chat.id, callback.message.message_id)

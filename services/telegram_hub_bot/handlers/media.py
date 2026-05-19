@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from ..callbacks import CryptoCB, HubCB
@@ -20,11 +20,8 @@ _CRYPTO_STUBS = [
 ]
 
 
-@router.callback_query(HubCB.filter())
+@router.callback_query(HubCB.filter(F.action.in_({"radio", "builder", "crypto"})))
 async def open_media(callback: CallbackQuery, callback_data: HubCB) -> None:
-    if callback_data.action not in {"radio", "builder", "crypto"}:
-        return
-
     await callback.answer()
     if not callback.message:
         return
@@ -52,11 +49,8 @@ async def open_media(callback: CallbackQuery, callback_data: HubCB) -> None:
     )
 
 
-@router.callback_query(CryptoCB.filter())
+@router.callback_query(CryptoCB.filter(F.action == "main"))
 async def crypto_main(callback: CallbackQuery, callback_data: CryptoCB) -> None:
-    if callback_data.action != "main":
-        return
-
     await callback.answer()
     if not callback.message:
         return
@@ -70,7 +64,7 @@ async def crypto_main(callback: CallbackQuery, callback_data: CryptoCB) -> None:
     )
 
 
-@router.callback_query(CryptoCB.filter())
+@router.callback_query(CryptoCB.filter(F.action == "stub"))
 async def crypto_stub_pages(callback: CallbackQuery, callback_data: CryptoCB) -> None:
     await callback.answer()
     if not callback.message:

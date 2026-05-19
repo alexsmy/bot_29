@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
 
 from services.telegram_listener import save_incoming_update
 
-from ..callbacks import HubCB, SupportCB
+from ..callbacks import HubCB, NoopCB, SupportCB
 from ..keyboards import build_simple_back_home, build_support_dashboard, build_support_settings, build_support_target
 from ..keepalive_store import (
     add_target,
@@ -35,10 +35,10 @@ def _synthetic_update(message: Message) -> dict:
 
 def _stats_cards(snapshot) -> list[tuple[str, str]]:
     return [
-        (f"📊{snapshot.total}", SupportCB(action="noop").pack()),
-        (f"✅{snapshot.online}", SupportCB(action="noop").pack()),
-        (f"📴{snapshot.offline}", SupportCB(action="noop").pack()),
-        (f"#️⃣{snapshot.checks}", SupportCB(action="noop").pack()),
+        (f"📊{snapshot.total}", NoopCB(action="noop").pack()),
+        (f"✅{snapshot.online}", NoopCB(action="noop").pack()),
+        (f"📴{snapshot.offline}", NoopCB(action="noop").pack()),
+        (f"#️⃣{snapshot.checks}", NoopCB(action="noop").pack()),
     ]
 
 
@@ -113,10 +113,8 @@ async def _render_target(message: Message, target_id: str) -> None:
     await message.answer(text, reply_markup=build_support_target(actions))
 
 
-@router.callback_query(HubCB.filter())
+@router.callback_query(HubCB.filter(F.action == "support"))
 async def open_support(callback: CallbackQuery, callback_data: HubCB) -> None:
-    if callback_data.action != "support":
-        return
     await callback.answer()
     if callback.message:
         await callback.message.edit_text(
