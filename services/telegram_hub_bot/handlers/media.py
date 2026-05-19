@@ -19,7 +19,7 @@ def _web_card_menu(open_label: str, path: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text=open_label, url=f"{_public_base()}{path}")],
-            [InlineKeyboardButton(text="◀️Назад", callback_data=HubCB(action="main").pack())],
+            [InlineKeyboardButton(text="🏠Хаб", callback_data=HubCB(action="main").pack())],
         ]
     )
 

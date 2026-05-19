@@ -67,8 +67,7 @@ def build_support_settings(target_buttons: list[tuple[str, str]], pinned: bool) 
 
 
 def build_support_target(target_actions: list[tuple[str, str]]) -> InlineKeyboardMarkup:
-    rows = [[InlineKeyboardButton(text=text, callback_data=callback)] for text, callback in target_actions]
-    rows.append(nav_row(SupportCB(action="settings").pack()))
+    rows = _compact_rows(target_actions, row_width=2, max_text_for_compact=20)
     return _markup(rows)
 
 

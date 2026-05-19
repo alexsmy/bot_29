@@ -24,7 +24,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 FILES_META_GLOB = "*.json"
 FOLDERS_META_PATH = UPLOAD_DIR / "_folders.json"
 MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024
-FOLDER_ID_RE = re.compile(r"^fld_[a-f0-9]{32}$")
+FOLDER_ID_RE = re.compile(r"^(fld_[a-f0-9]{32}|[A-Za-z0-9][A-Za-z0-9_-]{2,95})$")
 FILE_ID_RE = re.compile(r"^[a-f0-9]{32}$")
 
 
@@ -116,7 +116,10 @@ def _load_folders() -> list[dict]:
             continue
         folder_id = str(item.get("folder_id", ""))
         if not FOLDER_ID_RE.fullmatch(folder_id):
-            continue
+            # legacy/foreign ids from web snapshots: keep readable but normalized
+            folder_id = _sanitize_folder_name(folder_id).replace(" ", "_")
+            if not folder_id:
+                continue
         folders.append(
             {
                 "folder_id": folder_id,
